@@ -1,0 +1,25 @@
+# dependencies / build outputs
+node_modules/
+dist/
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+
+# secrets & local env (never commit real values)
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# OS / editor noise
+.DS_Store
+*.log
+Thumbs.db
+
+# scratch / generated previews
+pg*.png
+page*.png
+spec_book.txt
+main.log

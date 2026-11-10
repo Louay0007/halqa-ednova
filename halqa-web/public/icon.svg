@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="HALQA">
+  <rect width="512" height="512" rx="112" fill="#123047"/>
+  <!-- open circle: the study circle, drawn as a ring rather than a closed loop -->
+  <circle cx="256" cy="256" r="132" fill="none" stroke="#1ea7a1" stroke-width="44"
+          stroke-linecap="round" stroke-dasharray="760 70" transform="rotate(-58 256 256)"/>
+  <!-- three seats around the table -->
+  <circle cx="256" cy="256" r="34" fill="#f4f7f7"/>
+  <circle cx="256" cy="140" r="22" fill="#d68a24"/>
+  <circle cx="360" cy="316" r="22" fill="#d68a24"/>
+  <circle cx="152" cy="316" r="22" fill="#d68a24"/>
+</svg>

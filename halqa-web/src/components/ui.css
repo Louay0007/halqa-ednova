@@ -1,0 +1,180 @@
+/* Shared component styles — flat, token-driven. Transform/opacity only. */
+
+.hat {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: var(--text-micro);
+  font-weight: 700;
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--radius-pill);
+  color: #fff;
+  white-space: nowrap;
+}
+.hat-mediator { background: #6546a6; }
+.hat-teammate { background: #2c8b57; }
+.hat-tutor { background: #1665a8; }
+.hat-facilitator { background: #d87524; }
+
+.sbu {
+  display: flex;
+  gap: 0.5rem;
+}
+.ring {
+  min-width: 3.4rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: var(--radius-card);
+  background: var(--card);
+  border: 2px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transition: transform var(--dur-press) var(--ease-out), opacity var(--dur-pop) var(--ease-out);
+}
+.ring-bright {
+  border-color: var(--aqua);
+  background: color-mix(in srgb, var(--aqua) 12%, var(--card));
+}
+.ring-pulse {
+  animation: ring-pulse 2.4s var(--ease-in-out) infinite;
+}
+@keyframes ring-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+.ring-k { font-weight: 800; color: var(--navy); }
+.ring-v { font-size: var(--text-small); color: var(--muted); }
+
+.quota {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: var(--text-small);
+  color: var(--muted);
+}
+.quota-bar {
+  display: inline-block;
+  width: 4rem;
+  height: 0.45rem;
+  border-radius: var(--radius-pill);
+  background: var(--line);
+  overflow: hidden;
+}
+.quota-bar i {
+  display: block;
+  height: 100%;
+  background: var(--aqua);
+  transition: width var(--dur-panel) var(--ease-out);
+}
+.quota-low { color: var(--amber); font-weight: 700; }
+.quota-low .quota-bar i { background: var(--amber); }
+
+.cites { display: inline-flex; gap: 0.3rem; flex-wrap: wrap; }
+.cite {
+  font-size: var(--text-micro);
+  border: 1px solid var(--line);
+  background: var(--card);
+  border-radius: var(--radius-pill);
+  padding: 0.1rem 0.5rem;
+  color: var(--aqua-ink);
+  transition: transform var(--dur-press) var(--ease-out);
+}
+.cite:active { transform: scale(0.95); }
+.cites-warn { color: var(--amber); font-size: var(--text-small); font-weight: 700; }
+
+.error-note {
+  border: 2px solid var(--amber);
+  background: color-mix(in srgb, var(--amber) 8%, var(--card));
+  border-radius: var(--radius-card);
+  padding: 0.6rem 0.8rem;
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.error-code { font-size: var(--text-micro); color: var(--muted); }
+
+.empty {
+  border: 2px dashed var(--line);
+  border-radius: var(--radius-card);
+  padding: 1.4rem;
+  text-align: center;
+  color: var(--muted);
+  background: var(--card);
+}
+
+.countdown {
+  font-weight: 800;
+  font-size: var(--text-h2);
+  color: var(--navy);
+}
+
+.btn {
+  appearance: none;
+  border: none;
+  border-radius: 10px;
+  background: var(--aqua);
+  color: #fff;
+  font-weight: 700;
+  padding: 0.65rem 1.1rem;
+  min-height: 44px;
+  transition: transform var(--dur-press) var(--ease-out), opacity var(--dur-pop) var(--ease-out);
+}
+.btn:hover { opacity: 0.92; }
+.btn:active { transform: scale(0.97); }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn-ghost {
+  background: transparent;
+  color: var(--aqua-ink);
+  border: 2px solid var(--aqua);
+}
+.btn-small { min-height: 36px; padding: 0.35rem 0.8rem; font-size: var(--text-small); }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  padding: 1rem;
+}
+
+.field label { display: block; font-weight: 700; margin-bottom: 0.3rem; color: var(--navy); }
+.field input,
+.field textarea,
+.field select {
+  width: 100%;
+  font: inherit;
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  background: #fff;
+  color: var(--ink);
+  min-height: 44px;
+}
+.field input:focus-visible,
+.field textarea:focus-visible {
+  border-color: var(--aqua);
+}
+.field .hint { font-size: var(--text-small); color: var(--muted); }
+
+.degrade-banner {
+  width: 100%;
+  padding: 0.55rem 1rem;
+  font-weight: 700;
+  text-align: center;
+  color: #fff;
+}
+.degrade-orange { background: #b25a1b; }
+.degrade-red { background: #b43a3a; }
+.degrade-black { background: #17242e; }
+
+/* Skeleton shimmer shapes (per-screen, staged names accompany them). */
+.skel {
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--line) 25%, var(--paper) 50%, var(--line) 75%);
+  background-size: 200% 100%;
+  animation: skel 1.4s linear infinite;
+  min-height: 1rem;
+}
+@keyframes skel {
+  to { background-position: -200% 0; }
+}

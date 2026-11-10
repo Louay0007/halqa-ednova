@@ -1,0 +1,34 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - halqa-mongo:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      MONGODB_URI: mongodb://mongo:27017/halqa
+      QUOTA_C: 20
+      QUOTA_L: 5
+      WINDOW_S: 45
+      CHAOS_ENABLED: "false"
+      # TOKEN_SECRET, PROVIDER_* come from the shell environment — never committed.
+    env_file: []
+volumes:
+  halqa-mongo:

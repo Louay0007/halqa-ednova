@@ -1,0 +1,7 @@
+# Router thresholds (Phase 1). Stub.
+confidence_threshold: 0.55
+synthesis_chunk_conflict: 3
+l_share_target: 0.25
+skeleton_ms: 200
+c_complete_ms: 4000
+l_complete_ms: 12000

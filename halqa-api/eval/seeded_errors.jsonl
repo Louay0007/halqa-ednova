@@ -1,0 +1,3 @@
+{"claim":"binary search works on any array","ref_chunk":"bs-misc-01","topic":"binary_search","trigger":"works on any array"}
+{"claim":"binary search costs O(n) like linear search","ref_chunk":"bs-misc-02","topic":"binary_search","trigger":"costs O(n)"}
+{"claim":"bigger denominator means bigger fraction","ref_chunk":"frac-misc-01","topic":"fractions","trigger":"bigger denominator"}

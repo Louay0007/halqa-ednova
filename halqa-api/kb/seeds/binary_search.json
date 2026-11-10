@@ -1,0 +1,413 @@
+[
+  {
+    "chunk_id": "bs-fr-01",
+    "topic": "binary_search",
+    "lang": "fr",
+    "level": "intro",
+    "kind": "lesson",
+    "title": "Condition : tableau trié",
+    "text": "La recherche dichotomique (binary search) trouve un élément en divisant par deux un tableau trié. Complexité O(log n). Sans tri préalable, elle est fausse.",
+    "claims": [
+      "needs-sorted",
+      "halving",
+      "log-n"
+    ],
+    "source": "synthetic-team-written",
+    "license": "own"
+  },
+  {
+    "chunk_id": "bs-fr-02",
+    "topic": "binary_search",
+    "lang": "fr",
+    "level": "intro",
+    "kind": "example",
+    "title": "Exemple : chercher 7",
+    "text": "Chercher 7 dans [1,3,5,7,9] : milieu=5 <7 → garder [7,9] → milieu=7 ✔ en 2 étapes.",
+    "claims": [
+      "halving",
+      "trace"
+    ],
+    "source": "synthetic-team-written",
+    "license": "own"
+  },
+  {
+    "chunk_id": "bs-fr-03",
+    "topic": "binary_search",
+    "lang": "fr",
+    "level": "intro",
+    "kind": "probe",
+    "title": "Question : la condition",
+    "text": "La condition pour binary search ? (a) tableau trié (b) tableau non trié (c) peu importe",
+    "claims": [
+      "needs-sorted"
+    ],
+    "source": "synthetic-team-written",
+    "license": "own",
+    "answer": "a"
+  },
+  {
+    "chunk_id": "bs-fr-04",
+    "topic": "binary_search",
+    "lang": "fr",
+    "level": "intermediate",
+    "kind": "lesson",
+    "title": "Complexité O(log n)",
+    "text": "À chaque étape on élimine la moitié du tableau : n → n/2 → n/4 … donc O(log n) comparaisons. Pour n=1 000 000, environ 20 étapes suffisent.",
+    "claims": [
+      "log-n",
+      "halving"
+    ],
+    "source": "synthetic-team-written",
+    "license": "own"
+  },
+  {
+    "chunk_id": "bs-fr-05",
+    "topic": "binary_search",
+    "lang": "fr",
+    "level": "intro",
+    "kind": "misconception",
+    "title": "Erreur fréquente : O(n)",
+    "text": "FAUX (à corriger) : « binary search coûte O(n) comme la recherche linéaire ». En réalité chaque étape divise par deux : c'est O(log n).",
+    "claims": [
+      "log-n"
+    ],
+    "source": "synthetic-team-written",
+    "license": "own"
+  },
+  {
+    "chunk_id": "bs-fr-06",
+    "topic": "binary_search",
+    "lang": "fr",
+    "level": "intro",
+    "kind": "glossary",
+    "title": "Mots-clés",
+    "text": "trié = rangé en ordre croissant. milieu = élément central. complexité = nombre d'étapes. indice = position (khanat).",
+    "claims": [
+      "vocabulary"
+    ],
+    "source": "synthetic-team-written",
+    "license": "own"
+  },
+  {
+    "chunk_id": "bs-ar-01",
+    "topic": "binary_search",
+    "lang": "ar",
+    "level": "intro",
+    "kind": "lesson",
+    "title": "الشرط: مصفوفة مرتبة",
+    "text": "البحث الثنائي يقسم مصفوفة مرتبة إلى نصفين في كل خطوة. التعقيد O(log n). بدون ترتيب مسبق النتيجة خاطئة.",
+    "claims": [
+      "needs-sorted",
+      "halving",
+      "log-n"
+    ],
+    "source": "synthetic-team-written",
+    "license": "own"
+  },
+  {
+    "chunk_id": "bs-ar-02",
+    "topic": "binary_search",
+    "lang": "ar",
+    "level": "intro",
+    "kind": "example",
+    "title": "مثال: البحث عن 7",
+    "text": "ابحث عن 7 في [1,3,5,7,9]: الوسط=5 أصغر من 7 ← نحتفظ بـ[7,9] ← الوسط=7 ✔ في خطوتين.",
+    "claims": [
+      "halving",
+      "trace"
+    ],
+    "source": "synthetic-team-written",
+    "license": "own"
+  },
+  {
+    "chunk_id": "bs-ar-03",
+    "topic": "binary_search",
+    "lang": "ar",
+    "level": "intro",
+    "kind": "probe",
+    "title": "سؤال: الشرط",
+    "text": "ما شرط البحث الثنائي؟ (أ) مصفوفة مرتبة (ب) مصفوفة غير مرتبة (ج) لا يهم",
+    "claims": [
+      "needs-sorted"
+    ],
+    "source": "synthetic-team-written",
+    "license": "own",
+    "answer": "أ"
+  },
+  {
+    "chunk_id": "bs-ar-04",
+    "topic": "binary_search",
+    "lang": "ar",
+    "level": "intermediate",
+    "kind": "lesson",
+    "title": "التعقيد O(log n)",
+    "text": "في كل خطوة نتخلص من نصف المصفوفة: n ثم n/2 ثم n/4 … لذلك التعقيد O(log n). لمليون عنصر تكفي نحو 20 خطوة.",
+    "claims": [
+      "log-n",
+      "halving"
+    ],
+    "source": "synthetic-team-written",
+    "license": "own"
+  },
+  {
+    "chunk_id": "bs-ar-05",
+    "topic": "binary_search",
+    "lang": "ar",
+    "level": "intro",
+    "kind": "misconception",
+    "title": "خطأ شائع: يعمل بدون ترتيب",
+    "text": "خطأ يجب تصحيحه: «البحث الثنائي يعمل على أي مصفوفة». الحقيقة: بدون ترتيب مسبق قد يتخطى الهدف ويعطي نتيجة خاطئة.",
+    "claims": [
+      "needs-sorted"
+    ],
+    "source": "synthetic-team-written",
+    "license": "own"
+  },
+  {
+    "chunk_id": "bs-ar-06",
+    "topic": "binary_search",
+    "lang": "ar",
+    "level": "intro",
+    "kind": "glossary",
+    "title": "مصطلحات",
+    "text": "مرتبة = بترتيب تصاعدي. الوسط = العنصر الأوسط. التعقيد = عدد الخطوات. الخانة = الموضع (indice).",
+    "claims": [
+      "vocabulary"
+    ],
+    "source": "synthetic-team-written",
+    "license": "own"
+  },
+  {
+    "chunk_id": "bs-darija-01",
+    "topic": "binary_search",
+    "lang": "darija",
+    "level": "intro",
+    "kind": "lesson",
+    "title": "Condition: liste مرتبة",
+    "text": "الـbinary search كي تلوج على حاجة في ليستة مرتبة. تقسم على زوز كل مرة. كان الليستة موش مرتبة، ما تخدمش.",
+    "claims": [
+      "needs-sorted",
+      "halving"
+    ],
+    "source": "synthetic-team-written",
+    "license": "own"
+  },
+  {
+    "chunk_id": "bs-darija-02",
+    "topic": "binary_search",
+    "lang": "darija",
+    "level": "intro",
+    "kind": "example",
+    "title": "Exemple: نلوجو على 7",
+    "text": "نلوجو على 7 في [1,3,5,7,9]: الوسط 5 أصغر من 7، نكملو في [7,9]، الوسط 7 ✔ في زوز خطوات.",
+    "claims": [
+      "halving",
+      "trace"
+    ],
+    "source": "synthetic-team-written",
+    "license": "own"
+  },
+  {
+    "chunk_id": "bs-darija-03",
+    "topic": "binary_search",
+    "lang": "darija",
+    "level": "intro",
+    "kind": "probe",
+    "title": "سؤال: الشرط",
+    "text": "شنو الشرط متاع binary search؟ (أ) ليستة مرتبة (ب) ليستة موش مرتبة (ج) ما يهمش",
+    "claims": [
+      "needs-sorted"
+    ],
+    "source": "synthetic-team-written",
+    "license": "own",
+    "answer": "أ"
+  },
+  {
+    "chunk_id": "bs-darija-04",
+    "topic": "binary_search",
+    "lang": "darija",
+    "level": "intermediate",
+    "kind": "lesson",
+    "title": "La complexité O(log n)",
+    "text": "كل مرة نطيحو النص: n تولي n/2 ومن بعد n/4. على هذاكا la complexité هي O(log n). مليون عنصر يكفيهم ~20 خطوة.",
+    "claims": [
+      "log-n",
+      "halving"
+    ],
+    "source": "synthetic-team-written",
+    "license": "own"
+  },
+  {
+    "chunk_id": "bs-darija-05",
+    "topic": "binary_search",
+    "lang": "darija",
+    "level": "intro",
+    "kind": "misconception",
+    "title": "غلطة: تخدم على أي ليستة",
+    "text": "غلطة لازم نصلحوها: «binary search تخدم على أي ليستة». لا: كان الليستة موش مرتبة، تنجم تتعدى على الهدف وما تلقاهش.",
+    "claims": [
+      "needs-sorted"
+    ],
+    "source": "synthetic-team-written",
+    "license": "own"
+  },
+  {
+    "chunk_id": "bs-darija-06",
+    "topic": "binary_search",
+    "lang": "darija",
+    "level": "intro",
+    "kind": "glossary",
+    "title": "كلمات",
+    "text": "مرتبة = بالترتيب. الوسط = milieu. التعقيد = complexité. الخانة = indice، البلاصة في الليستة.",
+    "claims": [
+      "vocabulary"
+    ],
+    "source": "synthetic-team-written",
+    "license": "own"
+  },
+  {
+    "chunk_id": "bs-en-01",
+    "topic": "binary_search",
+    "lang": "en",
+    "level": "intro",
+    "kind": "lesson",
+    "title": "Condition: sorted array",
+    "text": "Binary search halves a sorted array each step to find a target in O(log n). On unsorted input it is wrong, not slow.",
+    "claims": [
+      "needs-sorted",
+      "halving",
+      "log-n"
+    ],
+    "source": "synthetic-team-written",
+    "license": "own"
+  },
+  {
+    "chunk_id": "bs-en-02",
+    "topic": "binary_search",
+    "lang": "en",
+    "level": "intro",
+    "kind": "example",
+    "title": "Example: find 7",
+    "text": "Find 7 in [1,3,5,7,9]: mid=5 <7 → keep [7,9] → mid=7 ✔ in 2 steps.",
+    "claims": [
+      "halving",
+      "trace"
+    ],
+    "source": "synthetic-team-written",
+    "license": "own"
+  },
+  {
+    "chunk_id": "bs-en-03",
+    "topic": "binary_search",
+    "lang": "en",
+    "level": "intermediate",
+    "kind": "probe",
+    "title": "Trace: find 8",
+    "text": "Trace binary search for 8 in [2,4,6,8]. How many steps? (a) 2 (b) 3 (c) 4",
+    "claims": [
+      "trace"
+    ],
+    "source": "synthetic-team-written",
+    "license": "own",
+    "answer": "b"
+  },
+  {
+    "chunk_id": "bs-en-04",
+    "topic": "binary_search",
+    "lang": "en",
+    "level": "intermediate",
+    "kind": "lesson",
+    "title": "Why O(log n)",
+    "text": "Each step discards half the array: n → n/2 → n/4 … so comparisons grow as O(log n). One million items need about 20 steps.",
+    "claims": [
+      "log-n",
+      "halving"
+    ],
+    "source": "synthetic-team-written",
+    "license": "own"
+  },
+  {
+    "chunk_id": "bs-en-05",
+    "topic": "binary_search",
+    "lang": "en",
+    "level": "intro",
+    "kind": "probe",
+    "title": "Why does it fail unsorted",
+    "text": "Unsorted [5,1,4], find 4 — why does binary search fail? (a) mid formula wrong (b) the sorted precondition is broken (c) too few steps",
+    "claims": [
+      "needs-sorted"
+    ],
+    "source": "synthetic-team-written",
+    "license": "own",
+    "answer": "b"
+  },
+  {
+    "chunk_id": "bs-en-06",
+    "topic": "binary_search",
+    "lang": "en",
+    "level": "intro",
+    "kind": "glossary",
+    "title": "Keywords",
+    "text": "sorted = in ascending order. mid = the middle element. complexity = step count. index = position.",
+    "claims": [
+      "vocabulary"
+    ],
+    "source": "synthetic-team-written",
+    "license": "own"
+  },
+  {
+    "chunk_id": "bs-misc-01",
+    "topic": "binary_search",
+    "lang": "en",
+    "level": "intro",
+    "kind": "misconception",
+    "title": "Seeded error: works on any array",
+    "text": "WRONG (seeded for Auditor/Whisper tests): «binary search works on any array». Truth: it needs sorted input.",
+    "claims": [
+      "needs-sorted"
+    ],
+    "source": "synthetic-team-written",
+    "license": "own",
+    "triggers": [
+      "works on any array",
+      "marche sur n'importe quel tableau",
+      "يعمل على أي مصفوفة",
+      "تخدم على أي ليستة"
+    ]
+  },
+  {
+    "chunk_id": "bs-misc-02",
+    "topic": "binary_search",
+    "lang": "en",
+    "level": "intro",
+    "kind": "misconception",
+    "title": "Seeded error: O(n)",
+    "text": "WRONG (seeded): «binary search complexity is O(n)». Truth: halving gives O(log n).",
+    "claims": [
+      "log-n"
+    ],
+    "source": "synthetic-team-written",
+    "license": "own",
+    "triggers": [
+      "complexity is o(n)",
+      "coute o(n)",
+      "o(n) comme la recherche lineaire",
+      "costs o(n)",
+      "like linear search"
+    ]
+  },
+  {
+    "chunk_id": "bs-misc-03",
+    "topic": "binary_search",
+    "lang": "en",
+    "level": "advanced",
+    "kind": "misconception",
+    "title": "Nuance: mid overflow",
+    "text": "NUANCE (not an error): «mid = (low+high)/2 is always safe». In fixed-width ints it can overflow; use low + (high-low)/2. Flag as nuance, not error.",
+    "claims": [
+      "mid-overflow"
+    ],
+    "source": "synthetic-team-written",
+    "license": "own"
+  }
+]

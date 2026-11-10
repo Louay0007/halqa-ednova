@@ -1,0 +1,4 @@
+# Per-session model budgets (governor). Enforced from Phase 1.
+c_cap: 20
+l_cap: 5
+solo_c_cap: 8

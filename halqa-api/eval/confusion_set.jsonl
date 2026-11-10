@@ -1,0 +1,20 @@
+{"confused":true,"signal":"rephrase_loop","text":"tu as dit diviser mais je comprends pas diviser quoi exactement, tu peux redire diviser quoi ?"}
+{"confused":true,"signal":"wrong_retry","text":"j'ai essayé milieu=5 mais ça marche pas, j'ai refait 3 fois pareil et toujours faux"}
+{"confused":true,"signal":"silence","text":"..."}
+{"confused":true,"signal":"short_after_long","text":"ok"}
+{"confused":true,"signal":"frustration","text":"c'est trop compliqué, j'abandonne, ça sert à rien"}
+{"confused":true,"signal":"rephrase_loop","text":"شنو معناها مرتبة؟ عاود فسرلي مرتبة شنو معناها بالضبط؟"}
+{"confused":true,"signal":"wrong_retry","text":"I tried [5,1,4] and halved it but got the wrong half twice, same mistake"}
+{"confused":true,"signal":"frustration","text":"I don't get O(log n) at all, this makes no sense to me"}
+{"confused":true,"signal":"silence","text":"??"}
+{"confused":true,"signal":"short_after_long","text":"d'accord"}
+{"confused":false,"signal":"none","text":"Donc on compare au milieu puis on garde la moitié utile, c'est ça ?"}
+{"confused":false,"signal":"none","text":"If the array is sorted, halving tells us which side keeps the target. Got it."}
+{"confused":false,"signal":"none","text":"3/4 > 3/5 خاطر الـfourths أكبر من الـfifths، صحيح؟"}
+{"confused":false,"signal":"none","text":"Peux-tu me donner un exercice niveau intermédiaire sur la complexité ?"}
+{"confused":false,"signal":"none","text":"The midpoint of [1,3,5,7,9] is 5, which is < 7 so we keep [7,9]. Next step?"}
+{"confused":false,"signal":"none","text":"فهمت: البسط فوق والمقام تحت، والمقام الأصغر يعني الكسر أكبر. نكمل؟"}
+{"confused":false,"signal":"none","text":"Can you quiz me with 3 questions on binary search at beginner level?"}
+{"confused":false,"signal":"none","text":"Merci pour l'indice, je vais essayer [2,4,6,8] tout seul d'abord."}
+{"confused":false,"signal":"none","text":"Me too, same question as Yasmine about the sorted condition."}
+{"confused":false,"signal":"none","text":"Je propose qu'on vote : la réponse de Karim me semble correcte."}

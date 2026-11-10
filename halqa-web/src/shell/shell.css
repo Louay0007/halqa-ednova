@@ -1,0 +1,124 @@
+.shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+.skip {
+  position: absolute;
+  left: -999px;
+}
+.skip:focus-visible {
+  left: 1rem;
+  top: 1rem;
+  background: var(--card);
+  padding: 0.5rem 1rem;
+  z-index: 50;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0;
+  border-bottom: 2px solid var(--line);
+  flex-wrap: wrap;
+}
+.brand {
+  font-weight: 900;
+  font-size: var(--text-h1);
+  color: var(--navy);
+  text-decoration: none;
+  letter-spacing: -0.02em;
+}
+.code-chip {
+  border: 2px solid var(--aqua);
+  background: var(--card);
+  color: var(--aqua-ink);
+  border-radius: var(--radius-pill);
+  padding: 0.25rem 0.8rem;
+  font-weight: 800;
+}
+.top-right {
+  margin-inline-start: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.lang select {
+  font: inherit;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  padding: 0.35rem 0.5rem;
+  background: var(--card);
+  min-height: 44px;
+}
+.avatar-chip {
+  border: 2px solid var(--line);
+  background: var(--navy);
+  color: #fff;
+  border-radius: var(--radius-pill);
+  padding: 0.3rem 0.7rem;
+  font-weight: 800;
+}
+main {
+  flex: 1;
+  padding: 1rem 0 5rem;
+}
+.bottomnav {
+  position: sticky;
+  bottom: 0;
+  background: var(--card);
+  border-top: 2px solid var(--line);
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.5rem 0 calc(0.5rem + env(safe-area-inset-bottom));
+}
+.bottomnav a {
+  flex: 1;
+  text-align: center;
+  padding: 0.6rem 0.25rem;
+  min-height: 44px;
+  text-decoration: none;
+  font-weight: 700;
+  color: var(--muted);
+  border-radius: 8px;
+}
+.bottomnav a:hover {
+  color: var(--navy);
+}
+@media (min-width: 1024px) {
+  .shell {
+    flex-direction: row;
+    gap: 1.5rem;
+  }
+  .topbar {
+    flex-direction: column;
+    align-items: stretch;
+    border-bottom: none;
+    border-inline-end: 2px solid var(--line);
+    padding-inline-end: 1rem;
+    min-width: 13rem;
+  }
+  .top-right {
+    margin-inline-start: 0;
+    flex-direction: column;
+    align-items: stretch;
+  }
+  main {
+    flex: 1;
+    padding-bottom: 2rem;
+  }
+  .bottomnav {
+    display: none;
+  }
+}

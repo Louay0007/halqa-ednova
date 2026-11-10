@@ -1,0 +1,10 @@
+# Contribution-credit weights (F-V2-4). Loaded at boot in Phase 2; stub values = blueprint §1.
+sharp_question: 3
+good_explanation: 3
+bridging: 3
+kind_skeptic: 3
+poll_vote: 1
+me_too: 1
+scribe_note: 1
+plain_message: 0.5
+log_cap_k: 2

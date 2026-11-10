@@ -1,0 +1,12 @@
+# S-B-U ring weights (F-V2-3). Loaded at boot in Phase 2.
+s:
+  agenda_completion: 0.4
+  time_discipline: 0.3
+  recap_done: 0.3
+u:
+  check_success_rate: 0.5
+  hint_depth: 0.3
+  corrections: 0.2
+thresholds:
+  bright: 0.75
+  steady: 0.45
