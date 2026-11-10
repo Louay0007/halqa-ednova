@@ -32,6 +32,9 @@ export class SessionService {
   async start(circleId: string): Promise<SessionDocument> {
     const circle = await this.circles.findOne({ _id: circleId }).lean().exec();
     if (!circle) throw Err.missing(`CIRCLE_NOT_FOUND:${circleId}`);
+    // Idempotent: joining an already-live session returns it instead of forking a parallel one.
+    const live = await this.sessions.findOne({ circleId, endedAt: { $exists: false } }).sort({ startedAt: -1 }).exec();
+    if (live) return live;
     const template = contextConfig(circle.context as ContextMode);
     const sessionId = `S-${randomBytes(4).toString('hex')}`;
     const doc = await this.sessions.create({

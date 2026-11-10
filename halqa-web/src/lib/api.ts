@@ -86,6 +86,7 @@ export const api = {
   sessionCredits: (sessionId: string) => get<{ credits: Array<{ learnerId: string; total: number }>; dispersion: number; dominant: unknown }>(`/sessions/${sessionId}/credits`),
 
   /* questions (CF-AS) */
+  questionList: (sessionId: string) => get<{ qids: string[] }>(`/questions?sessionId=${encodeURIComponent(sessionId)}`),
   questionCreate: (input: { sessionId: string; askerId: string; text: string; lang?: Lang; anonymous?: boolean }) =>
     post<{ qid: string; state: string; windowS: number; windowEndsAt?: string }>('/questions', input),
   questionState: (qid: string, asker?: string, etag?: string) => get<QuestionState>(`/questions/${qid}/state${asker ? `?asker=${asker}` : ''}`, etag),

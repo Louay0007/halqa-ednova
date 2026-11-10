@@ -53,6 +53,11 @@ class HintDto extends ActorDto {
 export class QuestionController {
   constructor(private readonly questions: QuestionService) {}
 
+  @Get()
+  async list(@Query('sessionId') sessionId: string) {
+    return this.questions.listBySession(sessionId);
+  }
+
   @Post()
   async create(@Body() dto: CreateQuestionDto): Promise<{ qid: string; state: string; windowS: number; windowEndsAt?: Date }> {
     const q = await this.questions.create(dto);

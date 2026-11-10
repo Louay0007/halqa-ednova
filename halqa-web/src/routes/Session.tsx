@@ -18,6 +18,13 @@ export function SessionRoom() {
     setSessionId(sessionId);
   }, [circleId, sessionId, setCircleId, setSessionId]);
 
+  // Joining mid-session: load questions already asked in this session.
+  useEffect(() => {
+    let dead = false;
+    api.questionList(sessionId).then((r) => !dead && setQuestions(r.data.qids)).catch(() => undefined);
+    return () => { dead = true; };
+  }, [sessionId]);
+
   useEffect(() => {
     let dead = false;
     const tick = () => {

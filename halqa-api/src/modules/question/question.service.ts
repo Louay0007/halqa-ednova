@@ -69,6 +69,17 @@ export class QuestionService {
   ) {}
 
   /** Create an OPEN question and kick off hidden prep. Never rejects on prep failure. */
+  async listBySession(sessionId: string): Promise<{ qids: string[] }> {
+    const rows = await this.questions
+      .find({ sessionId })
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .select({ _id: 1 })
+      .lean()
+      .exec();
+    return { qids: rows.map((r) => String(r._id)) };
+  }
+
   async create(input: { sessionId: string; askerId: string; text: string; lang?: string; anonymous?: boolean }): Promise<QuestionDocument> {
     const session = await this.sessions.findOne({ _id: input.sessionId }).lean().exec();
     if (!session) throw Err.missing(`SESSION_NOT_FOUND:${input.sessionId}`);
