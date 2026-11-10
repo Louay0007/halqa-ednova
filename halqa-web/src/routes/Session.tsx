@@ -18,11 +18,23 @@ export function SessionRoom() {
     setSessionId(sessionId);
   }, [circleId, sessionId, setCircleId, setSessionId]);
 
-  // Joining mid-session: load questions already asked in this session.
+  // Joining mid-session: load questions already asked in this session, then keep polling.
   useEffect(() => {
     let dead = false;
-    api.questionList(sessionId).then((r) => !dead && setQuestions(r.data.qids)).catch(() => undefined);
-    return () => { dead = true; };
+    const load = () =>
+      api.questionList(sessionId).then((r) => {
+        if (dead) return;
+        setQuestions((prev) => {
+          const known = new Set(prev);
+          return [...r.data.qids.filter((q) => !known.has(q)), ...prev];
+        });
+      }).catch(() => undefined);
+    load();
+    const id = setInterval(load, 4000);
+    return () => {
+      dead = true;
+      clearInterval(id);
+    };
   }, [sessionId]);
 
   useEffect(() => {
