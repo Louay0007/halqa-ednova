@@ -177,6 +177,23 @@ export class RouterService {
       raw = res.text;
     } catch (e) {
       await this.governor.release('C', sessionId);
+      // A failing provider used to be invisible: the caller fell back quietly while
+      // /degradation still reported green. Throttling is capacity trouble (ORANGE),
+      // a transport/5xx outage is service-down (BLACK) — the banner must show it.
+      const msg = (e as Error).message ?? '';
+      const throttled = /PROVIDER_HTTP_429|PROVIDER_HTTP_503/.test(msg);
+      const down = /PROVIDER_TRANSPORT|PROVIDER_HTTP_5\d\d|PROVIDER_NOT_CONFIGURED|PROVIDER_EMPTY/.test(msg);
+      await this.degradation.evaluate({
+        bus: this.bus,
+        sessionId,
+        circleId,
+        // A throttle marks capacity as reduced (ORANGE); an outage marks service down (BLACK).
+        // `evaluate` has no C-specific input, and ORANGE is the "still serving, degraded" rung.
+        lAvailable: !throttled && !down,
+        quotaExhausted: false,
+        serviceDown: down && !throttled,
+      });
+      await this.bus.emit({ sessionId, circleId, actor: 'system', type: 'quota_event', payload: { exhausted: false, tier: 'C', provider: msg.slice(0, 80) } });
       throw e;
     }
     await this.governor.commit('C', sessionId);
