@@ -5,7 +5,8 @@ import { useSession } from '../lib/session';
 import { ErrorNote } from '../components/ui';
 import { t } from '../lib/i18n';
 
-const AVATARS = ['fox', 'owl', 'star', 'deer', 'wave', 'palm', 'moon', 'key'] as const;
+// Must match halqa-api/src/domain/ids.ts AVATAR_KEYS — the API silently substitutes unknown keys.
+const AVATARS = ['fox', 'owl', 'star', 'deer', 'wave', 'comet', 'palm', 'lamp'] as const;
 const CONTEXTS: Array<{ id: ContextMode; desc: string }> = [
   { id: 'class', desc: 'Teacher-led lesson' },
   { id: 'study', desc: 'Revision circle with friends' },

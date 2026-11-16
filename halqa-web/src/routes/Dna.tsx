@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ApiFailure, api } from '../lib/api';
+import { ApiFailure, api, type ContextMode } from '../lib/api';
 import { useSession } from '../lib/session';
 import { ErrorNote } from '../components/ui';
 
 export function Dna() {
   const [params] = useSearchParams();
   const nav = useNavigate();
-  const { lang, learnerId } = useSession();
+  const { lang, learnerId, setLearnerId } = useSession();
   const [items, setItems] = useState<Array<{ id: string; prompt: string; options: string[] }>>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [nickname] = useState(() => sessionStorage.getItem('halqa.nick') ?? 'Learner');
@@ -27,11 +27,13 @@ export function Dna() {
     setBusy(true);
     setErr(null);
     try {
+      // DNA always mints a learner server-side; adopt it so /me and the shell chip point at it.
       const r = await api.dna({
         nickname: sessionStorage.getItem('halqa.nick') ?? `L-${Date.now().toString(36)}`,
-        context: 'study',
+        context: (params.get('context') as ContextMode | null) ?? 'study',
         answers: answers as Record<string, string>,
       });
+      setLearnerId(r.learnerId);
       setPassport(r.passport as unknown as Record<string, unknown>);
       setTimeout(() => nav(params.get('next') ?? '/circles/join'), 900);
     } catch (e) {

@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { IsNotEmpty, IsString } from 'class-validator';
 import { GamificationService } from './gamification.service';
+import { Roles } from '../../security/roles.decorator';
 
 class AwardDto {
   @IsString()
@@ -14,6 +15,7 @@ class AwardDto {
   signal!: string;
 }
 
+@Roles('learner')
 @Controller('learners')
 export class GamificationController {
   constructor(private readonly game: GamificationService) {}

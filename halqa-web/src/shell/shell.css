@@ -96,12 +96,30 @@ main {
 .bottomnav a:hover {
   color: var(--navy);
 }
+/* Landing opts out of the app rail: hero is full-bleed, no sidebar. */
+.shell:has(.hero-root) {
+  display: block;
+  max-width: none;
+  padding: 0;
+}
+.shell:has(.hero-root) .topbar {
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+.shell:has(.hero-root) main {
+  padding: 0;
+}
+.shell:has(.hero-root) .bottomnav {
+  position: fixed;
+  inset-inline: 0;
+}
 @media (min-width: 1024px) {
-  .shell {
+  .shell:not(:has(.hero-root)) {
     flex-direction: row;
     gap: 1.5rem;
   }
-  .topbar {
+  .shell:not(:has(.hero-root)) .topbar {
     flex-direction: column;
     align-items: stretch;
     border-bottom: none;
@@ -109,7 +127,7 @@ main {
     padding-inline-end: 1rem;
     min-width: 13rem;
   }
-  .top-right {
+  .shell:not(:has(.hero-root)) .top-right {
     margin-inline-start: 0;
     flex-direction: column;
     align-items: stretch;
@@ -121,4 +139,36 @@ main {
   .bottomnav {
     display: none;
   }
+}
+
+/* API-down notice — non-blocking, dismissible, self-clearing. */
+.api-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.5rem 0 0;
+  padding: 0.6rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--gold) 45%, var(--line));
+  background: color-mix(in srgb, var(--gold) 12%, var(--card));
+  color: var(--ink);
+  font-size: var(--text-small);
+}
+.api-notice code {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: var(--text-micro);
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+}
+.api-notice span { flex: 1; }
+.api-notice button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--text-body);
+  line-height: 1;
+  min-width: 32px;
+  min-height: 32px;
+  border-radius: 6px;
 }

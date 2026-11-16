@@ -2,6 +2,7 @@ import { Body, Controller, Param, Post } from '@nestjs/common';
 import { IsArray, IsNotEmpty, IsString, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { WhisperService } from './whisper.service';
+import { Roles } from '../../security/roles.decorator';
 
 class StepDto {
   @IsString()
@@ -40,6 +41,7 @@ class RepairDto {
   text!: string;
 }
 
+@Roles('learner')
 @Controller('whisper')
 export class WhisperController {
   constructor(private readonly whisper: WhisperService) {}

@@ -31,6 +31,10 @@ class JoinDto {
   @IsNotEmpty()
   @MaxLength(24)
   nickname!: string;
+  /** Learner whose DNA passport should follow them into the circle (optional). */
+  @IsOptional()
+  @IsString()
+  learnerId?: string;
 }
 
 @Controller('circles')
@@ -49,7 +53,7 @@ export class CircleController {
 
   @Post(':id/join')
   join(@Param('id') id: string, @Body() dto: JoinDto): Promise<{ learnerId: string; role: string; token: string }> {
-    return this.circles.join(id, dto.nickname);
+    return this.circles.join(id, dto.nickname, dto.learnerId);
   }
 
   @Get('by-code/:code')

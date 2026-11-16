@@ -7,7 +7,7 @@ import { ErrorNote } from '../components/ui';
 
 export function CirclesNew() {
   const nav = useNavigate();
-  const { lang, setCircleId, setSessionId } = useSession();
+  const { lang, setCircleId, setSessionId, login } = useSession();
   const [topic, setTopic] = useState('binary_search');
   const [context, setContext] = useState<ContextMode>('study');
   const [circleLang, setCircleLang] = useState<Lang>('darija');
@@ -34,6 +34,7 @@ export function CirclesNew() {
     try {
       const r = await api.circleCreate({ topic, context, lang: circleLang, windowS, hostNickname: nick.trim() });
       sessionStorage.setItem('halqa.nick', nick.trim());
+      login(r.token, r.hostLearnerId);
       setCircleId(r.circleId);
       setSessionId('');
       setResult({ circleId: r.circleId, joinCode: r.joinCode });

@@ -1,6 +1,8 @@
 import { Controller, Get, Param, Post } from '@nestjs/common';
 import { SessionService } from './session.service';
+import { Roles } from '../../security/roles.decorator';
 
+@Roles('learner')
 @Controller('circles/:circleId/sessions')
 export class CircleSessionController {
   constructor(private readonly sessions: SessionService) {}
@@ -11,6 +13,7 @@ export class CircleSessionController {
   }
 }
 
+@Roles('learner')
 @Controller('sessions')
 export class SessionController {
   constructor(private readonly sessions: SessionService) {}

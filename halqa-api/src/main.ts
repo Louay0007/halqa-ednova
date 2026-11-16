@@ -34,7 +34,14 @@ async function bootstrap(): Promise<void> {
   app.useGlobalPipes(
     new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
   );
-  if (cfg.corsOrigins.length > 0) app.enableCors({ origin: cfg.corsOrigins });
+  if (cfg.corsOrigins.length > 0) {
+    app.enableCors({ origin: cfg.corsOrigins });
+  } else if (!cfg.isProd) {
+    // Silent trap: with no CORS header every browser request fails while curl keeps
+    // working. Say so at boot instead of letting the frontend look broken.
+    // eslint-disable-next-line no-console
+    console.log(JSON.stringify({ ts: new Date().toISOString(), level: 'warn', msg: 'CORS_ORIGINS is empty: browser clients will be rejected. Set it to e.g. http://localhost:5173' }));
+  }
 
   await app.listen(cfg.PORT);
   // eslint-disable-next-line no-console

@@ -29,6 +29,7 @@ export interface StateView {
   resolution?: string;
   peerFirst?: boolean;
   answer?: { text: string; cites: string[]; kind: string; tierUsed?: string; cached?: boolean; truncated?: boolean };
+  anonymous?: boolean;
   stages?: Array<{ stage: string; startedAt?: Date; doneAt?: Date }>;
   quickTakeReady?: boolean;
   deepDiveReady?: boolean;
@@ -200,7 +201,7 @@ export class QuestionService {
   }
 
   /** Peer answer attempt (OPEN only). Credits flow via projections. */
-  async peerAnswer(questionId: string, authorId: string, text: string): Promise<{ aid: string; creditsAwarded: number }> {
+  async peerAnswer(questionId: string, authorId: string, text: string, lang?: string): Promise<{ aid: string; creditsAwarded: number }> {
     const q = await this.questions.findOne({ _id: questionId }).exec();
     if (!q) throw Err.missing(`QUESTION_NOT_FOUND:${questionId}`);
     if (q.state !== 'OPEN') throw Err.conflict(`QUESTION_CLOSED:${questionId}`);
@@ -214,7 +215,8 @@ export class QuestionService {
       questionId,
       authorId,
       text: clean,
-      lang: q.lang,
+      // A peer may answer in a different register than the asker used.
+      lang: this.resolveLang(lang, clean, q.lang),
       creditsAwarded: 0,
       createdAt: new Date(),
     });
@@ -296,6 +298,7 @@ export class QuestionService {
       resolution: q.resolution,
       peerFirst: q.peerFirst,
       pollId: q.pollId,
+      anonymous: q.anonymous ?? false,
     };
     if (q.state === 'RESOLVED' && q.answer) {
       const text = q.answer.text ?? '';

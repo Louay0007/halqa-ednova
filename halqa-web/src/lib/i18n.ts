@@ -26,6 +26,12 @@ export const STRINGS: Record<string, Record<Lang, string>> = {
     ar: 'حتى عندما تنام الـAI، تواصل الحلقة التعلم',
     darija: 'حتى كي الـAI ترقد، الحلقة تكمّل تتعلّم',
   },
+  asker_only: {
+    en: 'Only the asker can take hints',
+    fr: 'Seul celui qui pose la question peut demander des indices',
+    ar: 'صاحب السؤال وحده يمكنه طلب التلميحات',
+    darija: 'غير اللي سقسا ينجم يطلب الـhints',
+  },
   l4_locked: {
     en: 'Answer unlocks after hints 1–3',
     fr: 'La réponse vient après les indices 1–3',
@@ -44,5 +50,4 @@ export function t(key: string, lang: Lang): string {
   return STRINGS[key]?.[lang] ?? STRINGS[key]?.en ?? key;
 }
 
-export const RTL: Lang[] = ['ar', 'darija'];
-export type { Lang };
+export const RTL: Lang[] = ['ar'];export type { Lang };

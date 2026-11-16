@@ -5,6 +5,21 @@ import { DegradationService, DegradationMode } from '../ai/degradation/degradati
 
 export type { DegradationMode };
 
+/**
+ * Read-only degradation status. Always registered: the frontend's degradation banner
+ * needs it in production too, otherwise it silently stays "green" during a real outage.
+ */
+@Controller()
+export class DegradationController {
+  constructor(private readonly degradation: DegradationService) {}
+
+  @Get('degradation')
+  status(): { mode: DegradationMode } {
+    return { mode: this.degradation.getMode() };
+  }
+}
+
+/** Dev-only. NOT registered in production (see security.module.ts). */
 @Controller()
 export class ChaosController {
   constructor(
@@ -12,12 +27,6 @@ export class ChaosController {
     private readonly degradation: DegradationService,
   ) {}
 
-  @Get('degradation')
-  status(): { mode: DegradationMode } {
-    return { mode: this.degradation.getMode() };
-  }
-
-  // Dev-only. In production this controller is NOT registered (see security.module.ts).
   @Post('chaos')
   force(@Body() body: { mode: DegradationMode }): { mode: DegradationMode } {
     if (!this.cfg.chaosEnabled) return { mode: this.degradation.getMode() };

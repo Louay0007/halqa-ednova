@@ -33,12 +33,24 @@ export const tokenStore = {
   clear: () => sessionStorage.removeItem(TOKEN_KEY),
 };
 
+/** Device clock minus server clock, learned from the `Date` response header. */
+let clockSkewMs = 0;
+const skewSeen = () => clockSkewMs !== 0;
+export const clockSkew = () => clockSkewMs;
+
 async function req<T>(path: string, init?: RequestInit & { etag?: string }): Promise<{ data: T; etag: string | null; notModified: boolean }> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   const token = tokenStore.get();
   if (token) headers.Authorization = `Bearer ${token}`;
   if (init?.etag) headers['If-None-Match'] = init.etag;
   const res = await fetch(`${BASE}${path}`, { ...init, headers });
+  // The server never sends `now` (it would churn ETags), so the countdown needs the
+  // offset from this header instead — once is enough for a session.
+  const serverDate = res.headers.get('Date');
+  if (!skewSeen() && serverDate) {
+    const ms = Date.parse(serverDate);
+    if (!Number.isNaN(ms)) clockSkewMs = Date.now() - ms;
+  }
   const etag = res.headers.get('ETag');
   if (res.status === 304) return { data: undefined as T, etag, notModified: true };
   const body = (await res.json().catch(() => ({}))) as T & ApiError;
@@ -73,15 +85,13 @@ export const api = {
   explainCard: (learnerId: string) => get<{ card: string; visible: boolean }>(`/passports/${learnerId}/explain-card`),
 
   /* circles + sessions */
-  contexts: (mode: ContextMode) => get<{ agenda: Array<{ id: string; kind: string; plannedS: number }>; matcher: boolean; mentorBoard: boolean; spacedRepetition: boolean; bandwidth: string }>(`/contexts/${mode}/config`),
   circleCreate: (input: { topic: string; context: ContextMode; lang: Lang; title?: string; windowS?: number; hostNickname: string }) =>
     post<{ circleId: string; joinCode: string; hostLearnerId: string; token: string }>('/circles', input),
-  circleJoin: (circleId: string, nickname: string) => post<{ learnerId: string; role: string; token: string }>(`/circles/${circleId}/join`, { nickname }),
+  circleJoin: (circleId: string, nickname: string, learnerId?: string) => post<{ learnerId: string; role: string; token: string }>(`/circles/${circleId}/join`, { nickname, learnerId }),
   circleByCode: (code: string) => get<{ circleId: string; topic: string; members: number }>(`/circles/by-code/${encodeURIComponent(code.trim().toUpperCase())}`),
   circleGet: (circleId: string) => get<{ _id: string; topic: string; members: Array<{ learnerId: string; role: string; nickname?: string }>; joinCode: string; windowS: number }>(`/circles/${circleId}`),
   circleHealth: (circleId: string) => get<Health>(`/circles/${circleId}/health`),
   sessionStart: (circleId: string) => post<{ sessionId: string }>(`/circles/${circleId}/sessions`),
-  sessionGet: (sessionId: string) => get<{ _id: string; agenda: { steps: Array<{ id: string; kind: string; done: boolean }> }; credits: Array<{ learnerId: string; total: number }> }>(`/sessions/${sessionId}`),
   sessionEnd: (sessionId: string) => post<{ endedAt: string; health: unknown; credits: unknown; usage: unknown }>(`/sessions/${sessionId}/end`),
   sessionCredits: (sessionId: string) => get<{ credits: Array<{ learnerId: string; total: number }>; dispersion: number; dominant: unknown }>(`/sessions/${sessionId}/credits`),
 
@@ -96,13 +106,11 @@ export const api = {
   hint: (qid: string, askerId: string, level: number) => post<{ hint: string; level: number; cites: string[] }>(`/questions/${qid}/hint`, { askerId, level }),
 
   /* consensus */
-  pollCreate: (input: { questionId?: string; sessionId?: string; claim: string; choices: string[]; reason?: string }) => post<{ pid: string }>('/polls', input),
   pollVote: (pid: string, learnerId: string, choice: string) => post<{ tally: Record<string, number>; total: number }>(`/polls/${pid}/vote`, { learnerId, choice }),
   pollClose: (pid: string) => post<{ tally: Record<string, number>; winner: string }>(`/polls/${pid}/close`),
 
   /* outputs */
   capsuleBuild: (sessionId: string) => post<Capsule>(`/sessions/${sessionId}/capsule`),
-  capsuleGet: (sessionId: string) => get<Capsule>(`/sessions/${sessionId}/capsule`),
   quizBattle: (circleId: string, sessionId: string, level?: string) => post<{ bid: string; items: Array<{ qid: string; stem: string; choices: string[] }> }>('/quiz/battle', { circleId, sessionId, level }),
   quizAnswer: (bid: string, input: { sessionId: string; circleId: string; learnerId: string; qid: string; choice: string }) =>
     post<{ correct: boolean; explain: string; xp: number }>(`/quiz/battle/${bid}/answer`, input),
@@ -123,10 +131,7 @@ export const api = {
   mentorNote: (circleId: string, mentorId: string, text: string, sessionId?: string) => post<{ noteId: string }>('/mentor/notes', { circleId, mentorId, text, sessionId }),
   mentorBrief: (circleId: string, sessionId: string) => get<{ brief: string; words: number }>(`/mentor/brief?circleId=${circleId}&sessionId=${sessionId}`),
   dashboard: (circleId?: string) => get<{ sessions: Array<{ sessionId: string; health: { S: number; B: number; U: number; needsHuman: boolean } | null; talkShare: Array<{ learnerId: string; total: number }>; stuck: boolean }>; styleMix: Record<string, number>; aggregatesOnly: boolean }>(`/dashboard${circleId ? `?circleId=${circleId}` : ''}`),
-  coachNudge: (targetId: string, input: { explainerId: string; sessionId: string; circleId: string }) => post<{ nudge: string }>(`/coach/nudge/${targetId}`, input),
-  coachRephrase: (input: { sessionId: string; circleId: string; text: string; style: string; lang: Lang }) => post<{ suggestion: string }>('/coach/rephrase', input),
   xp: (learnerId: string) => get<{ total: number; badges: string[] }>(`/learners/${learnerId}/xp`),
-  xpAward: (learnerId: string, sessionId: string, circleId: string, signal: string) => post<{ xp: number; total: number }>(`/learners/${learnerId}/xp`, { sessionId, circleId, signal }),
 };
 
 export interface Passport {
@@ -151,7 +156,7 @@ export interface Health {
 
 export interface QuestionState {
   qid: string;
-  state: 'OPEN' | 'NOVA_THINKING' | 'RESOLVED' | 'CLOSED_UNANSWERED';
+  state: 'OPEN' | 'NOVA_THINKING' | 'RESOLVED';
   peerCount: number;
   windowS: number;
   windowEndsAt?: string;

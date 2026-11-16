@@ -98,8 +98,12 @@ async function main(): Promise<void> {
   app.useGlobalFilters(new GlobalExceptionFilter());
   await app.init();
   const srv = app.getHttpServer();
-  const api = (m: 'get' | 'post', url: string) =>
-    m === 'get' ? request(srv).get(`${BASE}${url}`) : request(srv).post(`${BASE}${url}`);
+  // Guarded controllers now require the bearer token; attach it whenever one exists.
+  const auth = { token: '' };
+  const api = (m: 'get' | 'post', url: string) => {
+    const r = m === 'get' ? request(srv).get(`${BASE}${url}`) : request(srv).post(`${BASE}${url}`);
+    return auth.token ? r.set('Authorization', `Bearer ${auth.token}`) : r;
+  };
 
   try {
     // 0. Platform
@@ -134,6 +138,7 @@ async function main(): Promise<void> {
       expectShape(r, 201, ['token', 'learner'], 'auth/session');
       if (!/^L-\d{2,}$/.test(r.body.learner.id)) throw new Error(`bad id ${r.body.learner.id}`);
       token = r.body.token;
+      auth.token = token;
       meId = r.body.learner.id;
     });
     await check('me returns learner + passport=null pre-DNA', async () => {
@@ -223,7 +228,7 @@ async function main(): Promise<void> {
       if ('stages' in peer.body || 'quickTakeReady' in peer.body) throw new Error('asker detail leaked');
       const etag = (peer.headers as Record<string, string>).etag;
       if (!etag) throw new Error('no ETag');
-      await request(srv).get(`${BASE}/questions/${qid}/state?asker=${peerId}`).set('If-None-Match', etag).expect(304);
+      await api('get', `/questions/${qid}/state?asker=${peerId}`).set('If-None-Match', etag).expect(304);
     });
     await check('peer-answer awards credits + auditor verifies (real C)', async () => {
       const a = await api('post', `/questions/${qid}/peer-answer`).send({ authorId: peerId, text: 'Because halving only works when the order tells you which half to keep.' }).expect(201);

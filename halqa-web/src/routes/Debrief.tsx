@@ -14,17 +14,28 @@ export function Debrief() {
   const [whisper, setWhisper] = useState<{ chainId: string; driftMap: { kept: string[]; lost: string[]; distorted: string[]; added: string[] } } | null>(null);
   const [repairText, setRepairText] = useState('');
   const [coverage, setCoverage] = useState<number | null>(null);
+  const [topic, setTopic] = useState('binary_search');
+  const [lastMine, setLastMine] = useState('');
+  const [relay, setRelay] = useState('');
 
   useEffect(() => {
     api
-      .capsuleBuild(sessionId)
+      .circleGet(circleId)
+      .then((r) => r.data?.topic && setTopic(r.data.topic))
+      .catch(() => undefined);
+    // The capsule and the health rings are only meaningful on a closed session.
+    // `end` is idempotent server-side (it just re-stamps endedAt), so it is safe to call on mount.
+    api
+      .sessionEnd(sessionId)
+      .catch(() => undefined)
+      .then(() => api.capsuleBuild(sessionId))
       .then((r) => setCapsule(r as unknown as Capsule))
       .catch((e: ApiFailure) => setErr(e.body?.user_msg?.[lang] ?? 'Capsule failed.'));
     api
       .xp(learnerId)
       .then((r) => setXp(r.data))
       .catch(() => undefined);
-  }, [sessionId, lang, learnerId]);
+  }, [sessionId, circleId, lang, learnerId]);
 
   const startBattle = async () => {
     const r = await api.quizBattle(circleId, sessionId).catch(() => null);
@@ -37,10 +48,31 @@ export function Debrief() {
     if (x) setXp(x.data);
   };
   const runWhisper = async () => {
+    // The relay needs a real chain (>=2 links). Pull the session's peer answers; if the circle
+    // was too quiet, fall back to the two links the learner can always supply.
+    const qids = await api
+      .questionList(sessionId)
+      .then((r) => r.data?.qids ?? [])
+      .catch(() => []);
+    const answered = await Promise.all(
+      qids.slice(0, 3).map((qid) =>
+        api
+          .questionState(qid)
+          .then((r) => (r.data?.resolution === 'peers_verified' && r.data.answer ? [{ authorId: 'peer', text: r.data.answer.text }] : []))
+          .catch(() => []),
+      ),
+    );
+    const steps = [...answered.flat(), ...(lastMine.trim() ? [{ authorId: learnerId, text: lastMine.trim() }] : [])];
+    const chain = steps.length >= 2 ? steps : [{ authorId: learnerId, text: relay.trim() || 'Binary search halves a sorted array.' }];
+    if (chain.length < 2) {
+      setErr('Relay needs two links — add what you remember.');
+      return;
+    }
     const r = await api
-      .whisper({ sessionId, circleId, topic: 'binary_search', steps: [{ authorId: learnerId, text: 'Binary search halves a sorted array.' }] })
+      .whisper({ sessionId, circleId, topic, steps: chain })
       .catch(() => null);
     if (r) setWhisper(r as { chainId: string; driftMap: { kept: string[]; lost: string[]; distorted: string[]; added: string[] } });
+    else setErr('Relay failed — retry.');
   };
 
   return (
@@ -98,9 +130,21 @@ export function Debrief() {
       <section className="card">
         <h2>Whisper chain</h2>
         {!whisper ? (
-          <button type="button" className="btn btn-ghost" onClick={runWhisper}>
-            Run relay
-          </button>
+          <form
+            className="stack"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const mine = relay.trim();
+              if (mine) setLastMine((prev) => prev || mine);
+              void runWhisper();
+            }}
+          >
+            <label htmlFor="relay">Your turn — what do you still remember?</label>
+            <textarea id="relay" rows={2} value={relay} onChange={(e) => setRelay(e.target.value)} placeholder="Explain it to the next person…" />
+            <button type="submit" className="btn btn-ghost">
+              Run relay
+            </button>
+          </form>
         ) : (
           <>
             <DriftMapView drift={whisper.driftMap} />

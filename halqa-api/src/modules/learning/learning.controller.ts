@@ -2,6 +2,7 @@ import { Body, Controller, Get, Post } from '@nestjs/common';
 import { IsIn, IsNotEmpty, IsObject, IsOptional, IsString, MaxLength, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { DnaAnswers, LearningService } from './learning.service';
+import { Roles } from '../../security/roles.decorator';
 
 class DnaAnswersDto implements DnaAnswers {
   @IsIn(['novice', 'beginner', 'intermediate'])
@@ -36,6 +37,7 @@ class CompleteDnaDto {
   circleId?: string;
 }
 
+@Roles('learner')
 @Controller()
 export class LearningController {
   constructor(private readonly learning: LearningService) {}

@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { IsIn, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { ConsensusService } from './consensus.service';
+import { Roles } from '../../security/roles.decorator';
 
 class CreatePollDto {
   @IsOptional()
@@ -28,6 +29,7 @@ class VoteDto {
   choice!: string;
 }
 
+@Roles('learner')
 @Controller('polls')
 export class ConsensusController {
   constructor(private readonly consensus: ConsensusService) {}

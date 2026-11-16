@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ApiFailure, api, type Health, type Lang, type QuestionState } from '../lib/api';
 import { useSession } from '../lib/session';
@@ -145,21 +145,7 @@ function Composer({ sessionId, askerId, lang, onCreated }: { sessionId: string; 
 function QuestionCard({ qid }: { qid: string }) {
   const { lang, learnerId } = useSession();
   const [view, setView] = useState<QuestionState | null>(null);
-  const [etag, setEtag] = useState<string | undefined>(undefined);
-  const [err, setErr] = useState<string | null>(null);
 
-  const poll = useCallback(async () => {
-    try {
-      const r = await api.questionState(qid, learnerId, etag);
-      if (!r.notModified && r.data) {
-        setView(r.data as QuestionState);
-        if (r.etag) setEtag(r.etag);
-      }
-    } catch (e) {
-      const f = e as ApiFailure;
-      setErr(f.body?.user_msg?.[lang] ?? 'State failed.');
-    }
-  }, [qid, learnerId, etag, lang]);
 
   useEffect(() => {
     let dead = false;
@@ -183,9 +169,7 @@ function QuestionCard({ qid }: { qid: string }) {
       clearInterval(id);
     };
   }, [qid, learnerId]);
-  void poll;
 
-  if (err && !view) return <ErrorNote code="QSTATE" msg={err} retryable onRetry={() => setErr(null)} />;
   if (!view)
     return (
       <div className="card" aria-busy="true">
@@ -287,7 +271,15 @@ function ResolvedBody({ qid, view }: { qid: string; view: QuestionState }) {
       setHintLevel(level);
     } catch (e) {
       const f = e as ApiFailure;
-      setHintErr(f.status === 403 ? t('l4_locked', lang) : (f.body?.user_msg?.[lang] ?? 'Hint failed.'));
+      // 403 covers both "wrong asker" and "L4 locked" — discriminate on `code`, not status.
+      const code = f.body?.code ?? '';
+      setHintErr(
+        code.includes('HINT_L4_LOCKED')
+          ? t('l4_locked', lang)
+          : code.includes('HINT_ASKER_ONLY')
+            ? t('asker_only', lang)
+            : (f.body?.user_msg?.[lang] ?? 'Hint failed.'),
+      );
     }
   };
 

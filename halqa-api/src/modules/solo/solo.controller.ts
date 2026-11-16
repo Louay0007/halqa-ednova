@@ -1,6 +1,7 @@
 import { Body, Controller, Param, Post } from '@nestjs/common';
 import { IsIn, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { SoloHat, SoloService } from './solo.service';
+import { Roles } from '../../security/roles.decorator';
 
 class StartDto {
   @IsString()
@@ -30,6 +31,7 @@ class HatDto {
   hat!: SoloHat;
 }
 
+@Roles('learner')
 @Controller('solo')
 export class SoloController {
   constructor(private readonly solo: SoloService) {}

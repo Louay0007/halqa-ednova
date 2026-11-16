@@ -2,6 +2,7 @@ import { Body, Controller, Get, Headers, Param, Post, Query, Res } from '@nestjs
 import { Response } from 'express';
 import { IsBoolean, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Max, Min } from 'class-validator';
 import { QuestionService } from './question.service';
+import { Roles } from '../../security/roles.decorator';
 
 class CreateQuestionDto {
   @IsString()
@@ -28,6 +29,9 @@ class PeerAnswerDto {
   @IsString()
   @IsNotEmpty()
   text!: string;
+  @IsOptional()
+  @IsIn(['ar', 'darija', 'fr', 'en'])
+  lang?: string;
 }
 
 class ActorDto {
@@ -49,6 +53,7 @@ class HintDto extends ActorDto {
   level!: number;
 }
 
+@Roles('learner')
 @Controller('questions')
 export class QuestionController {
   constructor(private readonly questions: QuestionService) {}
@@ -83,13 +88,13 @@ export class QuestionController {
 
   @Post(':qid/peer-answer')
   peerAnswer(@Param('qid') qid: string, @Body() dto: PeerAnswerDto): Promise<{ aid: string; creditsAwarded: number }> {
-    return this.questions.peerAnswer(qid, dto.authorId, dto.text);
+    return this.questions.peerAnswer(qid, dto.authorId, dto.text, dto.lang);
   }
 
   /** Alias of peer-answer (plan §9 lists both spellings). */
   @Post(':qid/answer')
   answer(@Param('qid') qid: string, @Body() dto: PeerAnswerDto): Promise<{ aid: string }> {
-    return this.questions.peerAnswer(qid, dto.authorId, dto.text);
+    return this.questions.peerAnswer(qid, dto.authorId, dto.text, dto.lang);
   }
 
   @Post(':qid/me-too')

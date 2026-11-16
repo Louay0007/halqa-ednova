@@ -7,7 +7,7 @@ import { ErrorNote } from '../components/ui';
 export function CirclesJoin() {
   const [params] = useSearchParams();
   const nav = useNavigate();
-  const { lang, setCircleId, login } = useSession();
+  const { lang, learnerId, setCircleId, login } = useSession();
   const [code, setCode] = useState((params.get('code') ?? '').toUpperCase());
   const [nick, setNick] = useState('');
   const [preview, setPreview] = useState<{ circleId: string; topic: string; members: number } | null>(null);
@@ -32,7 +32,7 @@ export function CirclesJoin() {
     setErr(null);
     try {
       const id = preview?.circleId ?? code.trim();
-      const r = await api.circleJoin(id, nick.trim());
+      const r = await api.circleJoin(id, nick.trim(), learnerId || undefined);
       sessionStorage.setItem('halqa.nick', nick.trim());
       login(r.token, r.learnerId);
       setCircleId(id);

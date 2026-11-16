@@ -1,6 +1,7 @@
 import { Body, Controller, Param, Post } from '@nestjs/common';
 import { IsIn, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { QuizService } from './quiz.service';
+import { Roles } from '../../security/roles.decorator';
 
 class BattleDto {
   @IsString()
@@ -32,6 +33,7 @@ class AnswerDto {
   choice!: string;
 }
 
+@Roles('learner')
 @Controller('quiz')
 export class QuizController {
   constructor(private readonly quiz: QuizService) {}

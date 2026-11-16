@@ -17,7 +17,7 @@ export class Question {
   @Prop({ type: String, required: true }) text!: string; // PII-screened at write
   @Prop({ type: String, required: true }) lang!: string;
   @Prop({ type: Boolean, default: false }) anonymous!: boolean;
-  @Prop({ type: String, default: 'OPEN' }) state!: 'OPEN' | 'NOVA_THINKING' | 'RESOLVED' | 'CLOSED_UNANSWERED';
+  @Prop({ type: String, default: 'OPEN' }) state!: 'OPEN' | 'NOVA_THINKING' | 'RESOLVED';
   @Prop({ type: Number, default: 45 }) windowS!: number;
   @Prop({ type: Date }) windowStartedAt?: Date;
   @Prop({ type: Date }) windowEndsAt?: Date; // expiry worker index

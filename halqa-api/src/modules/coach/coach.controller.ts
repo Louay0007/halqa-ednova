@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { IsIn, IsNotEmpty, IsString } from 'class-validator';
 import { CoachService } from './coach.service';
+import { Roles } from '../../security/roles.decorator';
 
 class NudgeDto {
   @IsString()
@@ -30,6 +31,7 @@ class RephraseDto {
   lang!: string;
 }
 
+@Roles('learner')
 @Controller()
 export class CoachController {
   constructor(private readonly coach: CoachService) {}

@@ -60,9 +60,12 @@ export class SessionService {
   async end(sessionId: string): Promise<{ endedAt: Date; health: unknown; credits: unknown; usage: unknown }> {
     const session = await this.sessions.findOne({ _id: sessionId }).exec();
     if (!session) throw Err.missing(`SESSION_NOT_FOUND:${sessionId}`);
-    session.endedAt = new Date();
-    await session.save();
-    await this.bus.emit({ sessionId, circleId: session.circleId, actor: 'system', type: 'session_end', payload: {} });
+    // Idempotent: Debrief calls this on every mount. Only the first call stamps and emits.
+    if (!session.endedAt) {
+      session.endedAt = new Date();
+      await session.save();
+      await this.bus.emit({ sessionId, circleId: session.circleId, actor: 'system', type: 'session_end', payload: {} });
+    }
     const health = await this.sbu.recompute(sessionId);
     const credits = await this.equity.totals(sessionId);
     const usage = await this.governor.usage(sessionId);

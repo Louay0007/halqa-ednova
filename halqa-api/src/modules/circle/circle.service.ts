@@ -66,7 +66,7 @@ export class CircleService {
     throw new Error('CIRCLE_CREATE_FAILED');
   }
 
-  async join(circleId: string, nickname: string): Promise<{ learnerId: string; role: string; token: string }> {
+  async join(circleId: string, nickname: string, passportFrom?: string): Promise<{ learnerId: string; role: string; token: string }> {
     const circle = await this.circles.findOne({ _id: circleId }).exec();
     if (!circle) throw Err.missing(`CIRCLE_NOT_FOUND:${circleId}`);
     if (circle.state === 'wrapped') throw Err.conflict(`CIRCLE_CLOSED:${circleId}`);
@@ -75,7 +75,8 @@ export class CircleService {
     if (existing.some((l) => l.nickname.toLowerCase() === nickname.toLowerCase())) {
       throw Err.conflict('NICKNAME_TAKEN');
     }
-    const learner = await this.makeLearner(nickname, circle.context as ContextMode);
+    const donor = passportFrom ? await this.learners.findOne({ _id: passportFrom }).lean().exec() : null;
+    const learner = await this.makeLearner(nickname, circle.context as ContextMode, donor?.passport as LearnerDocument['passport'] | undefined);
     circle.members.push({ learnerId: learner._id, role: 'peer', joinedAt: new Date() });
     await circle.save();
     const token = signToken({ sub: learner._id, role: 'learner' as TokenRole }, this.cfg.TOKEN_SECRET);
@@ -126,7 +127,7 @@ export class CircleService {
     };
   }
 
-  private async makeLearner(nickname: string, context: string): Promise<LearnerDocument> {
+  private async makeLearner(nickname: string, context: string, passport?: LearnerDocument['passport']): Promise<LearnerDocument> {
     for (let attempt = 0; attempt < 25; attempt += 1) {
       const count = await this.learners.countDocuments().exec();
       const candidate = `L-${String(count + 1 + attempt).padStart(2, '0')}`;
@@ -137,6 +138,7 @@ export class CircleService {
           avatarKey: AVATAR_KEYS[candidate.charCodeAt(3) % AVATAR_KEYS.length],
           context,
           lastSeenAt: new Date(),
+          ...(passport ? { passport } : {}),
         });
       } catch (e) {
         if ((e as { code?: number }).code !== 11000) throw e;

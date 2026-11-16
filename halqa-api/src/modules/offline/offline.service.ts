@@ -24,7 +24,16 @@ export class OfflineService {
   load(): OfflineSnippet[] {
     if (this.pack) return this.pack;
     try {
-      const raw = JSON.parse(fs.readFileSync(path.resolve(process.cwd(), 'offline', 'pack.json'), 'utf8'));
+      // Prefer the copy nest-cli assets into dist/offline; fall back to the package root
+      // so `npm run start:dev` (ts-node, src/) keeps working without a build.
+      const candidates = [
+        path.resolve(__dirname, '../../offline/pack.json'),
+        path.resolve(__dirname, '../../../offline/pack.json'),
+        path.resolve(process.cwd(), 'offline', 'pack.json'),
+      ];
+      const file = candidates.find((p) => fs.existsSync(p));
+      if (!file) throw new Error(`pack.json not found in ${candidates.join(', ')}`);
+      const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
       const snippets = Array.isArray(raw) ? raw : (raw.snippets ?? []);
       this.pack = snippets as OfflineSnippet[];
     } catch (e) {
