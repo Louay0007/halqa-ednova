@@ -90,16 +90,36 @@ export class ProviderAdapter implements LlmPort {
     const messages: Array<{ role: string; content: string }> = [];
     if (req.system) messages.push({ role: 'system', content: req.system });
     messages.push({ role: 'user', content: req.prompt });
-    let res: Response;
-    try {
-      res = await fetch(`${base}/v1/chat/completions`, {
+    // The caller's signal bounds this call to the time it is actually useful for
+    // (the scheduler may pass a peer-window deadline); 120 s is the ceiling.
+    const deadline = (): AbortSignal =>
+      req.signal ? AbortSignal.any([req.signal, AbortSignal.timeout(120000)]) : AbortSignal.timeout(120000);
+    const send = (): Promise<Response> =>
+      fetch(`${base}/v1/chat/completions`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ model, messages, max_tokens: budget }),
-        signal: AbortSignal.timeout(120000),
+        signal: deadline(),
       });
+    let res: Response;
+    try {
+      res = await send();
     } catch (e) {
       throw new Error(`PROVIDER_TRANSPORT:${(e as Error).name}`);
+    }
+    // 429 used to be an instant hard failure, which made the whole suite flap between
+    // green and red on the same code. One retry, bounded by Retry-After (or 1 s) and by
+    // the caller's deadline — a pop after the peer window is worth less than a fallback.
+    if (res.status === 429) {
+      const after = Number(res.headers.get('Retry-After'));
+      const waitMs = Math.min(Number.isFinite(after) && after > 0 ? after * 1000 : 1000, 5000);
+      await new Promise((r) => setTimeout(r, waitMs));
+      try {
+        res = await send();
+      } catch (e) {
+        throw new Error(`PROVIDER_TRANSPORT:${(e as Error).name}`);
+      }
+      if (res.status === 429) throw new Error('PROVIDER_HTTP_429');
     }
     if (!res.ok) throw new Error(`PROVIDER_HTTP_${res.status}`);
     const j = (await res.json()) as {

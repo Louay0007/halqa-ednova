@@ -230,6 +230,18 @@ async function main(): Promise<void> {
       if (!etag) throw new Error('no ETag');
       await api('get', `/questions/${qid}/state?asker=${peerId}`).set('If-None-Match', etag).expect(304);
     });
+    await check('anonymous flag round-trips in the state view', async () => {
+      // Was stored but never rendered back, so the checkbox had no observable effect.
+      // Placed after the quickTake wait: asking earlier races the seeded question's
+      // background pulse and resolves it via hint_path before the hidden take lands.
+      const asked = await api('post', '/questions').send({
+        sessionId, askerId, text: 'Anonymous ask: does binary search need sorting?', anonymous: true,
+      }).expect(201);
+      const view = await api('get', `/questions/${asked.body.qid}/state?asker=${askerId}`).expect(200);
+      if (view.body.anonymous !== true) throw new Error(`anonymous=${String(view.body.anonymous)}`);
+      const plain = await api('get', `/questions/${qid}/state?asker=${askerId}`).expect(200);
+      if (plain.body.anonymous !== false) throw new Error(`default anonymous=${String(plain.body.anonymous)}`);
+    });
     await check('peer-answer awards credits + auditor verifies (real C)', async () => {
       const a = await api('post', `/questions/${qid}/peer-answer`).send({ authorId: peerId, text: 'Because halving only works when the order tells you which half to keep.' }).expect(201);
       expectShape(a, 201, ['aid', 'creditsAwarded'], 'peer-answer');
