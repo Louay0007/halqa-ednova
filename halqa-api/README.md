@@ -43,6 +43,26 @@ PROVIDER_BASE_URL=https://aipilot-weld.vercel.app PROVIDER_API_KEY=<key> \
 # Last green run: 41 passed, 0 failed · C=13 L=2 lShare=0.133 (target <0.25).
 ```
 
+## Auth
+
+`POST /api/v1/auth/session` (public, rate-limited) mints an HMAC token for a
+nickname. Everything else needs `Authorization: Bearer <token>`.
+
+- **Default-deny.** `TokenGuard` is an `APP_GUARD`; a route is closed unless it
+  carries `@Public()`. `@Roles('learner')` narrows further (403
+  `FORBIDDEN_ROLE`).
+- **Identity comes from the token.** Handlers read `@CurrentUser('sub')`, never a
+  body id. `@OptionalUser('sub')` exists for the few routes that work both signed
+  in and anonymously (`POST /circles`, `POST /dna`).
+- **Revocation.** `TokenEpochService` compares the `ep` claim against the stored
+  `Learner.tokenEpoch`; `POST /auth/signout` bumps it, which invalidates every
+  token already issued for that learner.
+- **Membership.** `MembershipService.assertMember` / `assertSessionMember` gate
+  anything scoped to a circle or session (`403 NOT_A_MEMBER`).
+- **Rate limit.** `@RateLimit({limit, windowS})` — in-process fixed window keyed
+  by learner id (or IP when anonymous). Per-instance only: put a real limiter at
+  the edge before exposing this publicly.
+
 ## Layout
 
 - `src/core` — validated config, JSON logger + scrubber, global error filter, request-id
@@ -50,7 +70,7 @@ PROVIDER_BASE_URL=https://aipilot-weld.vercel.app PROVIDER_API_KEY=<key> \
 - `src/ai` — adapter (metered), router (1×C pulse + escalation), governor (atomic quota), cache (sha1), queue (FIFO), degradation (G/O/R/B), retrieval (TF-IDF + diagnose)
 - `src/persistence` — 15 collections, indexes, unit-of-work
 - `src/telemetry` — typed analytics event bus (taxonomy §2.11)
-- `src/security` — HMAC tokens, role guard, PII service, chaos toggle (dev-only)
+- `src/security` — HMAC tokens, default-deny guard, token epochs (revocation), membership asserts, rate limit, PII service, chaos toggle (dev-only)
 - `src/modules` — circle, session, question, peer-window, hints, auditor, consensus, knowledge, learning, equity, sbu, projections, offline, analytics (`/metrics`), capsule, quiz, solo, mentor, whisper, matcher, workshop, coach, gamification, dashboard, auth
 - `src/seed` — stubs until Phase 6 (demo reset)
 - `config/*.yaml` (equity, sbu, budget, router), `kb/seeds` (39 chunks, SOURCES 100%), `eval/` (confusion 20, parity 24, seeded 3, whisper truth, users), `offline/pack.json` (30 snippets), `prompts/registers` (ar/darija/fr/en)

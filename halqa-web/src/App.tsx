@@ -1,6 +1,6 @@
-import { Suspense, lazy } from 'react';
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
-import { SessionProvider } from './lib/session';
+import { Suspense, lazy, type ReactElement } from 'react';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { SessionProvider, useSession } from './lib/session';
 import { Shell } from './shell/Shell';
 import { Landing } from './routes/Landing';
 import './styles/tokens.css';
@@ -22,6 +22,18 @@ const Dashboard = lazy(() => import('./routes/Dashboard').then((m) => ({ default
 const Lab = lazy(() => import('./routes/Lab').then((m) => ({ default: m.Lab })));
 const Me = lazy(() => import('./routes/Me').then((m) => ({ default: m.Me })));
 
+/**
+ * Everything past the entry screen needs a token: the API is default-deny, so an
+ * anonymous deep link would only render 401s. Bounce to `/enter` and remember
+ * where they were heading so the flow resumes after sign-in.
+ */
+function RequireAuth({ children }: { children: ReactElement }) {
+  const { authed } = useSession();
+  const { pathname, search } = useLocation();
+  if (!authed) return <Navigate to={`/enter?next=${encodeURIComponent(pathname + search)}`} replace />;
+  return children;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -31,18 +43,18 @@ export default function App() {
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/enter" element={<Enter />} />
-              <Route path="/dna" element={<Dna />} />
-              <Route path="/solo" element={<Solo />} />
-              <Route path="/circles/new" element={<CirclesNew />} />
-              <Route path="/circles/join" element={<CirclesJoin />} />
-              <Route path="/c/:circleId" element={<Lobby />} />
-              <Route path="/c/:circleId/s/:sessionId" element={<SessionRoom />} />
-              <Route path="/c/:circleId/s/:sessionId/debrief" element={<Debrief />} />
+              <Route path="/dna" element={<RequireAuth>{<Dna />}</RequireAuth>} />
+              <Route path="/solo" element={<RequireAuth>{<Solo />}</RequireAuth>} />
+              <Route path="/circles/new" element={<RequireAuth>{<CirclesNew />}</RequireAuth>} />
+              <Route path="/circles/join" element={<RequireAuth>{<CirclesJoin />}</RequireAuth>} />
+              <Route path="/c/:circleId" element={<RequireAuth>{<Lobby />}</RequireAuth>} />
+              <Route path="/c/:circleId/s/:sessionId" element={<RequireAuth>{<SessionRoom />}</RequireAuth>} />
+              <Route path="/c/:circleId/s/:sessionId/debrief" element={<RequireAuth>{<Debrief />}</RequireAuth>} />
               <Route path="/board" element={<Board />} />
               <Route path="/mentor" element={<Mentor />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/lab" element={<Lab />} />
-              <Route path="/me" element={<Me />} />
+              <Route path="/me" element={<RequireAuth>{<Me />}</RequireAuth>} />
               <Route path="*" element={<Landing />} />
             </Routes>
           </Suspense>

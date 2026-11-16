@@ -13,6 +13,7 @@ import { PeerWindowService } from '../../src/modules/peer-window/peer-window.ser
 import { Question, QuestionDocument } from '../../src/persistence/schemas/question.schema';
 import { LlmCall, LlmCallDocument, QuotaLedger, QuotaLedgerDocument } from '../../src/persistence/schemas/ai.schema';
 import type { LlmRequest } from '../../src/domain/ports/llm-port';
+import { newCircle } from './support/auth';
 
 // Phase 3 exit gate — CF-AS vertical slice with a scripted provider:
 //  script A (peers answer)  → auditor verifies → RESOLVED peers_verified, peerFirst
@@ -107,20 +108,9 @@ describe('phase-3 cfas vertical slice (integration)', () => {
   });
 
   /** Build circle + 2 learners + session via HTTP (contract coverage). */
-  async function setup(topic = 'binary_search'): Promise<{ circleId: string; askerId: string; peerId: string; sessionId: string }> {
-    const circle = await request(app.getHttpServer())
-      .post('/api/v1/circles')
-      .send({ topic, context: 'study', lang: 'en', hostNickname: 'HostA' })
-      .expect(201);
-    const join = await request(app.getHttpServer())
-      .post(`/api/v1/circles/${circle.body.circleId}/join`)
-      .send({ nickname: 'PeerB' })
-      .expect(201);
-    const session = await request(app.getHttpServer())
-      .post(`/api/v1/circles/${circle.body.circleId}/sessions`)
-      .send()
-      .expect(201);
-    return { circleId: circle.body.circleId, askerId: circle.body.hostLearnerId, peerId: join.body.learnerId, sessionId: session.body.sessionId };
+  async function setup(topic = 'binary_search') {
+    const c = await newCircle(app, { topic });
+    return { circleId: c.circleId, askerId: c.host.learnerId, peerId: c.peer.learnerId, sessionId: c.sessionId, host: c.host, peer: c.peer };
   }
 
   async function waitFor(qid: string, pred: (q: QuestionDocument) => boolean, ms = 5000): Promise<QuestionDocument> {
@@ -134,9 +124,10 @@ describe('phase-3 cfas vertical slice (integration)', () => {
   }
 
   it('script A (peers answer): verify → RESOLVED peers_verified, peerFirst, credits', async () => {
-    const { askerId, peerId, sessionId } = await setup();
+    const { askerId, peerId, sessionId, host, peer } = await setup();
     const created = await request(app.getHttpServer())
       .post('/api/v1/questions')
+      .set(host.headers)
       .send({ sessionId, askerId, text: 'Why must the array be sorted first?' })
       .expect(201);
     expect(created.body.state).toBe('OPEN');
@@ -147,6 +138,7 @@ describe('phase-3 cfas vertical slice (integration)', () => {
 
     await request(app.getHttpServer())
       .post(`/api/v1/questions/${qid}/peer-answer`)
+      .set(peer.headers)
       .send({ authorId: peerId, text: 'Because halving only works when the order tells you which half to keep.' })
       .expect(201);
 
@@ -158,22 +150,23 @@ describe('phase-3 cfas vertical slice (integration)', () => {
     expect(q.answer?.text).toContain('halving');
 
     // Peer-first rate is logged on the doc; credits flowed via projections.
-    const credits = await request(app.getHttpServer()).get(`/api/v1/sessions/${sessionId}/credits`).expect(200);
+    const credits = await request(app.getHttpServer()).get(`/api/v1/sessions/${sessionId}/credits`).set(host.headers).expect(200);
     const byId = new Map(credits.body.credits.map((c: { learnerId: string; total: number }) => [c.learnerId, c.total]));
     expect(byId.get(askerId)).toBe(3); // sharp_question
     expect(byId.get(peerId)).toBe(3); // good_explanation
 
     // Asker sees stages; payload stays <1 KB.
-    const state = await request(app.getHttpServer()).get(`/api/v1/questions/${qid}/state?asker=${askerId}`).expect(200);
+    const state = await request(app.getHttpServer()).get(`/api/v1/questions/${qid}/state?asker=${askerId}`).set(host.headers).expect(200);
     expect(state.body.answer.text).toContain('halving');
     expect(Array.isArray(state.body.stages)).toBe(true);
     expect(JSON.stringify(state.body).length).toBeLessThan(1024);
   });
 
   it('script B (nobody answers): hint L1 path', async () => {
-    const { askerId, sessionId } = await setup();
+    const { askerId, sessionId, host } = await setup();
     const created = await request(app.getHttpServer())
       .post('/api/v1/questions')
+      .set(host.headers)
       .send({ sessionId, askerId, text: 'Is mid always safe?' })
       .expect(201);
     const qid: string = created.body.qid;
@@ -189,17 +182,19 @@ describe('phase-3 cfas vertical slice (integration)', () => {
     // Ladder continues: L2 allowed after L1…
     const l2 = await request(app.getHttpServer())
       .post(`/api/v1/questions/${qid}/hint`)
+      .set(host.headers)
       .send({ askerId, level: 2 })
       .expect(201);
     expect(l2.body.level).toBe(2);
     // …but L4 is locked without L1–L3 or skip (T0 leak gate).
-    await request(app.getHttpServer()).post(`/api/v1/questions/${qid}/hint`).send({ askerId, level: 4 }).expect(403);
+    await request(app.getHttpServer()).post(`/api/v1/questions/${qid}/hint`).set(host.headers).send({ askerId, level: 4 }).expect(403);
   });
 
   it('script C (skip): direct Quick Take answer, skip_direct', async () => {
-    const { askerId, sessionId } = await setup();
+    const { askerId, sessionId, host } = await setup();
     const created = await request(app.getHttpServer())
       .post('/api/v1/questions')
+      .set(host.headers)
       .send({ sessionId, askerId, text: 'Explain O(log n) quickly.' })
       .expect(201);
     const qid: string = created.body.qid;
@@ -207,6 +202,7 @@ describe('phase-3 cfas vertical slice (integration)', () => {
 
     const skipped = await request(app.getHttpServer())
       .post(`/api/v1/questions/${qid}/skip`)
+      .set(host.headers)
       .send({ askerId })
       .expect(201);
     expect(skipped.body.tierUsed).toBe('C');
@@ -217,9 +213,10 @@ describe('phase-3 cfas vertical slice (integration)', () => {
   });
 
   it('auditor poll-first: seeded error → poll, idempotent votes, close', async () => {
-    const { askerId, peerId, sessionId } = await setup();
+    const { askerId, peerId, sessionId, host, peer } = await setup();
     const created = await request(app.getHttpServer())
       .post('/api/v1/questions')
+      .set(host.headers)
       .send({ sessionId, askerId, text: 'Does it work unsorted?' })
       .expect(201);
     const qid: string = created.body.qid;
@@ -227,6 +224,7 @@ describe('phase-3 cfas vertical slice (integration)', () => {
 
     await request(app.getHttpServer())
       .post(`/api/v1/questions/${qid}/peer-answer`)
+      .set(peer.headers)
       .send({ authorId: peerId, text: 'Yes, binary search works on any array.' })
       .expect(201);
     await windows.settle(qid);
@@ -234,36 +232,37 @@ describe('phase-3 cfas vertical slice (integration)', () => {
     expect(q.resolution).toBe('poll');
     expect(q.pollId).toBeDefined();
 
-    const v1 = await request(app.getHttpServer()).post(`/api/v1/polls/${q.pollId}/vote`).send({ learnerId: peerId, choice: 'needs-fix' }).expect(201);
-    const v2 = await request(app.getHttpServer()).post(`/api/v1/polls/${q.pollId}/vote`).send({ learnerId: peerId, choice: 'needs-fix' }).expect(201);
+    const v1 = await request(app.getHttpServer()).post(`/api/v1/polls/${q.pollId}/vote`).set(peer.headers).send({ learnerId: peerId, choice: 'needs-fix' }).expect(201);
+    const v2 = await request(app.getHttpServer()).post(`/api/v1/polls/${q.pollId}/vote`).set(peer.headers).send({ learnerId: peerId, choice: 'needs-fix' }).expect(201);
     expect(v2.body).toEqual(v1.body); // idempotent repeat
     expect(v2.body.tally).toMatchObject({ correct: 0, 'needs-fix': 1 });
 
-    const closed = await request(app.getHttpServer()).post(`/api/v1/polls/${q.pollId}/close`).send().expect(201);
+    const closed = await request(app.getHttpServer()).post(`/api/v1/polls/${q.pollId}/close`).set(host.headers).send().expect(201);
     expect(closed.body.winner).toBe('needs-fix');
   });
 
   it('poller: ETag/304 + peer view hides asker detail', async () => {
-    const { askerId, peerId, sessionId } = await setup();
+    const { askerId, peerId, sessionId, host, peer } = await setup();
     const created = await request(app.getHttpServer())
       .post('/api/v1/questions')
+      .set(host.headers)
       .send({ sessionId, askerId, text: 'Poller visibility check?' })
       .expect(201);
     const qid: string = created.body.qid;
 
-    const peerView = await request(app.getHttpServer()).get(`/api/v1/questions/${qid}/state?asker=${peerId}`).expect(200);
+    const peerView = await request(app.getHttpServer()).get(`/api/v1/questions/${qid}/state?asker=${peerId}`).set(peer.headers).expect(200);
     expect(peerView.body.stages).toBeUndefined();
     expect(peerView.body.quickTakeReady).toBeUndefined();
     expect(JSON.stringify(peerView.body).length).toBeLessThan(1024);
 
     const etag: string = peerView.headers.etag;
     expect(etag).toBeDefined();
-    await request(app.getHttpServer()).get(`/api/v1/questions/${qid}/state?asker=${peerId}`).set('If-None-Match', etag).expect(304);
+    await request(app.getHttpServer()).get(`/api/v1/questions/${qid}/state?asker=${peerId}`).set(peer.headers).set('If-None-Match', etag).expect(304);
   });
 
   it('guards: L-share <25% and every L call holds a reservation', async () => {
     const since = new Date();
-    const { askerId, peerId, sessionId } = await setup();
+    const { askerId, peerId, sessionId, host, peer } = await setup();
     for (const text of [
       'Guard check one: binary search sorted array halving?',
       'Guard check two: trace find 8 in 2 4 6 8?',
@@ -271,11 +270,13 @@ describe('phase-3 cfas vertical slice (integration)', () => {
     ]) {
       const created = await request(app.getHttpServer())
         .post('/api/v1/questions')
+        .set(host.headers)
         .send({ sessionId, askerId, text })
         .expect(201);
       await waitFor(created.body.qid, (q) => !!(q.quickTake as { text?: string } | undefined)?.text);
       await request(app.getHttpServer())
         .post(`/api/v1/questions/${created.body.qid}/peer-answer`)
+        .set(peer.headers)
         .send({ authorId: peerId, text: 'Halving works on sorted input.' })
         .expect(201);
       await windows.settle(created.body.qid);

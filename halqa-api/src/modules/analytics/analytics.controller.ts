@@ -6,6 +6,7 @@ import { TelemetryEvent, TelemetryEventDocument } from '../../persistence/schema
 import { OfflineService } from '../offline/offline.service';
 import { RetrievalService } from '../../ai/retrieval/retrieval.service';
 import { DegradationService } from '../../ai/degradation/degradation.service';
+import { Public } from '../../security/roles.decorator';
 
 function pct(vals: number[], p: number): number {
   if (vals.length === 0) return 0;
@@ -19,6 +20,7 @@ function pct(vals: number[], p: number): number {
  * callsByTier, lShare, p50/p95 per tier, cacheHitRate, peerFirstRate,
  * fallbackCounts, quotaUsage. Plus KB + offline stats for the RAG claim.
  */
+@Public()
 @Controller()
 export class AnalyticsController {
   constructor(

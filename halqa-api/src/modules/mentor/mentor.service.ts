@@ -10,6 +10,7 @@ import { MentorNote, MentorNoteDocument } from '../../persistence/schemas/teleme
 import { Artifact, ArtifactDocument } from '../../persistence/schemas/ai.schema';
 import { EventBus } from '../../telemetry/event-bus';
 import { SbuService } from '../sbu/sbu.service';
+import { PiiService } from '../../security/pii.service';
 
 /**
  * MentorService — Mentor Seat (F-V2-7). Observer join (no credits, no turns),
@@ -28,6 +29,7 @@ export class MentorService {
     @Inject(LLM_PORT) private readonly llm: LlmPort,
     private readonly governor: BudgetGovernor,
     private readonly bus: EventBus,
+    private readonly pii: PiiService,
   ) {}
 
   async join(circleId: string, mentorId: string): Promise<{ ok: boolean; role: string }> {
@@ -41,7 +43,8 @@ export class MentorService {
   }
 
   async note(circleId: string, mentorId: string, text: string, sessionId?: string): Promise<{ noteId: string }> {
-    const clean = text.slice(0, 500);
+    // Notes are free text about named learners, so screen at the write boundary.
+    const clean = this.pii.screen(text.slice(0, 500)).clean;
     if (!clean.trim()) throw Err.bad('NOTE_EMPTY');
     const doc = await this.notes.create({
       _id: `MN-${randomBytes(3).toString('hex')}`,

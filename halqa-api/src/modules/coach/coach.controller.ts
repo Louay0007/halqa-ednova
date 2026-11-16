@@ -1,12 +1,15 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
-import { IsIn, IsNotEmpty, IsString } from 'class-validator';
+import { IsIn, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { CoachService } from './coach.service';
 import { Roles } from '../../security/roles.decorator';
+import { CurrentUser } from '../../security/current-user.decorator';
+import { MembershipService } from '../../security/membership.service';
 
 class NudgeDto {
+  /** Deprecated: the explainer is the authenticated caller. */
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  explainerId!: string;
+  explainerId?: string;
   @IsString()
   @IsNotEmpty()
   sessionId!: string;
@@ -34,7 +37,10 @@ class RephraseDto {
 @Roles('learner')
 @Controller()
 export class CoachController {
-  constructor(private readonly coach: CoachService) {}
+  constructor(
+    private readonly coach: CoachService,
+    private readonly members: MembershipService,
+  ) {}
 
   @Get('passports/:id/explain-card')
   card(@Param('id') id: string): Promise<{ card: string; visible: boolean }> {
@@ -42,12 +48,18 @@ export class CoachController {
   }
 
   @Post('coach/nudge/:targetId')
-  nudge(@Param('targetId') target: string, @Body() dto: NudgeDto): Promise<{ nudge: string; private: true }> {
-    return this.coach.nudge(dto.explainerId, target, dto.sessionId, dto.circleId);
+  async nudge(
+    @Param('targetId') target: string,
+    @CurrentUser('sub') explainerId: string,
+    @Body() dto: NudgeDto,
+  ): Promise<{ nudge: string; private: true }> {
+    await this.members.assertMembers(dto.circleId, [explainerId, target]);
+    return this.coach.nudge(explainerId, target, dto.sessionId, dto.circleId);
   }
 
   @Post('coach/rephrase')
-  rephrase(@Body() dto: RephraseDto): Promise<{ suggestion: string }> {
+  async rephrase(@CurrentUser('sub') learnerId: string, @Body() dto: RephraseDto): Promise<{ suggestion: string }> {
+    await this.members.assertMember(dto.circleId, learnerId);
     return this.coach.rephrase(dto.sessionId, dto.circleId, dto.text, dto.style, dto.lang);
   }
 }

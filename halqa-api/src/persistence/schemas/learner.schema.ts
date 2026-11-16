@@ -35,6 +35,8 @@ export class Learner {
   @Prop({ type: String, required: true }) context!: string;
   @Prop({ type: Date }) lastSeenAt?: Date;
   @Prop({ type: Passport }) passport?: Passport;
+  /** Bumped on sign-out; tokens carrying an older epoch are rejected. */
+  @Prop({ type: Number, default: 0 }) tokenEpoch!: number;
 }
 // NOTE: no name/photo/gender/region/birth/age/address/phone/email fields.
 // The schema gate test (test/schema-gate.spec.ts) fails the build if they appear.

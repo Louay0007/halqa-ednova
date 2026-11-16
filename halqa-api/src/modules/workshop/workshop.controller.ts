@@ -5,6 +5,7 @@ import { Model } from 'mongoose';
 import { MatcherService } from '../matcher/matcher.service';
 import { Circle, CircleDocument } from '../../persistence/schemas/circle.schema';
 import { CircleService } from '../circle/circle.service';
+import { Public } from '../../security/roles.decorator';
 
 class MatchDto {
   @IsArray()
@@ -19,6 +20,7 @@ class MatchDto {
  * WorkshopController — POST /circles/match (deterministic matcher) +
  * GET /board (workshop grid: per-circle S-B-U + needs_human).
  */
+@Public()
 @Controller()
 export class WorkshopController {
   constructor(

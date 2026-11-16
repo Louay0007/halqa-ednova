@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useSession } from '../lib/session';
 import { PassportView } from './Dna';
 
 export function Me() {
   const { learnerId, logout } = useSession();
+  const nav = useNavigate();
   const [data, setData] = useState<{ learner: { nickname?: string; avatarKey?: string }; passport: Record<string, unknown> | null } | null>(null);
   const [xp, setXp] = useState<{ total: number; badges: string[] } | null>(null);
 
@@ -32,8 +34,22 @@ export function Me() {
           XP {xp.total} · badges: {xp.badges.join(', ') || '—'}
         </p>
       )}
-      <button type="button" className="btn btn-ghost btn-small" onClick={logout}>
-        Log out (token dies with this tab)
+      <button
+        type="button"
+        className="btn btn-ghost btn-small"
+        onClick={() => {
+          // Revoke server-side (epoch bump) before dropping the local token, so a
+          // copied token cannot outlive the sign-out.
+          api
+            .signout()
+            .catch(() => undefined)
+            .finally(() => {
+              logout();
+              nav('/enter', { replace: true });
+            });
+        }}
+      >
+        Log out (revokes this device token)
       </button>
     </div>
   );

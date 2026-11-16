@@ -1,6 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { DegradationMode, Lang, Metrics } from '../lib/api';
-import { api, tokenStore } from '../lib/api';
+import { api, setUnauthorizedHandler, tokenStore } from '../lib/api';
 import { RTL } from '../lib/i18n';
 
 interface SessionCtx {
@@ -32,6 +32,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [circleId, setCircleIdState] = useState(() => sessionStorage.getItem('halqa.circle') ?? '');
   const [sessionId, setSessionIdState] = useState(() => sessionStorage.getItem('halqa.session') ?? '');
   const [metrics, setMetrics] = useState<Metrics | null>(null);
+  const [authed, setAuthed] = useState(() => tokenStore.get().length > 0);
 
   const setLang = useCallback((l: Lang) => {
     sessionStorage.setItem('halqa.lang', l);
@@ -53,12 +54,24 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     (token: string, id: string) => {
       tokenStore.set(token);
       setLearnerId(id);
+      setAuthed(true);
     },
     [setLearnerId],
   );
   const logout = useCallback(() => {
     tokenStore.clear();
     setLearnerId('');
+    setAuthed(false);
+  }, [setLearnerId]);
+
+  // Let the API client clear auth state the moment the server rejects a token,
+  // instead of leaving a dead token in place until the tab is closed.
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      tokenStore.clear();
+      setLearnerId('');
+      setAuthed(false);
+    });
   }, [setLearnerId]);
 
   useEffect(() => {
@@ -90,10 +103,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     };
   }, [sessionId]);
 
+  const value = useMemo(
+    () => ({ lang, setLang, learnerId, setLearnerId, circleId, setCircleId, sessionId, setSessionId, metrics, authed, login, logout }),
+    [lang, setLang, learnerId, setLearnerId, circleId, setCircleId, sessionId, setSessionId, metrics, authed, login, logout],
+  );
+
   return (
-    <Ctx.Provider
-      value={{ lang, setLang, learnerId, setLearnerId, circleId, setCircleId, sessionId, setSessionId, metrics, authed: tokenStore.get().length > 0, login, logout }}
-    >
+    <Ctx.Provider value={value}>
       {children}
     </Ctx.Provider>
   );

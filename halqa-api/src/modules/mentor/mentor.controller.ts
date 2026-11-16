@@ -1,17 +1,19 @@
 import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 import { MentorService } from './mentor.service';
-
-class JoinDto {
-  @IsString()
-  @IsNotEmpty()
-  mentorId!: string;
-}
+import { Roles } from '../../security/roles.decorator';
+import { CurrentUser } from '../../security/current-user.decorator';
+import { MembershipService } from '../../security/membership.service';
+import { RateLimit } from '../../security/rate-limit';
 
 class NoteDto {
   @IsString()
   @IsNotEmpty()
-  mentorId!: string;
+  circleId!: string;
+  /** Deprecated: the author is the authenticated caller. */
+  @IsOptional()
+  @IsString()
+  mentorId?: string;
   @IsString()
   @IsNotEmpty()
   @MaxLength(500)
@@ -21,22 +23,33 @@ class NoteDto {
   sessionId?: string;
 }
 
+@Roles('learner')
 @Controller()
 export class MentorController {
-  constructor(private readonly mentor: MentorService) {}
+  constructor(
+    private readonly mentor: MentorService,
+    private readonly members: MembershipService,
+  ) {}
 
   @Post('circles/:id/mentor/join')
-  join(@Param('id') id: string, @Body() dto: JoinDto): Promise<{ ok: boolean; role: string }> {
-    return this.mentor.join(id, dto.mentorId);
+  join(@Param('id') id: string, @CurrentUser('sub') mentorId: string): Promise<{ ok: boolean; role: string }> {
+    return this.mentor.join(id, mentorId);
   }
 
+  @RateLimit({ limit: 30, windowS: 60 })
   @Post('mentor/notes')
-  note(@Body() dto: NoteDto & { circleId: string }): Promise<{ noteId: string }> {
-    return this.mentor.note(dto.circleId, dto.mentorId, dto.text, dto.sessionId);
+  async note(@CurrentUser('sub') mentorId: string, @Body() dto: NoteDto): Promise<{ noteId: string }> {
+    await this.members.assertMember(dto.circleId, mentorId);
+    return this.mentor.note(dto.circleId, mentorId, dto.text, dto.sessionId);
   }
 
   @Get('mentor/brief')
-  brief(@Query('circleId') circleId: string, @Query('sessionId') sessionId: string): Promise<{ brief: string; words: number }> {
+  async brief(
+    @CurrentUser('sub') learnerId: string,
+    @Query('circleId') circleId: string,
+    @Query('sessionId') sessionId: string,
+  ): Promise<{ brief: string; words: number }> {
+    await this.members.assertMember(circleId, learnerId);
     return this.mentor.brief(circleId, sessionId);
   }
 }

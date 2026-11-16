@@ -1,7 +1,9 @@
 import { Controller, Get } from '@nestjs/common';
 import { InjectConnection } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
+import { Public } from '../security/roles.decorator';
 
+@Public()
 @Controller()
 export class HealthController {
   constructor(@InjectConnection() private readonly conn: Connection) {}

@@ -1,8 +1,9 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
-import { IsIn, IsNotEmpty, IsObject, IsOptional, IsString, MaxLength, ValidateNested } from 'class-validator';
+import { IsIn, IsObject, IsOptional, IsString, MaxLength, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { DnaAnswers, LearningService } from './learning.service';
-import { Roles } from '../../security/roles.decorator';
+import { Public, Roles } from '../../security/roles.decorator';
+import { OptionalUser } from '../../security/current-user.decorator';
 
 class DnaAnswersDto implements DnaAnswers {
   @IsIn(['novice', 'beginner', 'intermediate'])
@@ -16,12 +17,14 @@ class DnaAnswersDto implements DnaAnswers {
 }
 
 class CompleteDnaDto {
+  /** Ignored for a signed-in caller: DNA is written onto their own record. */
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(24)
-  nickname!: string;
+  nickname?: string;
+  @IsOptional()
   @IsIn(['class', 'study', 'community', 'workshop', 'program', 'solo'])
-  context!: string;
+  context?: string;
   @IsOptional()
   @IsString()
   topic?: string;
@@ -42,13 +45,24 @@ class CompleteDnaDto {
 export class LearningController {
   constructor(private readonly learning: LearningService) {}
 
+  /** Content, not personal data: the DNA items are shown to anonymous visitors too. */
+  @Public()
   @Get('dna/items')
   items(): { items: unknown[] } {
     return { items: this.learning.items() };
   }
 
+  @Public()
   @Post('dna')
-  complete(@Body() dto: CompleteDnaDto): Promise<{ learnerId: string; passport: Record<string, unknown> }> {
-    return this.learning.completeDna({ ...dto, answers: dto.answers });
+  complete(
+    @Body() dto: CompleteDnaDto,
+    @OptionalUser('sub') learnerId: string | undefined,
+  ): Promise<{ learnerId: string; passport: Record<string, unknown> }> {
+    return this.learning.completeDna({
+      ...dto,
+      nickname: dto.nickname ?? 'Learner',
+      context: dto.context ?? 'study',
+      learnerId,
+    });
   }
 }

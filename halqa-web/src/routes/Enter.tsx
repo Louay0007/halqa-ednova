@@ -34,7 +34,9 @@ export function Enter() {
       const r = await api.authSession(nickname.trim(), context, avatar);
       sessionStorage.setItem('halqa.nick', nickname.trim());
       login(r.token, r.learner.id);
-      nav(context === 'solo' ? '/dna?next=/solo' : '/dna?next=/circles/join');
+      // Resume wherever the guard bounced them from, else finish onboarding.
+      const next = params.get('next');
+      nav(next ? `/dna?next=${encodeURIComponent(next)}` : context === 'solo' ? '/dna?next=/solo' : '/dna?next=/circles/join');
     } catch (e) {
       const f = e as ApiFailure;
       setErr({ code: f.body?.code ?? 'ENTER_FAILED', msg: f.body?.user_msg?.[lang] ?? 'Could not enter — retry.', retryable: f.body?.retryable ?? true });
@@ -45,7 +47,10 @@ export function Enter() {
 
   return (
     <div className="page narrow">
-      <h1>Enter — no signup, under a minute</h1>
+      <h1>Enter — a nickname, under a minute</h1>
+      <p className="muted">
+        No password and nothing personal: we keep a nickname, a neutral avatar and your device token. Signing out revokes it.
+      </p>
       <form onSubmit={submit} className="stack">
         <div className="field">
           <label htmlFor="nick">Nickname</label>

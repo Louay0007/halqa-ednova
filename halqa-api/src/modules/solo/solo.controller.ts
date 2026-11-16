@@ -2,6 +2,7 @@ import { Body, Controller, Param, Post } from '@nestjs/common';
 import { IsIn, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { SoloHat, SoloService } from './solo.service';
 import { Roles } from '../../security/roles.decorator';
+import { CurrentUser } from '../../security/current-user.decorator';
 
 class StartDto {
   @IsString()
@@ -9,15 +10,17 @@ class StartDto {
   topic!: string;
   @IsIn(['ar', 'darija', 'fr', 'en'])
   lang!: string;
+  /** Deprecated: the learner is the authenticated caller. */
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  learnerId!: string;
+  learnerId?: string;
 }
 
 class TurnDto {
+  /** Deprecated: the learner is the authenticated caller. */
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  learnerId!: string;
+  learnerId?: string;
   @IsString()
   @IsNotEmpty()
   text!: string;
@@ -37,13 +40,20 @@ export class SoloController {
   constructor(private readonly solo: SoloService) {}
 
   @Post('sessions')
-  start(@Body() dto: StartDto): Promise<{ sessionId: string; hat: SoloHat; probe: string }> {
-    return this.solo.start(dto.topic, dto.lang, dto.learnerId);
+  start(
+    @CurrentUser('sub') learnerId: string,
+    @Body() dto: StartDto,
+  ): Promise<{ sessionId: string; hat: SoloHat; probe: string }> {
+    return this.solo.start(dto.topic, dto.lang, learnerId);
   }
 
   @Post('sessions/:sid/turn')
-  turn(@Param('sid') sid: string, @Body() dto: TurnDto): Promise<{ novaTurn: string; hint?: string; progress: number }> {
-    return this.solo.turn(sid, dto.learnerId, dto.text, dto.lang ?? 'en');
+  turn(
+    @Param('sid') sid: string,
+    @CurrentUser('sub') learnerId: string,
+    @Body() dto: TurnDto,
+  ): Promise<{ novaTurn: string; hint?: string; progress: number }> {
+    return this.solo.turn(sid, learnerId, dto.text, dto.lang ?? 'en');
   }
 
   @Post('sessions/:sid/hat')

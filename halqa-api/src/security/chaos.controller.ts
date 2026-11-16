@@ -2,6 +2,7 @@ import { Body, Controller, Get, Inject, Post } from '@nestjs/common';
 import { APP_CONFIG } from '../core/config/config.module';
 import type { AppConfig } from '../core/config/app-config';
 import { DegradationService, DegradationMode } from '../ai/degradation/degradation.service';
+import { Public } from './roles.decorator';
 
 export type { DegradationMode };
 
@@ -9,6 +10,7 @@ export type { DegradationMode };
  * Read-only degradation status. Always registered: the frontend's degradation banner
  * needs it in production too, otherwise it silently stays "green" during a real outage.
  */
+@Public()
 @Controller()
 export class DegradationController {
   constructor(private readonly degradation: DegradationService) {}
@@ -20,6 +22,7 @@ export class DegradationController {
 }
 
 /** Dev-only. NOT registered in production (see security.module.ts). */
+@Public()
 @Controller()
 export class ChaosController {
   constructor(

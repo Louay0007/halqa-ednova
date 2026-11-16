@@ -47,7 +47,11 @@ export class LearningService {
     return DNA_ITEMS;
   }
 
-  /** Create a learner (synthetic L-## id, neutral avatar) and write its passport. */
+  /**
+   * Write a DNA passport. With `learnerId` the caller's own record is updated —
+   * that is the HTTP path. Without one a fresh synthetic learner is minted,
+   * which is what in-process callers and the seed do.
+   */
   async completeDna(input: {
     nickname: string;
     context: string;
@@ -55,6 +59,7 @@ export class LearningService {
     answers: DnaAnswers;
     sessionId?: string;
     circleId?: string;
+    learnerId?: string;
   }): Promise<{ learnerId: string; passport: Record<string, unknown> }> {
     const topic = input.topic ?? 'binary_search';
     const styleAnchor: Record<DnaAnswers['S1'], StyleKey> = { visual: 'visual', analogy: 'analogy', steps: 'steps' };
@@ -75,7 +80,7 @@ export class LearningService {
       completedAt: new Date(),
     };
 
-    const learnerId = await this.allocateLearnerId(async (candidate) => {
+    const learnerId = input.learnerId ?? (await this.allocateLearnerId(async (candidate) => {
       await this.learners.create({
         _id: candidate,
         nickname: input.nickname.slice(0, 24),
@@ -84,7 +89,22 @@ export class LearningService {
         lastSeenAt: new Date(),
         passport,
       });
-    });
+    }));
+
+    if (input.learnerId) {
+      const updated = await this.learners.updateOne(
+        { _id: input.learnerId },
+        {
+          $set: {
+            nickname: input.nickname.slice(0, 24),
+            context: input.context,
+            lastSeenAt: new Date(),
+            passport,
+          },
+        },
+      ).exec();
+      if (updated.matchedCount === 0) throw Err.missing(`LEARNER_NOT_FOUND:${input.learnerId}`);
+    }
 
     if (input.sessionId && input.circleId) {
       await this.bus.emit({

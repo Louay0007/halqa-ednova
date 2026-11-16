@@ -7,6 +7,8 @@ export interface SessionToken {
   role: TokenRole;
   iat: number;
   exp: number;
+  /** Token epoch: matches `Learner.tokenEpoch`. Bumping the stored value revokes. */
+  ep?: number;
 }
 
 const SEP = '.';

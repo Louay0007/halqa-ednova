@@ -27,9 +27,10 @@ export function Dna() {
     setBusy(true);
     setErr(null);
     try {
-      // DNA always mints a learner server-side; adopt it so /me and the shell chip point at it.
+      // The server writes the passport onto the caller's own learner record; the
+      // returned id is theirs (or a freshly minted one for an anonymous visitor).
       const r = await api.dna({
-        nickname: sessionStorage.getItem('halqa.nick') ?? `L-${Date.now().toString(36)}`,
+        nickname: sessionStorage.getItem('halqa.nick') ?? undefined,
         context: (params.get('context') as ContextMode | null) ?? 'study',
         answers: answers as Record<string, string>,
       });

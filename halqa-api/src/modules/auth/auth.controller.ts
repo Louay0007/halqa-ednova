@@ -1,6 +1,9 @@
-import { Body, Controller, Get, Headers, Post } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post } from '@nestjs/common';
 import { IsIn, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
-import { AuthService } from './auth.service';
+import { AuthService, LearnerView } from './auth.service';
+import { CurrentUser } from '../../security/current-user.decorator';
+import { Public, Roles } from '../../security/roles.decorator';
+import { RateLimit } from '../../security/rate-limit';
 
 class SessionDto {
   @IsString()
@@ -14,18 +17,42 @@ class SessionDto {
   context!: string;
 }
 
+class UpdateMeDto {
+  @IsOptional()
+  @IsString()
+  avatarKey?: string;
+  @IsOptional()
+  @IsIn(['class', 'study', 'community', 'workshop', 'program', 'solo'])
+  context?: string;
+}
+
 @Controller()
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
+  @Public()
+  // Anonymous by design, so this is the one route worth guarding against minting spam.
+  @RateLimit({ limit: 20, windowS: 60 })
   @Post('auth/session')
-  session(@Body() dto: SessionDto): Promise<{ token: string; learner: { id: string; nickname: string; avatarKey: string } }> {
+  session(@Body() dto: SessionDto): Promise<{ token: string; learner: LearnerView }> {
     return this.auth.session(dto.nickname, dto.avatarKey ?? '', dto.context);
   }
 
+  @Roles('learner')
   @Get('me')
-  me(@Headers('authorization') header?: string): Promise<{ learner: unknown; passport: unknown }> {
-    const token = (header ?? '').startsWith('Bearer ') ? (header as string).slice(7) : '';
-    return this.auth.me(token);
+  me(@CurrentUser('sub') learnerId: string): Promise<{ learner: LearnerView; passport: unknown }> {
+    return this.auth.me(learnerId);
+  }
+
+  @Roles('learner')
+  @Patch('me')
+  update(@CurrentUser('sub') learnerId: string, @Body() dto: UpdateMeDto): Promise<LearnerView> {
+    return this.auth.update(learnerId, dto);
+  }
+
+  @Roles('learner')
+  @Post('auth/signout')
+  signout(@CurrentUser('sub') learnerId: string): Promise<{ ok: true }> {
+    return this.auth.signout(learnerId);
   }
 }

@@ -8,6 +8,7 @@ import type { ContextMode, Language } from '../../common/types/api-error';
 import { contextConfig, ContextConfig } from '../../domain/context-modes';
 import { AVATAR_KEYS, joinCode } from '../../domain/ids';
 import { signToken, TokenRole } from '../../security/tokens';
+import { TokenEpochService } from '../../security/token-epoch.service';
 import { Circle, CircleDocument } from '../../persistence/schemas/circle.schema';
 import { Learner, LearnerDocument } from '../../persistence/schemas/learner.schema';
 import { Session, SessionDocument } from '../../persistence/schemas/session.schema';
@@ -29,6 +30,7 @@ export class CircleService {
     @InjectModel(Session.name) private readonly sessions: Model<SessionDocument>,
     private readonly equity: EquityService,
     private readonly sbu: SbuService,
+    private readonly epochs: TokenEpochService,
   ) {}
 
   async create(input: {
@@ -37,10 +39,12 @@ export class CircleService {
     lang: Language;
     title?: string;
     windowS?: number;
-    hostNickname: string;
+    /** Ignored when `actorId` is present: a signed-in learner hosts as themselves. */
+    hostNickname?: string;
+    actorId?: string;
   }): Promise<{ circle: CircleDocument; hostLearnerId: string; token: string }> {
     const windowS = Math.min(90, Math.max(30, input.windowS ?? 45));
-    const host = await this.makeLearner(input.hostNickname, input.context);
+    const host = await this.resolveActor(input.actorId, input.hostNickname, input.context);
     let code = joinCode();
     for (let i = 0; i < 5; i += 1) {
       try {
@@ -56,7 +60,7 @@ export class CircleService {
           members: [{ learnerId: host._id, role: 'host', joinedAt: new Date() }],
           joinCode: code,
         });
-        const token = signToken({ sub: host._id, role: 'learner' }, this.cfg.TOKEN_SECRET);
+        const token = await this.mintToken(host);
         return { circle, hostLearnerId: host._id, token };
       } catch (e) {
         if ((e as { code?: number }).code !== 11000) throw e;
@@ -66,20 +70,35 @@ export class CircleService {
     throw new Error('CIRCLE_CREATE_FAILED');
   }
 
-  async join(circleId: string, nickname: string, passportFrom?: string): Promise<{ learnerId: string; role: string; token: string }> {
+  /**
+   * Join a circle. A signed-in caller joins as themselves (`actorId`) and keeps
+   * their passport; an anonymous caller still mints a learner from the nickname
+   * so the join screen works before an account exists.
+   */
+  async join(circleId: string, nickname: string | undefined, actorId?: string, passportFrom?: string): Promise<{ learnerId: string; role: string; token: string }> {
     const circle = await this.circles.findOne({ _id: circleId }).exec();
     if (!circle) throw Err.missing(`CIRCLE_NOT_FOUND:${circleId}`);
     if (circle.state === 'wrapped') throw Err.conflict(`CIRCLE_CLOSED:${circleId}`);
+
+    if (actorId && circle.members.some((m) => m.learnerId === actorId)) {
+      const member = await this.learners.findOne({ _id: actorId }).lean().exec();
+      if (!member) throw Err.missing(`LEARNER_NOT_FOUND:${actorId}`);
+      return { learnerId: member._id, role: circle.members.find((m) => m.learnerId === actorId)!.role, token: await this.mintToken(member) };
+    }
+
+    if (!nickname) throw Err.bad('NICKNAME_EMPTY');
     const memberIds = circle.members.map((m) => m.learnerId);
     const existing = await this.learners.find({ _id: { $in: memberIds } }).lean().exec();
     if (existing.some((l) => l.nickname.toLowerCase() === nickname.toLowerCase())) {
       throw Err.conflict('NICKNAME_TAKEN');
     }
     const donor = passportFrom ? await this.learners.findOne({ _id: passportFrom }).lean().exec() : null;
-    const learner = await this.makeLearner(nickname, circle.context as ContextMode, donor?.passport as LearnerDocument['passport'] | undefined);
+    const learner = actorId
+      ? await this.adoptActor(actorId, nickname, circle.context as ContextMode)
+      : await this.makeLearner(nickname, circle.context as ContextMode, donor?.passport as LearnerDocument['passport'] | undefined);
     circle.members.push({ learnerId: learner._id, role: 'peer', joinedAt: new Date() });
     await circle.save();
-    const token = signToken({ sub: learner._id, role: 'learner' as TokenRole }, this.cfg.TOKEN_SECRET);
+    const token = await this.mintToken(learner);
     return { learnerId: learner._id, role: 'peer', token };
   }
 
@@ -125,6 +144,28 @@ export class CircleService {
       credits: credits.map((c) => ({ learnerId: c.learnerId, total: c.total })),
       needsHuman: view.needsHuman,
     };
+  }
+
+  /** A token must carry the learner's live epoch, or a revoked token would be re-issued. */
+  private async mintToken(learner: { _id: string }): Promise<string> {
+    const epoch = (await this.epochs.current(learner._id)) ?? 0;
+    return signToken({ sub: learner._id, role: 'learner' as TokenRole, ep: epoch }, this.cfg.TOKEN_SECRET);
+  }
+
+  /** Signed-in host/peer: reuse the caller's learner instead of minting a second one. */
+  private async resolveActor(actorId: string | undefined, nickname: string | undefined, context: string): Promise<LearnerDocument> {
+    if (actorId) return this.adoptActor(actorId, nickname, context);
+    if (!nickname) throw Err.bad('NICKNAME_EMPTY');
+    return this.makeLearner(nickname, context);
+  }
+
+  /** Point an existing learner at this circle context, refreshing a nickname if one is given. */
+  private async adoptActor(actorId: string, nickname: string | undefined, context: string): Promise<LearnerDocument> {
+    const set: Record<string, unknown> = { context, lastSeenAt: new Date() };
+    if (nickname) set.nickname = nickname.slice(0, 24);
+    const doc = await this.learners.findOneAndUpdate({ _id: actorId }, { $set: set }, { new: true }).exec();
+    if (!doc) throw Err.missing(`LEARNER_NOT_FOUND:${actorId}`);
+    return doc;
   }
 
   private async makeLearner(nickname: string, context: string, passport?: LearnerDocument['passport']): Promise<LearnerDocument> {

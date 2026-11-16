@@ -17,6 +17,7 @@ import { LlmCall, LlmCallDocument } from '../../src/persistence/schemas/ai.schem
 import { getModelToken } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import type { LlmRequest } from '../../src/domain/ports/llm-port';
+import { newCircle, newLearner } from './support/auth';
 
 // Phase-5 exit gate — output slice works end-to-end:
 // solo (≤8 C / 0 L) · capsule (C draft + constraints) · quiz (bank, offline)
@@ -95,16 +96,10 @@ describe('phase-5 outputs (integration)', () => {
     await mongod?.stop();
   });
 
+  /** Circle + host + peer + live session, with the bearer headers each needs. */
   async function setup() {
-    const circle = await request(app.getHttpServer())
-      .post('/api/v1/circles')
-      .send({ topic: 'binary_search', context: 'study', lang: 'en', hostNickname: 'HostA' })
-      .expect(201);
-    const session = await request(app.getHttpServer())
-      .post(`/api/v1/circles/${circle.body.circleId}/sessions`)
-      .send()
-      .expect(201);
-    return { circleId: circle.body.circleId as string, hostId: circle.body.hostLearnerId as string, sessionId: session.body.sessionId as string };
+    const c = await newCircle(app, { topic: 'binary_search' });
+    return { circleId: c.circleId, hostId: c.host.learnerId, sessionId: c.sessionId, host: c.host, peer: c.peer };
   }
 
   it('auth: session + me round-trip, HMAC, no PII', async () => {
@@ -121,24 +116,28 @@ describe('phase-5 outputs (integration)', () => {
 
   it('solo: full loop ≤8 C / 0 L, invite deep-link', async () => {
     const since = new Date();
+    const learner = await newLearner(app, 'SoloNova');
     const started = await request(app.getHttpServer())
       .post('/api/v1/solo/sessions')
-      .send({ topic: 'binary_search', lang: 'darija', learnerId: 'L-90' })
+      .set(learner.headers)
+      .send({ topic: 'binary_search', lang: 'darija' })
       .expect(201);
     expect(started.body.hat).toBe('NOVA_NOVICE');
     for (let i = 0; i < 3; i += 1) {
       const t = await request(app.getHttpServer())
         .post(`/api/v1/solo/sessions/${started.body.sessionId}/turn`)
-        .send({ learnerId: 'L-90', text: 'the array must be sorted because halving needs order', lang: 'darija' })
+        .set(learner.headers)
+        .send({ text: 'the array must be sorted because halving needs order', lang: 'darija' })
         .expect(201);
       expect(t.body.progress).toBeGreaterThan(0);
     }
     const hat = await request(app.getHttpServer())
       .post(`/api/v1/solo/sessions/${started.body.sessionId}/hat`)
+      .set(learner.headers)
       .send({ hat: 'NOVA_SKEPTIC' })
       .expect(201);
     expect(hat.body.hat).toBe('NOVA_SKEPTIC');
-    const inv = await request(app.getHttpServer()).post(`/api/v1/solo/sessions/${started.body.sessionId}/invite`).send().expect(201);
+    const inv = await request(app.getHttpServer()).post(`/api/v1/solo/sessions/${started.body.sessionId}/invite`).set(learner.headers).send().expect(201);
     expect(inv.body.deepLink).toContain('halqa://join');
     const rows = await llmCalls.find({ sessionId: started.body.sessionId, ts: { $gte: since } }).lean().exec();
     expect(rows.filter((r) => r.tier === 'L').length).toBe(0);
@@ -147,43 +146,45 @@ describe('phase-5 outputs (integration)', () => {
   });
 
   it('capsule: build + get, bullets ≤15 words, 3 quiz qids resolve', async () => {
-    const { sessionId } = await setup();
+    const { sessionId, host } = await setup();
     // Seed one resolved question so the draft has material.
-    const q = await request(app.getHttpServer()).post('/api/v1/questions').send({ sessionId, askerId: 'L-01', text: 'Why sorted first?' }).expect(201);
-    await request(app.getHttpServer()).post(`/api/v1/questions/${q.body.qid}/skip`).send({ askerId: 'L-01' }).expect(201);
-    const built = await request(app.getHttpServer()).post(`/api/v1/sessions/${sessionId}/capsule`).send().expect(201);
+    const q = await request(app.getHttpServer()).post('/api/v1/questions').set(host.headers).send({ sessionId, text: 'Why sorted first?' }).expect(201);
+    await request(app.getHttpServer()).post(`/api/v1/questions/${q.body.qid}/skip`).set(host.headers).send().expect(201);
+    const built = await request(app.getHttpServer()).post(`/api/v1/sessions/${sessionId}/capsule`).set(host.headers).send().expect(201);
     expect(built.body.bullets.length).toBe(3);
     for (const b of built.body.bullets as string[]) expect(b.split(/\s+/).length).toBeLessThanOrEqual(15);
     expect((built.body.visual_desc as string).split(/\s+/).length).toBeLessThanOrEqual(40);
-    const got = await request(app.getHttpServer()).get(`/api/v1/sessions/${sessionId}/capsule`).expect(200);
+    const got = await request(app.getHttpServer()).get(`/api/v1/sessions/${sessionId}/capsule`).set(host.headers).expect(200);
     expect(got.body.bullets.length).toBe(3);
   });
 
   it('quiz: battle from bank, answer awards xp', async () => {
-    const { circleId, sessionId } = await setup();
-    const battle = await request(app.getHttpServer()).post('/api/v1/quiz/battle').send({ circleId, sessionId }).expect(201);
+    const { circleId, sessionId, host } = await setup();
+    const battle = await request(app.getHttpServer()).post('/api/v1/quiz/battle').set(host.headers).send({ circleId, sessionId }).expect(201);
     expect(battle.body.items.length).toBeGreaterThan(0);
     const first = battle.body.items[0] as { qid: string };
     const ans = await request(app.getHttpServer())
       .post(`/api/v1/quiz/battle/${battle.body.bid}/answer`)
-      .send({ sessionId, circleId, learnerId: 'L-01', qid: first.qid, choice: 'a' })
+      .set(host.headers)
+      .send({ sessionId, circleId, qid: first.qid, choice: 'a' })
       .expect(201);
     expect(typeof ans.body.correct).toBe('boolean');
     expect(ans.body.xp).toBeGreaterThan(0);
   });
 
   it('whisper: run ≤1 C, drift map has kept/lost/distorted/added', async () => {
-    const { circleId, sessionId } = await setup();
+    const { circleId, sessionId, host, peer } = await setup();
     const since = new Date();
     const run = await request(app.getHttpServer())
       .post('/api/v1/whisper')
+      .set(host.headers)
       .send({
         sessionId,
         circleId,
         topic: 'binary_search',
         steps: [
-          { authorId: 'L-01', text: 'Binary search halves a sorted array, O(log n).' },
-          { authorId: 'L-02', text: 'It halves the array each step to find things fast.' },
+          { authorId: host.learnerId, text: 'Binary search halves a sorted array, O(log n).' },
+          { authorId: peer.learnerId, text: 'It halves the array each step to find things fast.' },
         ],
       })
       .expect(201);
@@ -193,6 +194,7 @@ describe('phase-5 outputs (integration)', () => {
     expect(rows.length).toBeLessThanOrEqual(1);
     const repair = await request(app.getHttpServer())
       .post(`/api/v1/whisper/${run.body.chainId}/repair`)
+      .set(host.headers)
       .send({ sessionId, circleId, text: 'needs-sorted halving log-n trace' })
       .expect(201);
     expect(repair.body.coverage).toBeGreaterThan(0);
@@ -200,15 +202,16 @@ describe('phase-5 outputs (integration)', () => {
   });
 
   it('mentor: join observer + note + brief ≤60 words', async () => {
-    const { circleId, sessionId } = await setup();
-    const join = await request(app.getHttpServer()).post(`/api/v1/circles/${circleId}/mentor/join`).send({ mentorId: 'L-77' }).expect(201);
+    const { circleId, sessionId, host } = await setup();
+    const join = await request(app.getHttpServer()).post(`/api/v1/circles/${circleId}/mentor/join`).set(host.headers).send().expect(201);
     expect(join.body.role).toBe('observer');
     const note = await request(app.getHttpServer())
       .post('/api/v1/mentor/notes')
-      .send({ circleId, mentorId: 'L-77', text: 'Nice bridging, keep inviting quiet voices.', sessionId })
+      .set(host.headers)
+      .send({ circleId, text: 'Nice bridging, keep inviting quiet voices.', sessionId })
       .expect(201);
     expect(note.body.noteId).toBeDefined();
-    const brief = await request(app.getHttpServer()).get(`/api/v1/mentor/brief?circleId=${circleId}&sessionId=${sessionId}`).expect(200);
+    const brief = await request(app.getHttpServer()).get(`/api/v1/mentor/brief?circleId=${circleId}&sessionId=${sessionId}`).set(host.headers).expect(200);
     expect(brief.body.words).toBeLessThanOrEqual(60);
   });
 
@@ -225,23 +228,27 @@ describe('phase-5 outputs (integration)', () => {
   });
 
   it('coach: card renders from passport; gamification caps; no leaderboard route', async () => {
+    const coach = await newLearner(app, 'CoachT');
     const dna = await request(app.getHttpServer())
       .post('/api/v1/dna')
-      .send({ nickname: 'CoachT', context: 'study', answers: { L1: 'beginner', S1: 'visual', G1: 'fr', C1: 'unsure' } })
+      .set(coach.headers)
+      .send({ answers: { L1: 'beginner', S1: 'visual', G1: 'fr', C1: 'unsure' } })
       .expect(201);
-    const card = await request(app.getHttpServer()).get(`/api/v1/passports/${dna.body.learnerId}/explain-card`).expect(200);
+    expect(dna.body.learnerId).toBe(coach.learnerId);
+    const card = await request(app.getHttpServer()).get(`/api/v1/passports/${dna.body.learnerId}/explain-card`).set(coach.headers).expect(200);
     expect(typeof card.body.card).toBe('string');
     // Daily cap: 10 votes → capped at 15 xp-worth of grants... award returns per-grant xp.
     let total = 0;
     for (let i = 0; i < 10; i += 1) {
       const r = await request(app.getHttpServer())
         .post(`/api/v1/learners/${dna.body.learnerId}/xp`)
+        .set(coach.headers)
         .send({ sessionId: 'S-cap', circleId: 'C-1', signal: 'poll_vote' })
         .expect(201);
       total += r.body.xp as number;
     }
     expect(total).toBeLessThanOrEqual(15);
-    await request(app.getHttpServer()).get('/api/v1/leaderboard').expect(404);
+    await request(app.getHttpServer()).get('/api/v1/leaderboard').set(coach.headers).expect(404);
     void game;
   });
 
@@ -260,10 +267,11 @@ describe('phase-5 outputs (integration)', () => {
   });
 
   it('contract: new routes return the uniform error shape on bad input', async () => {
-    const bad = await request(app.getHttpServer()).post('/api/v1/solo/sessions').send({ topic: 'x' }).expect(400);
+    const any = await newLearner(app, 'ContractNova');
+    const bad = await request(app.getHttpServer()).post('/api/v1/solo/sessions').set(any.headers).send({ topic: 'x' }).expect(400);
     expect(bad.body).toHaveProperty('error');
     expect(bad.body).toHaveProperty('user_msg.en');
-    const missing = await request(app.getHttpServer()).get('/api/v1/sessions/S-nope/capsule').expect(404);
+    const missing = await request(app.getHttpServer()).get('/api/v1/sessions/S-nope/capsule').set(any.headers).expect(404);
     expect(missing.body).toHaveProperty('error');
   });
 });

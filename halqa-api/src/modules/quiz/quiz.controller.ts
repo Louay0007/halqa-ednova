@@ -2,6 +2,7 @@ import { Body, Controller, Param, Post } from '@nestjs/common';
 import { IsIn, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { QuizService } from './quiz.service';
 import { Roles } from '../../security/roles.decorator';
+import { CurrentUser } from '../../security/current-user.decorator';
 
 class BattleDto {
   @IsString()
@@ -22,9 +23,10 @@ class AnswerDto {
   @IsString()
   @IsNotEmpty()
   circleId!: string;
+  /** Deprecated: the answering learner is the authenticated caller. */
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  learnerId!: string;
+  learnerId?: string;
   @IsString()
   @IsNotEmpty()
   qid!: string;
@@ -44,7 +46,11 @@ export class QuizController {
   }
 
   @Post('battle/:bid/answer')
-  answer(@Param('bid') bid: string, @Body() dto: AnswerDto): { correct: boolean; explain: string; xp: number } {
-    return this.quiz.answer(bid, dto.sessionId, dto.circleId, dto.learnerId, dto.qid, dto.choice);
+  answer(
+    @Param('bid') bid: string,
+    @CurrentUser('sub') learnerId: string,
+    @Body() dto: AnswerDto,
+  ): { correct: boolean; explain: string; xp: number } {
+    return this.quiz.answer(bid, dto.sessionId, dto.circleId, learnerId, dto.qid, dto.choice);
   }
 }

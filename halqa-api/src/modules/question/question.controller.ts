@@ -3,14 +3,17 @@ import { Response } from 'express';
 import { IsBoolean, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Max, Min } from 'class-validator';
 import { QuestionService } from './question.service';
 import { Roles } from '../../security/roles.decorator';
+import { CurrentUser } from '../../security/current-user.decorator';
+import { MembershipService } from '../../security/membership.service';
 
 class CreateQuestionDto {
   @IsString()
   @IsNotEmpty()
   sessionId!: string;
+  /** Deprecated: the asker is the authenticated caller. Kept optional for old clients. */
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  askerId!: string;
+  askerId?: string;
   @IsString()
   @IsNotEmpty()
   text!: string;
@@ -23,9 +26,10 @@ class CreateQuestionDto {
 }
 
 class PeerAnswerDto {
+  /** Deprecated: the author is the authenticated caller. */
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  authorId!: string;
+  authorId?: string;
   @IsString()
   @IsNotEmpty()
   text!: string;
@@ -35,15 +39,10 @@ class PeerAnswerDto {
 }
 
 class ActorDto {
+  /** Deprecated: the actor is the authenticated caller. */
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  askerId!: string;
-}
-
-class AuthorDto {
-  @IsString()
-  @IsNotEmpty()
-  learnerId!: string;
+  askerId?: string;
 }
 
 class HintDto extends ActorDto {
@@ -56,7 +55,10 @@ class HintDto extends ActorDto {
 @Roles('learner')
 @Controller('questions')
 export class QuestionController {
-  constructor(private readonly questions: QuestionService) {}
+  constructor(
+    private readonly questions: QuestionService,
+    private readonly members: MembershipService,
+  ) {}
 
   @Get()
   async list(@Query('sessionId') sessionId: string) {
@@ -64,8 +66,12 @@ export class QuestionController {
   }
 
   @Post()
-  async create(@Body() dto: CreateQuestionDto): Promise<{ qid: string; state: string; windowS: number; windowEndsAt?: Date }> {
-    const q = await this.questions.create(dto);
+  async create(
+    @CurrentUser('sub') askerId: string,
+    @Body() dto: CreateQuestionDto,
+  ): Promise<{ qid: string; state: string; windowS: number; windowEndsAt?: Date }> {
+    await this.members.assertSessionMember(dto.sessionId, askerId);
+    const q = await this.questions.create({ ...dto, askerId });
     return { qid: q._id, state: q.state, windowS: q.windowS, windowEndsAt: q.windowEndsAt };
   }
 
@@ -87,28 +93,44 @@ export class QuestionController {
   }
 
   @Post(':qid/peer-answer')
-  peerAnswer(@Param('qid') qid: string, @Body() dto: PeerAnswerDto): Promise<{ aid: string; creditsAwarded: number }> {
-    return this.questions.peerAnswer(qid, dto.authorId, dto.text, dto.lang);
+  peerAnswer(
+    @Param('qid') qid: string,
+    @CurrentUser('sub') authorId: string,
+    @Body() dto: PeerAnswerDto,
+  ): Promise<{ aid: string; creditsAwarded: number }> {
+    return this.questions.peerAnswer(qid, authorId, dto.text, dto.lang);
   }
 
   /** Alias of peer-answer (plan §9 lists both spellings). */
   @Post(':qid/answer')
-  answer(@Param('qid') qid: string, @Body() dto: PeerAnswerDto): Promise<{ aid: string }> {
-    return this.questions.peerAnswer(qid, dto.authorId, dto.text, dto.lang);
+  answer(
+    @Param('qid') qid: string,
+    @CurrentUser('sub') authorId: string,
+    @Body() dto: PeerAnswerDto,
+  ): Promise<{ aid: string }> {
+    return this.questions.peerAnswer(qid, authorId, dto.text, dto.lang);
   }
 
   @Post(':qid/me-too')
-  meToo(@Param('qid') qid: string, @Body() dto: AuthorDto): Promise<{ ok: boolean }> {
-    return this.questions.meToo(qid, dto.learnerId);
+  meToo(@Param('qid') qid: string, @CurrentUser('sub') learnerId: string): Promise<{ ok: boolean }> {
+    return this.questions.meToo(qid, learnerId);
   }
 
   @Post(':qid/skip')
-  skip(@Param('qid') qid: string, @Body() dto: ActorDto): Promise<{ answer: string; tierUsed: string; cached: boolean; cites: string[] }> {
-    return this.questions.skip(qid, dto.askerId);
+  skip(
+    @Param('qid') qid: string,
+    @CurrentUser('sub') askerId: string,
+    @Body() _dto: ActorDto,
+  ): Promise<{ answer: string; tierUsed: string; cached: boolean; cites: string[] }> {
+    return this.questions.skip(qid, askerId);
   }
 
   @Post(':qid/hint')
-  hint(@Param('qid') qid: string, @Body() dto: HintDto): Promise<{ hint: string; level: number; cites: string[] }> {
-    return this.questions.hint(qid, dto.askerId, dto.level as 1 | 2 | 3 | 4);
+  hint(
+    @Param('qid') qid: string,
+    @CurrentUser('sub') askerId: string,
+    @Body() dto: HintDto,
+  ): Promise<{ hint: string; level: number; cites: string[] }> {
+    return this.questions.hint(qid, askerId, dto.level as 1 | 2 | 3 | 4);
   }
 }

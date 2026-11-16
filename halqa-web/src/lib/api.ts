@@ -33,6 +33,20 @@ export const tokenStore = {
   clear: () => sessionStorage.removeItem(TOKEN_KEY),
 };
 
+/**
+ * A 401 means the server no longer honours the stored token (expired, or the
+ * learner signed out elsewhere and the epoch moved). Keeping it would leave every
+ * screen silently broken, so drop it and bounce to the entry screen.
+ * `SessionProvider` overrides this to stay inside the router instead of reloading.
+ */
+let onUnauthorized: () => void = () => {
+  tokenStore.clear();
+  if (!window.location.pathname.startsWith('/enter')) window.location.assign('/enter');
+};
+export const setUnauthorizedHandler = (fn: () => void) => {
+  onUnauthorized = fn;
+};
+
 /** Device clock minus server clock, learned from the `Date` response header. */
 let clockSkewMs = 0;
 const skewSeen = () => clockSkewMs !== 0;
@@ -54,6 +68,10 @@ async function req<T>(path: string, init?: RequestInit & { etag?: string }): Pro
   const etag = res.headers.get('ETag');
   if (res.status === 304) return { data: undefined as T, etag, notModified: true };
   const body = (await res.json().catch(() => ({}))) as T & ApiError;
+  if (res.status === 401 && token) {
+    tokenStore.clear();
+    onUnauthorized();
+  }
   if (!res.ok) throw new ApiFailure(res.status, body as ApiError);
   return { data: body as T, etag, notModified: false };
 }
@@ -80,9 +98,10 @@ export const api = {
     post<{ token: string; learner: { id: string; nickname: string; avatarKey: string } }>('/auth/session', { nickname, context, avatarKey }),
   me: () => get<{ learner: unknown; passport: Passport | null }>('/me'),
   dnaItems: () => get<{ items: Array<{ id: string; prompt: string; options: string[] }> }>('/dna/items'),
-  dna: (input: { nickname: string; context: string; topic?: string; answers: Record<string, string>; sessionId?: string; circleId?: string }) =>
+  dna: (input: { nickname?: string; context?: string; topic?: string; answers: Record<string, string>; sessionId?: string; circleId?: string }) =>
     post<{ learnerId: string; passport: Passport }>('/dna', input),
   explainCard: (learnerId: string) => get<{ card: string; visible: boolean }>(`/passports/${learnerId}/explain-card`),
+  signout: () => post<{ ok: true }>('/auth/signout'),
 
   /* circles + sessions */
   circleCreate: (input: { topic: string; context: ContextMode; lang: Lang; title?: string; windowS?: number; hostNickname: string }) =>

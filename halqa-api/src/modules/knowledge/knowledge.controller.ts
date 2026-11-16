@@ -1,6 +1,8 @@
 import { Controller, Get, Query } from '@nestjs/common';
 import { KnowledgeService } from './knowledge.service';
+import { Public } from '../../security/roles.decorator';
 
+@Public()
 @Controller('kb')
 export class KnowledgeController {
   constructor(private readonly knowledge: KnowledgeService) {}

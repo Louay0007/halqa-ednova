@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { IsIn, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { ConsensusService } from './consensus.service';
 import { Roles } from '../../security/roles.decorator';
+import { CurrentUser } from '../../security/current-user.decorator';
 
 class CreatePollDto {
   @IsOptional()
@@ -21,9 +22,10 @@ class CreatePollDto {
 }
 
 class VoteDto {
+  /** Deprecated: the voter is the authenticated caller. */
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  learnerId!: string;
+  learnerId?: string;
   @IsString()
   @IsNotEmpty()
   choice!: string;
@@ -49,8 +51,12 @@ export class ConsensusController {
   }
 
   @Post(':pid/vote')
-  vote(@Param('pid') pid: string, @Body() dto: VoteDto): Promise<{ tally: Record<string, number>; total: number }> {
-    return this.consensus.vote(pid, dto.learnerId, dto.choice);
+  vote(
+    @Param('pid') pid: string,
+    @CurrentUser('sub') learnerId: string,
+    @Body() dto: VoteDto,
+  ): Promise<{ tally: Record<string, number>; total: number }> {
+    return this.consensus.vote(pid, learnerId, dto.choice);
   }
 
   @Post(':pid/close')

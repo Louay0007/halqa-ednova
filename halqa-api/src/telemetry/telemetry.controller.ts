@@ -1,6 +1,8 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import { EventBus } from './event-bus';
+import { Public } from '../security/roles.decorator';
 
+@Public()
 @Controller('telemetry')
 export class TelemetryController {
   constructor(private readonly bus: EventBus) {}
