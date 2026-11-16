@@ -426,6 +426,40 @@ async function main(): Promise<void> {
       if (o.body.mode !== 'orange') throw new Error(`mode=${o.body.mode}`);
       await api('post', '/chaos').send({ mode: 'green' }).expect(201);
     });
+    // Two behaviours the UI depends on that were broken before: the Debrief screen ends the
+    // session on every mount (so `end` must not re-stamp), and the relay needs a real chain.
+    await check('session end is idempotent (Debrief remounts)', async () => {
+      const first = await api('post', `/sessions/${sessionId}/end`).expect(201);
+      const endedAt = first.body.endedAt;
+      if (!endedAt) throw new Error('no endedAt');
+      const eventsBefore = await api('get', `/telemetry/sessions/${sessionId}/events?limit=200`).expect(200);
+      const endsBefore = (eventsBefore.body as Array<{ type: string }>).filter((e) => e.type === 'session_end').length;
+      const second = await api('post', `/sessions/${sessionId}/end`).expect(201);
+      if (second.body.endedAt !== endedAt) throw new Error(`endedAt moved: ${endedAt} → ${second.body.endedAt}`);
+      const eventsAfter = await api('get', `/telemetry/sessions/${sessionId}/events?limit=200`).expect(200);
+      const endsAfter = (eventsAfter.body as Array<{ type: string }>).filter((e) => e.type === 'session_end').length;
+      if (endsAfter !== endsBefore) throw new Error(`session_end re-emitted: ${endsBefore} → ${endsAfter}`);
+    });
+    await check('whisper rejects a 1-link chain (UI must send >=2)', async () => {
+      const r = await api('post', '/whisper').send({
+        sessionId, circleId, topic: 'binary_search',
+        steps: [{ authorId: askerId, text: 'Binary search halves a sorted array.' }],
+      });
+      expectErrorShape(r, 400, 'whisper-1-step');
+      if (!JSON.stringify(r.body).includes('WHISPER_NEEDS_CHAIN')) throw new Error('wrong code');
+    });
+    await check('domain error user_msg is localised for ar/fr/darija', async () => {
+      // Uses a real domain code (the DTO validator only produces English sentences,
+      // which is expected: unmatched codes keep the detail rather than inventing text).
+      const r = await api('get', '/sessions/S-nope');
+      expectErrorShape(r, 404, 'session-404');
+      if (r.body.code !== 'SESSION_NOT_FOUND') throw new Error(`code=${r.body.code}`);
+      const msg = r.body.user_msg as Record<string, string>;
+      for (const k of ['ar', 'fr', 'darija']) {
+        if (!msg[k] || msg[k] === msg.en) throw new Error(`user_msg.${k} fell back to English`);
+      }
+      if (!/[\u0600-\u06FF]/.test(msg.ar)) throw new Error('user_msg.ar is not Arabic');
+    });
     await check('unknown route → uniform 404 shape, no stack', async () => {
       const r = await api('get', '/nope-route-xyz');
       expectErrorShape(r, 404, '404-shape');
