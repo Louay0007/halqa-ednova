@@ -5,6 +5,7 @@ import LogoIcon from '../assets/logo-icon';
 import { ApiFailure, api, type ContextMode } from '../lib/api';
 import { useSession } from '../lib/session';
 import { ErrorNote } from '../components/ui';
+import { t } from '../lib/i18n';
 import { AVATARS, iconFor } from '../lib/avatars';
 
 /**
@@ -154,14 +155,14 @@ export function Enter() {
               <span translate="no">HALQA</span>
             </Link>
             <h1 className="enter-title">
-              {isGuest ? 'Step in quietly' : isSignup ? 'Claim your seat' : 'Welcome back'}
+              {isGuest ? t('enter_step_title', lang) : isSignup ? t('enter_claim_title', lang) : t('enter_welcome_title', lang)}
             </h1>
             <p className="enter-sub">
               {isGuest
-                ? 'A nickname, nothing more. Claim an account later from your passport.'
+                ? t('enter_guest_sub', lang)
                 : isSignup
-                  ? 'A pseudonym and a passphrase. No email, nothing personal.'
-                  : 'Sign back in from any device.'}
+                  ? t('enter_signup_sub', lang)
+                  : t('enter_signin_sub', lang)}
             </p>
           </motion.div>
 
@@ -170,7 +171,7 @@ export function Enter() {
               <div className="enter-tabs" role="group" aria-label="Sign in, create an account, or try as a guest">
                 {(['signup', 'signin', 'guest'] as const).map((m) => (
                   <button key={m} type="button" className={`enter-tab${mode === m ? ' is-on' : ''}`} aria-pressed={mode === m} onClick={() => pick(m)}>
-                    {m === 'signup' ? 'Create account' : m === 'signin' ? 'Sign in' : 'Try it'}
+                    {m === 'signup' ? t('enter_signup_cta', lang) : m === 'signin' ? t('enter_signin_cta', lang) : t('enter_guest_cta_short', lang)}
                   </button>
                 ))}
               </div>
@@ -227,7 +228,7 @@ export function Enter() {
                         aria-invalid={handleProblem !== null}
                       />
                       <p id="handle-hint" className={`enter-hint${handleProblem ? ' is-bad' : ''}`}>
-                        {handleProblem ?? 'Lowercase, how peers find you.'}
+                        {handleProblem ?? t('enter_handle_hint', lang)}
                       </p>
                     </div>
 
@@ -252,22 +253,22 @@ export function Enter() {
                         <button
                           type="button"
                           className="enter-reveal"
-                          aria-label={showSecret ? 'Hide passphrase' : 'Show passphrase'}
+                          aria-label={showSecret ? t('enter_hide', lang) : t('enter_show', lang)}
                           aria-pressed={showSecret}
                           onClick={() => setShowSecret((v) => !v)}
                         >
-                          {showSecret ? 'Hide' : 'Show'}
+                          {showSecret ? t('enter_hide', lang) : t('enter_show', lang)}
                         </button>
                       </div>
                       <p id="secret-hint" className={`enter-hint${secretProblem ? ' is-bad' : ''}`}>
-                        {secretProblem ?? `${PASSPHRASE_MIN} characters minimum.`}
+                        {secretProblem ?? t('enter_min_chars', lang, { n: PASSPHRASE_MIN })}
                       </p>
                     </div>
                   </>
                 )}
 
                 <fieldset className="enter-field">
-                  <legend className="enter-label">Avatar</legend>
+                  <legend className="enter-label">{t('enter_avatar', lang)}</legend>
                   <div className="enter-avatars" role="radiogroup" aria-label="Avatar" translate="no">
                     {AVATARS.map((a) => (
                       <label key={a} className={`enter-avatar${avatar === a ? ' is-on' : ''}`}>
@@ -280,7 +281,7 @@ export function Enter() {
                 </fieldset>
 
                 <fieldset className="enter-field">
-                  <legend className="enter-label">Where will you learn?</legend>
+                  <legend className="enter-label">{t('enter_context', lang)}</legend>
                   <div className="enter-contexts" role="radiogroup" aria-label="Context" translate="no">
                     {CONTEXTS.map((c) => (
                       <label key={c.id} className={`enter-context${context === c.id ? ' is-on' : ''}`}>
@@ -298,26 +299,26 @@ export function Enter() {
                 <button type="submit" className="enter-submit" disabled={!canSubmit}>
                   {busy
                     ? isGuest
-                      ? 'Stepping in…'
+                      ? t('enter_busy_guest', lang)
                       : isSignup
-                        ? 'Claiming…'
-                        : 'Signing in…'
+                        ? t('enter_busy_signup', lang)
+                        : t('enter_busy_signin', lang)
                     : isGuest
-                      ? 'Continue as guest'
+                      ? t('enter_guest_cta', lang)
                       : isSignup
-                        ? 'Create account'
-                        : 'Sign in'}
+                        ? t('enter_signup_cta', lang)
+                        : t('enter_signin_cta', lang)}
                 </button>
 
                 <p className="enter-hint" style={{ textAlign: 'center' }}>
-                  No email. No phone. {isSignup ? 'Just a pseudonym and a passphrase.' : 'Accounts stay pseudonymous by design.'}
+                  No email. No phone. {isSignup ? t('enter_foot_signup', lang) : t('enter_foot_other', lang)}
                 </p>
               </div>
             </form>
           </motion.div>
 
           <motion.p variants={softReveal} className="enter-foot">
-            <Link to="/circles/join">Have a join code?</Link>
+            <Link to="/circles/join">{t('have_code_short', lang)}</Link>
           </motion.p>
         </motion.div>
       </div>

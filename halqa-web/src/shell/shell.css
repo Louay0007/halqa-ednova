@@ -15,6 +15,9 @@
   left: 1rem;
   background: var(--card);
   padding: 0.5rem 1rem;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
   z-index: 50;
 }
 .visually-hidden {
@@ -38,6 +41,9 @@
   color: var(--navy);
   text-decoration: none;
   letter-spacing: -0.02em;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
 }
 .code-chip {
   border: 2px solid var(--aqua);
@@ -47,6 +53,9 @@
   padding: 0.25rem 0.8rem;
   font-weight: 800;
   text-decoration: none;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
 }
 .top-right {
   margin-inline-start: auto;
@@ -70,6 +79,9 @@
   border-radius: var(--radius-pill);
   padding: 0.3rem 0.7rem;
   font-weight: 800;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
 }
 main {
   flex: 1;

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from "react-router-dom";
 import { ApiFailure, api, type Lang } from '../lib/api';
 import { useSession } from '../lib/session';
+import { t } from '../lib/i18n';
 import { iconFor } from '../lib/avatars';
 import { PassportView } from './Dna';
 
@@ -90,8 +91,8 @@ export function Me() {
   return (
     <div className="page narrow auth">
       <header className="auth-head">
-        <h1>Passport</h1>
-        <p className="auth-lede">Your learner record on this device.</p>
+        <h1>{t('nav_passport', lang)}</h1>
+        <p className="auth-lede">{t('me_lede', lang)}</p>
       </header>
 
       <section className="auth-card">
@@ -110,7 +111,9 @@ export function Me() {
         {data.passport ? (
           <PassportView p={data.passport} />
         ) : (
-          <p className="muted">No passport yet — run the DNA.</p>
+          <p className="hint" style={{ margin: 0 }}>
+            {t('no_passport', lang)}
+          </p>
         )}
 
         {xp && (

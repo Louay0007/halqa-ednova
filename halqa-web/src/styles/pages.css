@@ -1,5 +1,9 @@
 /* Page-level layouts. Flat surfaces, equal outer margins, section rhythm. */
 
+/* P6 a11y — every interactive target ≥44px, even small utility buttons. */
+.btn-small { min-height: 44px; }
+input:not([type='range']):not([type='checkbox']):not([type='radio']), select, textarea { min-height: 44px; }
+
 .page {
   display: flex;
   flex-direction: column;

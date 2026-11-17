@@ -581,8 +581,8 @@ function ResolvedBody({ qid, view }: { qid: string; view: QuestionState }) {
           )}
           <p className="muted">
             <span className="tier-chip" translate="no">{answer?.tierUsed}</span>
-            {answer?.cached && <span className="tier-chip">cached</span>}
-            {answer?.tierUsed === 'T0' && <span className="tier-chip">offline</span>}
+            {answer?.cached && <span className="tier-chip">{t('cached', lang)}</span>}
+            {answer?.tierUsed === 'T0' && <span className="tier-chip">{t('offline_tag', lang)}</span>}
           </p>
           <CiteChips cites={answer?.cites ?? []} />
         </>
