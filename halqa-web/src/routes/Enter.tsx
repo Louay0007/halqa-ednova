@@ -4,16 +4,15 @@ import { ApiFailure, api, type ContextMode } from '../lib/api';
 import { useSession } from '../lib/session';
 import { ErrorNote } from '../components/ui';
 import { t } from '../lib/i18n';
+import { AVATARS, iconFor } from '../lib/avatars';
 
-// Must match halqa-api/src/domain/ids.ts AVATAR_KEYS — the API silently substitutes unknown keys.
-const AVATARS = ['fox', 'owl', 'star', 'deer', 'wave', 'comet', 'palm', 'lamp'] as const;
-const CONTEXTS: Array<{ id: ContextMode; desc: string }> = [
-  { id: 'class', desc: 'Teacher-led lesson' },
-  { id: 'study', desc: 'Revision circle with friends' },
-  { id: 'community', desc: 'Low-bandwidth friendly' },
-  { id: 'workshop', desc: 'Matched groups + mentor board' },
-  { id: 'program', desc: 'Repeated sessions, spaced review' },
-  { id: 'solo', desc: 'Just you + Nova' },
+const CONTEXTS: Array<{ id: ContextMode; label: string; desc: string }> = [
+  { id: 'class', label: 'Class', desc: 'Teacher-led lesson' },
+  { id: 'study', label: 'Study', desc: 'Revision circle with friends' },
+  { id: 'community', label: 'Community', desc: 'Low-bandwidth friendly' },
+  { id: 'workshop', label: 'Workshop', desc: 'Matched groups + mentor board' },
+  { id: 'program', label: 'Program', desc: 'Repeated sessions, spaced review' },
+  { id: 'solo', label: 'Solo', desc: 'Just you + Nova' },
 ];
 
 export function Enter() {
@@ -22,7 +21,10 @@ export function Enter() {
   const { lang, login } = useSession();
   const [nickname, setNickname] = useState('');
   const [avatar, setAvatar] = useState<string>(() => AVATARS[Math.floor(Math.random() * AVATARS.length)]);
-  const [context, setContext] = useState<ContextMode>((params.get('context') as ContextMode) || 'study');
+  const [context, setContext] = useState<ContextMode>(() => {
+    const preset = params.get('context') as ContextMode | null;
+    return CONTEXTS.some((c) => c.id === preset) ? (preset as ContextMode) : 'study';
+  });
   const [err, setErr] = useState<{ code: string; msg: string; retryable: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -45,67 +47,72 @@ export function Enter() {
     }
   };
 
+  const picked = CONTEXTS.find((c) => c.id === context);
+
   return (
-    <div className="page narrow">
-      <h1>Enter — a nickname, under a minute</h1>
-      <p className="muted">
-        No password and nothing personal: we keep a nickname, a neutral avatar and your device token. Signing out revokes it.
-      </p>
-      <form onSubmit={submit} className="stack">
+    <div className="page narrow auth">
+      <header className="auth-head">
+        <h1>Enter</h1>
+        <p className="auth-lede">A nickname and a token. No password, nothing personal.</p>
+      </header>
+
+      <form onSubmit={submit} className="auth-card">
         <div className="field">
           <label htmlFor="nick">Nickname</label>
-          <input
-            id="nick"
-            name="nickname"
-            autoComplete="nickname"
-            spellCheck={false}
-            maxLength={24}
-            required
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
-            placeholder="e.g. Rim-07…"
-          />
-          <span className="hint tnum">{nickname.length}/24 · anonymous, nothing personal</span>
+          <div className="nick-row">
+            <span className="nick-glyph" aria-hidden="true" translate="no">
+              {iconFor(avatar)}
+            </span>
+            <input
+              id="nick"
+              name="nickname"
+              autoComplete="nickname"
+              spellCheck={false}
+              maxLength={24}
+              required
+              value={nickname}
+              onChange={(e) => setNickname(e.target.value)}
+              placeholder="Rim-07"
+              aria-describedby="nick-hint"
+            />
+          </div>
+          <span className="hint tnum" id="nick-hint">
+            {nickname.length}/24
+          </span>
         </div>
+
         <fieldset className="field">
-          <legend>Avatar (neutral icons only)</legend>
-          <div className="avatar-grid" role="radiogroup" aria-label="Avatar">
+          <legend>Avatar</legend>
+          <div className="avatars" role="radiogroup" aria-label="Avatar" translate="no">
             {AVATARS.map((a) => (
-              <button
-                key={a}
-                type="button"
-                role="radio"
-                aria-checked={avatar === a}
-                aria-pressed={avatar === a}
-                className={`avatar${avatar === a ? ' avatar-on' : ''}`}
-                onClick={() => setAvatar(a)}
-              >
+              <label key={a} className={`avatar-opt${avatar === a ? ' avatar-opt-on' : ''}`}>
+                <input type="radio" name="avatar" value={a} checked={avatar === a} onChange={() => setAvatar(a)} />
                 <span aria-hidden="true">{iconFor(a)}</span>
                 <span className="visually-hidden">{a}</span>
-              </button>
+              </label>
             ))}
           </div>
         </fieldset>
+
         <fieldset className="field">
           <legend>Context</legend>
-          <div className="ctx-grid">
+          <div className="opt-row" role="radiogroup" aria-label="Context" translate="no">
             {CONTEXTS.map((c) => (
-              <button key={c.id} type="button" aria-pressed={context === c.id} className={`ctx${context === c.id ? ' ctx-on' : ''}`} onClick={() => setContext(c.id)}>
-                <strong translate="no">{c.id}</strong>
-                <small>{c.desc}</small>
-              </button>
+              <label key={c.id} className={`pill${context === c.id ? ' pill-on' : ''}`}>
+                <input type="radio" name="context" value={c.id} checked={context === c.id} onChange={() => setContext(c.id)} />
+                {c.label}
+              </label>
             ))}
           </div>
+          <span className="hint">{picked?.desc}</span>
         </fieldset>
+
         {err && <ErrorNote code={err.code} msg={err.msg} retryable={err.retryable} onRetry={() => setErr(null)} />}
-        <button type="submit" className="btn" disabled={busy || nickname.trim().length === 0}>
-          {busy ? `${t('ask', lang)}…` : 'Enter →'}
+
+        <button type="submit" className="btn btn-block" disabled={busy || nickname.trim().length === 0}>
+          {busy ? `${t('ask', lang)}…` : 'Continue'}
         </button>
       </form>
     </div>
   );
-}
-
-function iconFor(a: string): string {
-  return { fox: '🦊', owl: '🦉', star: '⭐', deer: '🦌', wave: '🌊', palm: '🌴', moon: '🌙', key: '🔑' }[a] ?? '⭐';
 }

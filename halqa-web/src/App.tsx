@@ -3,6 +3,8 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import { SessionProvider, useSession } from './lib/session';
 import { Shell } from './shell/Shell';
 import { Landing } from './routes/Landing';
+// Order matters: Tailwind is layered, so unlayered app CSS always outranks it.
+import './styles/tailwind.css';
 import './styles/tokens.css';
 import './components/ui.css';
 import './shell/shell.css';

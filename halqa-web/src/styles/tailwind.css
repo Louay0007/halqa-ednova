@@ -1,0 +1,38 @@
+/* Tailwind v4 — utility layer for the landing page only.
+   Preflight (tailwindcss/preflight.css) is deliberately NOT imported: tokens.css
+   already resets the document, and preflight would flatten every existing screen.
+   Layer order is declared explicitly so tokens.css can put its element resets
+   in `base`: utilities then beat `h1{font-size}`/`a{color}` (let the landing use
+   text-* and text-white/*), while unlayered app CSS (ui/shell/pages) still wins. */
+@layer theme, base, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* The landing markup is written against Tailwind's gray ramp. Rather than fork
+   every class, the ramp is re-pointed at the HALQA palette so utilities resolve
+   to design-system colours instead of introducing a second palette:
+   gray-50 = paper, gray-900 = navy, gray-600 = muted. */
+@theme {
+  --font-pj: var(--font-sans);
+  --font-inter: var(--font-sans);
+
+  /* HALQA tokens exposed to utilities, so the hero uses design-system names
+     (`bg-navy-deep`, `text-aqua`) instead of inventing a parallel palette. */
+  --color-ink: #17242e;
+  --color-muted: #526472;
+  --color-navy: #123047;
+  --color-navy-deep: #070f16;
+  --color-aqua: #1ea7a1;
+  --color-paper: #f4f7f7;
+
+  --color-gray-50: #f4f7f7;
+  --color-gray-100: #e9f0f0;
+  --color-gray-200: #dde7e8;
+  --color-gray-300: #c9d8db;
+  --color-gray-400: #9fb4b8;
+  --color-gray-600: #526472;
+  --color-gray-700: #3a4a56;
+  --color-gray-800: #24343f;
+  --color-gray-900: #123047;
+}

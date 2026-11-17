@@ -129,6 +129,7 @@
   border: 2px solid var(--aqua);
 }
 .btn-small { min-height: 36px; padding: 0.35rem 0.8rem; font-size: var(--text-small); }
+.btn-block { width: 100%; }
 
 .card {
   background: var(--card);

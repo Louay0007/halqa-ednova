@@ -1,3 +1,4 @@
+import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { defineConfig } from 'vite';
@@ -5,6 +6,8 @@ import { defineConfig } from 'vite';
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
+    // Tailwind is scoped to the landing page only (see src/styles/tailwind.css).
+    tailwindcss(),
     react(),
     VitePWA({
       registerType: 'autoUpdate',

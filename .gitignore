@@ -23,3 +23,6 @@ pg*.png
 page*.png
 spec_book.txt
 main.log
+
+# local tooling cache
+.impeccable/
