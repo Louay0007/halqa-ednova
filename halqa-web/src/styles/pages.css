@@ -636,3 +636,57 @@ body.dyslexia { letter-spacing: 0.04em; word-spacing: 0.08em; line-height: 1.8; 
 .solo-budget { text-align: center; }
 .solo-invite { text-align: center; }
 .solo-teach { text-align: center; }
+
+/* §4 R4–R6 — create / join / lobby (P3) */
+.choice-group { border: 2px solid var(--line); }
+.choice-group legend { font-weight: 800; color: var(--navy); padding-inline-start: 0.35rem; }
+.choice-group > label { display: block; font-weight: 800; color: var(--navy); margin-bottom: 0.4rem; }
+.choice-row { display: grid; gap: 0.6rem; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); }
+.choice-card { position: relative; display: flex; flex-direction: column; gap: 0.35rem; min-height: 72px; padding: 0.7rem; border: 2px solid var(--line); border-radius: 12px; cursor: pointer; background: var(--card); transition: border-color var(--dur-pop) var(--ease-out), transform var(--dur-press) var(--ease-out); }
+.choice-card:active { transform: scale(0.98); }
+.choice-on { border-color: var(--aqua); background: color-mix(in srgb, var(--aqua) 8%, var(--card)); }
+.choice-card input { position: absolute; inset: 0; opacity: 0; margin: 0; cursor: pointer; }
+.choice-title { font-weight: 800; color: var(--navy); }
+.chunk-chips { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+.chunk-chip { font-size: var(--text-micro); font-weight: 800; color: var(--aqua-ink); background: color-mix(in srgb, var(--aqua) 12%, var(--card)); border-radius: var(--radius-pill); padding: 0.1rem 0.5rem; }
+.chunk-chip.total { color: var(--muted); background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.pill-row { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.pill { min-height: 44px; padding: 0.4rem 0.9rem; border: 2px solid var(--line); border-radius: var(--radius-pill); background: var(--card); color: var(--ink); font-weight: 700; }
+.pill:active { transform: scale(0.96); }
+.pill-on { border-color: var(--aqua); background: color-mix(in srgb, var(--aqua) 14%, var(--card)); color: var(--aqua-ink); }
+.window-card label { font-weight: 800; color: var(--navy); }
+.window-card input[type='range'] { width: 100%; min-height: 44px; accent-color: var(--aqua); }
+.agenda-preview h2 { margin-bottom: 0.4rem; }
+.result-head { text-align: center; }
+.result-card { display: flex; flex-direction: column; align-items: center; gap: 0.75rem; }
+.result-card .code { font-size: clamp(2.5rem, 10vw, 3.5rem); }
+.code-boxes { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.4rem; }
+.code-box { width: 100%; min-width: 0; min-height: 52px; text-align: center; font-size: 1.3rem; font-weight: 900; border: 2px solid var(--line); border-radius: 10px; background: var(--card); color: var(--navy); }
+.code-box:focus { border-color: var(--aqua); }
+.code-actions { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.6rem; }
+.lobby-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+.lobby-share { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.lobby-share code { flex: 1; min-width: 12rem; font-size: var(--text-micro); overflow-wrap: anywhere; }
+.roster-member { align-items: center; }
+.roster-host { border-color: var(--gold); }
+.host-crown { color: var(--gold); font-size: 1.2rem; }
+.roster-explain { width: 100%; margin: 0.35rem 0 0; }
+.lobby-actions { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+.waiting-host { margin: 0; color: var(--muted); }
+
+/* §4 R8 — debrief (P4) */
+.xp-toast { position: fixed; top: 1rem; inset-inline-end: 1rem; z-index: 50; background: var(--navy); color: var(--gold); border: 2px solid var(--gold); border-radius: var(--radius-pill); padding: 0.5rem 1rem; font-weight: 900; animation: toast-in var(--dur-pop) var(--ease-out); }
+@keyframes toast-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: none; } }
+.capsule-bullets { padding-inline-start: 1.2rem; }
+.capsule-bullets li { margin-bottom: 0.35rem; }
+.capsule-visual { display: flex; gap: 0.6rem; align-items: flex-start; padding: 0.6rem 0.8rem; border: 1px dashed var(--line); border-radius: 10px; background: color-mix(in srgb, var(--aqua) 5%, var(--card)); }
+.capsule-visual span { color: var(--aqua-ink); font-size: 1.4rem; }
+.capsule-visual p { margin: 0; }
+.capsule-next { color: var(--navy); }
+.quiz-result { font-weight: 700; color: var(--muted); }
+.quiz-correct { color: var(--green); }
+.whisper-repair { margin-top: 0.75rem; }
+.coverage { color: var(--green); font-weight: 800; }
+.xp-panel h2 { margin-bottom: 0.4rem; }
+.end-summary { display: grid; gap: 0.6rem; }
+.end-summary .hint { margin: 0; }
