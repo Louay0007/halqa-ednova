@@ -37,7 +37,7 @@ export function Reveal({
   children,
 }: {
   index?: number;
-  as?: 'section' | 'article' | 'div' | 'header' | 'footer';
+  as?: 'section' | 'article' | 'div' | 'header' | 'footer' | 'form';
   className?: string;
   children?: React.ReactNode;
 }) {

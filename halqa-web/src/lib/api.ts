@@ -121,6 +121,14 @@ export const api = {
   sessionStart: (circleId: string) => post<{ sessionId: string }>(`/circles/${circleId}/sessions`),
   sessionEnd: (sessionId: string) => post<{ endedAt: string; health: unknown; credits: unknown; usage: unknown }>(`/sessions/${sessionId}/end`),
   sessionCredits: (sessionId: string) => get<{ credits: Array<{ learnerId: string; total: number }>; dispersion: number; dominant: unknown }>(`/sessions/${sessionId}/credits`),
+  sessionGet: (sessionId: string) =>
+    get<{ _id: string; agenda?: { templateId: string; steps: Array<{ id: string; kind: string; plannedS?: number; done: boolean }> }; credits?: Array<{ learnerId: string; total: number }> }>(`/sessions/${sessionId}`),
+
+  /* coach (private, per-member) */
+  coachNudge: (targetId: string, input: { sessionId: string; circleId: string }) =>
+    post<{ nudge: string; private: true }>(`/coach/nudge/${targetId}`, input),
+  coachRephrase: (input: { sessionId: string; circleId: string; text: string; style?: string; lang?: Lang }) =>
+    post<{ suggestion: string }>('/coach/rephrase', input),
 
   /* questions (CF-AS) */
   questionList: (sessionId: string) => get<{ qids: string[] }>(`/questions?sessionId=${encodeURIComponent(sessionId)}`),
@@ -184,6 +192,7 @@ export interface Health {
 export interface QuestionState {
   qid: string;
   state: 'OPEN' | 'NOVA_THINKING' | 'RESOLVED';
+  text?: string;
   peerCount: number;
   windowS: number;
   windowEndsAt?: string;

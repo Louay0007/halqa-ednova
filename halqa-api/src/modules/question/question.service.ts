@@ -23,6 +23,8 @@ import { EventBus } from '../../telemetry/event-bus';
 export interface StateView {
   qid: string;
   state: string;
+  /** Question stem — truncated so every peer can see what is being asked. */
+  text?: string;
   peerCount: number;
   windowS: number;
   windowEndsAt?: Date; // peers derive the countdown from this (no server `now`: keeps ETags stable)
@@ -292,6 +294,7 @@ export class QuestionService {
     const view: StateView = {
       qid: q._id,
       state: q.state,
+      text: (q.text ?? '').length > 200 ? `${(q.text as string).slice(0, 200)}…` : q.text,
       peerCount,
       windowS: q.windowS,
       windowEndsAt: q.windowEndsAt,
