@@ -1,4 +1,6 @@
 import './ui.css';
+import { useSession } from '../lib/session';
+import { t } from '../lib/i18n';
 
 export function HatChip({ hat }: { hat: string }) {
   const map: Record<string, { label: string; cls: string }> = {
@@ -57,7 +59,8 @@ export function QuotaMeter({ cUsed, cCap, lUsed, lCap }: { cUsed: number; cCap: 
 }
 
 export function CiteChips({ cites, onOpen }: { cites: string[]; onOpen?: (id: string) => void }) {
-  if (!cites || cites.length === 0) return <span className="cites-warn">no cites — file it</span>;
+  const { lang } = useSession();
+  if (!cites || cites.length === 0) return <span className="cites-warn">{t('no_cites', lang)}</span>;
   return (
     <span className="cites">
       {cites.map((c) => (

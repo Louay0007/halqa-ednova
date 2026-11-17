@@ -1,0 +1,581 @@
+/* App shell in the landing hero / /enter language.
+   Scoped to .shell.is-app so the hero and the auth card keep their own frames.
+   Landing and /enter are untouched. */
+
+body:has(.shell.is-app) {
+  background: var(--navy-deep);
+  color: var(--ink-on-dark);
+}
+
+.shell.is-app {
+  --ink: var(--ink-on-dark);
+  --muted: var(--muted-on-dark);
+  --navy: rgba(255, 255, 255, 0.95);
+  --aqua-ink: #9aeee8;
+  --card: var(--glass);
+  --line: var(--glass-line);
+  position: relative;
+  max-width: none;
+  min-height: 100dvh;
+  margin: 0;
+  padding: 0.375rem;
+  background: var(--navy-deep);
+  color: var(--ink-on-dark);
+  -webkit-font-smoothing: antialiased;
+}
+
+.shell.is-app .app-bg,
+.shell.is-app .app-veil {
+  position: absolute;
+  inset: 0.375rem;
+  border-radius: 1.5rem;
+  pointer-events: none;
+}
+.shell.is-app .app-bg {
+  width: calc(100% - 0.75rem);
+  height: calc(100% - 0.75rem);
+  object-fit: cover;
+}
+.shell.is-app .app-veil {
+  background: var(--veil);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.shell.is-app .skip,
+.shell.is-app .topbar,
+.shell.is-app .degrade-banner,
+.shell.is-app .api-notice,
+.shell.is-app main,
+.shell.is-app .bottomnav {
+  position: relative;
+  z-index: 1;
+}
+
+.shell.is-app .topbar {
+  width: min(76rem, 100%);
+  margin-inline: auto;
+  padding: 0.75rem 1.25rem;
+  border: 0;
+  gap: 0.75rem;
+}
+.shell.is-app .brand {
+  gap: 0.5rem;
+  min-height: 44px;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: rgba(255, 255, 255, 0.92);
+}
+.shell.is-app .brand-mark {
+  width: 2rem;
+  height: 2rem;
+}
+.shell.is-app .brand:hover { opacity: 0.8; }
+
+.shell.is-app .lang select,
+.shell.is-app .code-chip,
+.shell.is-app .code-qr-btn,
+.shell.is-app .avatar-chip {
+  border: 0;
+  border-radius: 0.375rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.84);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  font-weight: 500;
+}
+.shell.is-app .lang select {
+  appearance: none;
+  min-height: 44px;
+  padding: 0 0.7rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.shell.is-app .lang select option { color: #17242e; }
+.shell.is-app .avatar-chip { border-radius: var(--radius-pill); }
+
+.shell.is-app .code-popover {
+  background: rgba(7, 15, 22, 0.92);
+  border: 0;
+  border-radius: 0.75rem;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 18px 44px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(16px);
+}
+.shell.is-app .code-popover svg {
+  background: #fff;
+  padding: 8px;
+  border-radius: 8px;
+}
+.shell.is-app .code-popover p { color: rgba(255, 255, 255, 0.8); font-weight: 500; }
+.shell.is-app .code-copied { color: #b7f0c8; font-weight: 500; }
+
+.shell.is-app main {
+  width: min(76rem, 100%);
+  margin-inline: auto;
+  padding: 0.5rem 1.25rem 6rem;
+}
+
+.shell.is-app h1 {
+  font-weight: 300;
+  font-size: clamp(1.75rem, 4vw, 2.4rem);
+  letter-spacing: -0.02em;
+  color: rgba(255, 255, 255, 0.95);
+}
+.shell.is-app h2 {
+  font-weight: 500;
+  letter-spacing: 0;
+  color: rgba(255, 255, 255, 0.92);
+}
+.shell.is-app .muted,
+.shell.is-app .hint { color: var(--muted-on-dark); }
+.shell.is-app a { color: #7edcd6; }
+.shell.is-app .page.narrow {
+  width: 100%;
+  max-width: 28rem;
+  margin-inline: auto;
+}
+
+/* Paper control — the same button as /enter. */
+.shell.is-app .btn {
+  border: 0;
+  border-radius: 0.375rem;
+  background: var(--paper);
+  color: #123047;
+  font-weight: 400;
+  box-shadow: inset 0 2px 0 0 #fff, inset 0 -1px 0 0 rgba(0, 0, 0, 0.2);
+}
+.shell.is-app .btn:hover { opacity: 1; background: #e5e9e9; }
+.shell.is-app .btn-ghost {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  font-weight: 300;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+.shell.is-app .btn-ghost:hover { background: color-mix(in srgb, var(--aqua) 20%, transparent); }
+.shell.is-app .btn-small { min-height: 44px; }
+
+.shell.is-app .card {
+  background: var(--glass);
+  border: 0;
+  border-radius: 0.75rem;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--ink-on-dark);
+}
+
+.shell.is-app .field label,
+.shell.is-app legend,
+.shell.is-app .choice-group > label,
+.shell.is-app .window-card label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.shell.is-app input:not([type='radio']):not([type='checkbox']):not([type='range']),
+.shell.is-app textarea,
+.shell.is-app select {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  border: 0;
+  border-radius: 0.375rem;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+.shell.is-app input::placeholder,
+.shell.is-app textarea::placeholder { color: rgba(255, 255, 255, 0.35); }
+.shell.is-app input:focus-visible,
+.shell.is-app textarea:focus-visible,
+.shell.is-app select:focus-visible {
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(30, 167, 161, 0.55), 0 0 0 3px color-mix(in srgb, var(--aqua) 28%, transparent);
+}
+
+.shell.is-app .choice-group,
+.shell.is-app .choice-card,
+.shell.is-app .pill,
+.shell.is-app .opt,
+.shell.is-app .step,
+.shell.is-app .hatchip,
+.shell.is-app .code-box,
+.shell.is-app .poll-row,
+.shell.is-app .ring,
+.shell.is-app .cite,
+.shell.is-app .empty,
+.shell.is-app .drift-col {
+  border: 0;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.88);
+}
+.shell.is-app .choice-on,
+.shell.is-app .pill-on,
+.shell.is-app .opt-on,
+.shell.is-app .step-on,
+.shell.is-app .hatchip-on,
+.shell.is-app .avatar-on,
+.shell.is-app .ctx-on,
+.shell.is-app .code-box:focus {
+  background: color-mix(in srgb, var(--aqua) 22%, transparent);
+  box-shadow: inset 0 0 0 1px rgba(30, 167, 161, 0.7);
+  color: #fff;
+}
+.shell.is-app .choice-title,
+.shell.is-app .code,
+.shell.is-app .ring-k,
+.shell.is-app .qtext,
+.shell.is-app .peers-first,
+.shell.is-app .capsule-next { color: rgba(255, 255, 255, 0.95); font-weight: 500; }
+.shell.is-app .code {
+  font-weight: 300;
+  letter-spacing: 0.14em;
+}
+.shell.is-app .chunk-chip {
+  color: #9aeee8;
+  background: color-mix(in srgb, var(--aqua) 18%, transparent);
+}
+.shell.is-app .chunk-chip.total {
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.08);
+}
+.shell.is-app .roster-host { box-shadow: inset 0 0 0 1px rgba(214, 138, 36, 0.7); }
+.shell.is-app .host-crown { color: var(--gold); }
+
+.shell.is-app .bottomnav {
+  position: sticky;
+  bottom: 0.375rem;
+  width: min(76rem, calc(100% - 0.5rem));
+  margin: 0 auto 0.25rem;
+  padding: 0.35rem;
+  border: 0;
+  border-radius: 0.75rem;
+  background: rgba(7, 15, 22, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(16px);
+}
+.shell.is-app .bottomnav a {
+  color: rgba(255, 255, 255, 0.55);
+  font-weight: 400;
+  border-radius: 0.375rem;
+}
+.shell.is-app .bottomnav a:hover,
+.shell.is-app .bottomnav a.active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+.shell.is-app .sheet {
+  background: rgba(7, 15, 22, 0.94);
+  color: var(--ink-on-dark);
+  border: 0;
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(18px);
+}
+.shell.is-app .sheet-head,
+.shell.is-app .sheet-foot { border-color: rgba(255, 255, 255, 0.1); }
+.shell.is-app .sheet-close {
+  border: 0;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+.shell.is-app .sheet-account,
+.shell.is-app .identity-glyph {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.shell.is-app .error-note {
+  border: 0;
+  background: color-mix(in srgb, var(--gold) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 55%, transparent);
+  color: #fff;
+}
+.shell.is-app .empty {
+  border: 0;
+  background: transparent;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+.shell.is-app .skel {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.06) 25%, rgba(255, 255, 255, 0.14) 50%, rgba(255, 255, 255, 0.06) 75%);
+  background-size: 200% 100%;
+}
+.shell.is-app .api-notice {
+  width: min(76rem, calc(100% - 2rem));
+  margin: 0.5rem auto 0;
+  background: color-mix(in srgb, var(--gold) 16%, transparent);
+  border: 0;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--gold) 45%, transparent);
+  color: #fff;
+}
+.shell.is-app .api-notice code {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.1);
+}
+.shell.is-app .api-notice button { color: #fff; }
+
+.shell.is-app .thread li.me {
+  background: rgba(255, 255, 255, 0.92);
+  color: #123047;
+}
+.shell.is-app .thread li.nova {
+  background: var(--glass);
+  color: var(--ink-on-dark);
+  border: 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+.shell.is-app .hint-block,
+.shell.is-app .explain-card,
+.shell.is-app .coach-out {
+  background: color-mix(in srgb, var(--aqua) 12%, transparent);
+  color: var(--ink-on-dark);
+}
+.shell.is-app .badge {
+  color: #123047;
+}
+.shell.is-app .quiz-correct { color: #b7f0c8; }
+.shell.is-app .xp-toast {
+  background: rgba(7, 15, 22, 0.92);
+  color: var(--gold);
+}
+
+/* Desktop stays a top bar. The light theme's sidebar would break the hero nav. */
+@media (min-width: 1024px) {
+  .shell.is-app {
+    flex-direction: column;
+    gap: 0;
+  }
+  .shell.is-app .topbar {
+    flex-direction: row;
+    align-items: center;
+    border: 0;
+    min-width: 0;
+    padding-inline: 1.5rem;
+  }
+  .shell.is-app .top-right {
+    margin-inline-start: auto;
+    flex-direction: row;
+    align-items: center;
+  }
+  .shell.is-app .bottomnav { display: flex; }
+  .shell.is-app main { padding-bottom: 5.5rem; }
+}
+
+/* ---- UI fix pass ------------------------------------------------------
+   1. Footer nav was position:sticky inside a scrolling document, so it
+      drifted into the page content mid-scroll. The night shell is a fixed
+      viewport frame: only <main> scrolls.
+   2. Fieldset legends and floating labels were clipped/dimmed by the glass
+      card; they are now card-header rows.
+   3. S-B-U tiers lost their distinction (all three looked identical), and
+      the needs-human pulse was invisible on glass.
+   4. Muted-on-dark and the mentor observer chip were under AA.
+   5. Cite chips measured 22px; the hit area is expanded to 44px.
+   6. The background photograph was 4096x2731 in an 800px frame — a 140 KB+
+      decode for a blurred backdrop. It stays, but is now a CSS layer with
+      an explicit position so it never shifts.                            */
+
+.shell.is-app {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+.shell.is-app main {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 1.25rem;
+}
+.shell.is-app .bottomnav {
+  position: static;
+  flex: 0 0 auto;
+  inset: auto;
+  bottom: auto;
+  margin: 0 auto 0.5rem;
+}
+
+/* Glass cards: legends/labels become a header row instead of a cut border. */
+.shell.is-app fieldset.card,
+.shell.is-app .choice-group {
+  padding: 0.9rem 1rem 1rem;
+}
+.shell.is-app fieldset.card > legend,
+.shell.is-app .choice-group > legend {
+  /* A <legend> is painted at the fieldset's border edge and ignores padding.
+     Floating it returns it to the padding box; the child rows clear it. */
+  float: inline-start;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.66);
+}
+.shell.is-app fieldset.card > legend + *,
+.shell.is-app .choice-group > legend + * {
+  clear: both;
+  margin-top: 0.7rem;
+}
+.shell.is-app fieldset.card > legend strong { color: rgba(255, 255, 255, 0.5); font-weight: 500; }
+
+/* Ring tiers keep their three distinct states on glass. */
+.shell.is-app .ring { color: rgba(255, 255, 255, 0.88); }
+.shell.is-app .ring .ring-k { color: rgba(255, 255, 255, 0.95); }
+.shell.is-app .ring .ring-v { color: var(--muted-on-dark); }
+.shell.is-app .ring-bright {
+  background: color-mix(in srgb, var(--aqua) 26%, transparent);
+  box-shadow: inset 0 0 0 1.5px var(--aqua);
+  color: #fff;
+}
+.shell.is-app .ring-steady {
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.34);
+}
+.shell.is-app .ring-pulse {
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--gold) 62%, transparent);
+}
+.shell.is-app .ring-pulse .ring-k { color: #f2c078; }
+
+/* Needs-human: visible on glass, still gentle. */
+.shell.is-app .card.needs-human {
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--plum) 70%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--plum) 14%, transparent);
+}
+.shell.is-app .needs-human-text { color: #d3c1ff; }
+.shell.is-app .needs-human-link { color: #d3c1ff; }
+
+/* AA on dark. */
+.shell.is-app .observer {
+  background: color-mix(in srgb, var(--plum) 34%, transparent);
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+.shell.is-app .mode-pill.mode-orange { color: #ffd9a3; }
+.shell.is-app .mode-pill.mode-red { color: #ffc79a; }
+.shell.is-app .mode-pill.mode-green { color: #b7f0c8; }
+.shell.is-app .stale-chip,
+.shell.is-app .cites-warn { color: #ffd9a3; }
+.shell.is-app .drift-kept strong { color: #b7f0c8; }
+.shell.is-app .drift-lost strong,
+.shell.is-app .drift-dist strong { color: #ffd9a3; }
+.shell.is-app .badge { background: color-mix(in srgb, var(--gold) 88%, #fff); }
+.shell.is-app .host-crown { color: #ffd9a3; }
+
+/* Cite chips stay small visually, but hit 44px. */
+.shell.is-app .cite {
+  position: relative;
+  color: #9aeee8;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+.shell.is-app .cite::after {
+  content: '';
+  position: absolute;
+  inset: -12px -4px;
+}
+
+/* Backdrop photograph: stable layer, no layout shift. */
+.shell.is-app .app-bg {
+  object-position: center 40%;
+  filter: saturate(0.85) blur(0.5px);
+}
+@media (max-width: 1023px) {
+  /* Below the desktop rail layout, rings and quota would only crowd the
+     header — the room shows both in its own rails. */
+  .shell.is-app .topbar .sbu,
+  .shell.is-app .topbar .quota { display: none; }
+  .shell.is-app .topbar { padding: 0.6rem 1rem; gap: 0.5rem; }
+}
+@media (max-width: 640px) {
+  .shell.is-app main { padding: 0.25rem 1rem 1rem; }
+  .shell.is-app .topbar { padding: 0.6rem 1rem; gap: 0.5rem; }
+  .shell.is-app .bottomnav { width: calc(100% - 1rem); margin-bottom: 0.375rem; }
+  .shell.is-app .topbar .lang select { font-size: 0.7rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell.is-app .ring-pulse { animation: none; }
+  .shell.is-app .card.needs-human { animation: none; }
+}
+
+/* Hat chips: white on the light-theme colours fails AA on the dark field.
+   Deepen the four backgrounds and keep the semantic hue. */
+.shell.is-app .hat-mediator { background: #4b2f86; }
+.shell.is-app .hat-teammate { background: #1f6b42; }
+.shell.is-app .hat-tutor { background: #0f4d82; }
+.shell.is-app .hat-facilitator { background: #9a4f12; }
+
+/* /enter hint line: 11px at 45% white was 4.43:1. */
+.shell:not(.is-app) .enter-hint { color: rgba(255, 255, 255, 0.6); }
+.enter-hint { color: rgba(255, 255, 255, 0.6); }
+.enter-hint a, .enter-foot a { color: #8fe6df; }
+
+/* Inline text links inside glass cards had no padding; give them a 44px
+   hit box without changing the visual size. */
+.shell.is-app main p > a,
+.shell.is-app .enter-foot a {
+  position: relative;
+  display: inline-block;
+}
+.shell.is-app main p > a::after {
+  content: '';
+  position: absolute;
+  inset: -13px 0;
+}
+
+/* Tier chips stacked inline without gap ("T0hors ligne"); the light theme
+   relied on a margin the night reset dropped. */
+.shell.is-app .tier-chip {
+  color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  margin: 0 0.3rem 0.3rem 0;
+}
+.shell.is-app .cite + .cite { margin-inline-start: 0.3rem; }
+.shell.is-app .cites-warn { color: #ffd9a3; }
+
+/* Fallback answers (T0) must read as a deliberate offline state, not an
+   error: a quiet gold rule and a label, no red. */
+.shell.is-app .qcard .answer-text { color: rgba(255, 255, 255, 0.88); }
+.shell.is-app .q-resolved .tier-chip:first-of-type { color: #ffd9a3; }
+
+/* /me uses .auth-card + .identity, which the night re-skin never covered —
+   they rendered as opaque white blocks on the dark field. */
+.shell.is-app .auth-card,
+.shell.is-app .identity {
+  background: var(--glass);
+  border: 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--ink-on-dark);
+  border-radius: 0.75rem;
+}
+.shell.is-app .identity {
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+.shell.is-app .identity-glyph {
+  background: rgba(255, 255, 255, 0.08);
+  border: 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+.shell.is-app .auth-lede { color: var(--muted-on-dark); }
+.shell.is-app .auth-card .hint,
+.shell.is-app .identity-text .hint { color: var(--muted-on-dark); }
+.shell.is-app .auth-card input {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  border: 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+.shell.is-app .auth-foot { color: var(--muted-on-dark); }

@@ -1,14 +1,24 @@
-import { Link, useLocation } from 'react-router-dom';
+import { NavLink, Link, useLocation } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { api, type Health } from '../lib/api';
 import { degradationCopy, useSession } from '../lib/session';
 import { t } from '../lib/i18n';
 import { QuotaMeter, SbuRings } from '../components/ui';
+import LogoIcon from '../assets/logo-icon';
 import { SetupHint } from './SetupHint';
 import { PassportSheet } from './PassportSheet';
 
 const LANGS = ['fr', 'darija', 'ar', 'en'] as const;
+
+function NightField() {
+  return (
+    <>
+      <img className="app-bg" src="/hero-bg.avif" alt="" aria-hidden="true" />
+      <div className="app-veil" aria-hidden="true" />
+    </>
+  );
+}
 
 /** Landing and /enter carry their own chrome (full-bleed escapes in
  *  shell.css) — the boot gate must not block them while the API is down. */
@@ -78,9 +88,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
     setTimeout(() => setCopied(false), 1600);
   };
 
-  if (up === false && !UNGATED.includes(loc.pathname)) {
+  const bare = UNGATED.includes(loc.pathname);
+
+  if (up === false && !bare) {
     return (
-      <div className="shell">
+      <div className="shell is-app">
+        <NightField />
         <main id="main">
           <SetupHint lang={lang} onRetry={() => window.location.reload()} />
         </main>
@@ -89,13 +102,15 @@ export function Shell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="shell">
+    <div className={bare ? 'shell' : 'shell is-app'}>
+      {!bare && <NightField />}
       <a className="skip" href="#main">
         {t('skip_content', lang)}
       </a>
       <header className="topbar">
         <Link to="/" className="brand" translate="no" aria-label="HALQA home">
-          ★ HALQA
+          <LogoIcon className="brand-mark" />
+          <span>HALQA</span>
         </Link>
         {circleId && (
           <div className="code-wrap">
@@ -170,10 +185,10 @@ export function Shell({ children }: { children: React.ReactNode }) {
       )}
       <main id="main">{children}</main>
       <nav className="bottomnav" aria-label="Primary">
-        <Link to={circleId ? `/c/${circleId}` : '/circles/join'}>{t('nav_circle', lang)}</Link>
-        <Link to="/me">{t('nav_passport', lang)}</Link>
-        {workshop && <Link to="/board">{t('nav_board', lang)}</Link>}
-        {workshop && <Link to={`/lab${lab ? '?lab=1' : ''}`}>{t('nav_lab', lang)}</Link>}
+        <NavLink to={circleId ? `/c/${circleId}` : '/circles/join'}>{t('nav_circle', lang)}</NavLink>
+        <NavLink to="/me">{t('nav_passport', lang)}</NavLink>
+        {workshop && <NavLink to="/board">{t('nav_board', lang)}</NavLink>}
+        {workshop && <NavLink to={`/lab${lab ? '?lab=1' : ''}`}>{t('nav_lab', lang)}</NavLink>}
       </nav>
       {sheetOpen && <PassportSheet onClose={() => setSheetOpen(false)} />}
     </div>

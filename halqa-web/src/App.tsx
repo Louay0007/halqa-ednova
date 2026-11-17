@@ -9,6 +9,7 @@ import './styles/tokens.css';
 import './components/ui.css';
 import './shell/shell.css';
 import './styles/pages.css';
+import './styles/night.css';
 
 const Enter = lazy(() => import('./routes/Enter').then((m) => ({ default: m.Enter })));
 const Dna = lazy(() => import('./routes/Dna').then((m) => ({ default: m.Dna })));
