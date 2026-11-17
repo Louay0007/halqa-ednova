@@ -26,6 +26,8 @@ const RETRY_LATER: Msg = {
 
 export const USER_MESSAGES: Record<string, Msg> = {
   ANSWER_EMPTY: { en: 'Write your answer first.', fr: "Écrivez d'abord votre réponse.", ar: 'اكتب جوابك أولاً.', darija: 'اكتب جوابك الأول.' },
+  ACCOUNT_EXISTS: { en: 'This record already has an account.', fr: 'Cet enregistrement a déjà un compte.', ar: 'هذا السجل له حساب بالفعل.', darija: 'السجل هذا عندو حساب من قبل.' },
+  ACCOUNT_REQUIRED: { en: 'Create an account first.', fr: "Créez d'abord un compte.", ar: 'أنشئ حساباً أولاً.', darija: 'اعمل حساب الأول.' },
   AUTH_INVALID: { en: 'Your session expired — enter again.', fr: 'Session expirée — reconnectez-vous.', ar: 'انتهت الجلسة — أدخل من جديد.', darija: 'الجلسة وفات — ادخل عاود.' },
   AUTH_REQUIRED: { en: 'Enter a nickname to start.', fr: 'Entrez un surnom pour commencer.', ar: 'أدخل كنية للبدء.', darija: 'دخّل كنية باش تبدا.' },
   AVATAR_UNKNOWN: { en: 'Pick one of the offered avatars.', fr: 'Choisissez un des avatars proposés.', ar: 'اختر واحداً من الصور المتاحة.', darija: 'اختار واحد من الأفاتارات.' },
@@ -38,8 +40,11 @@ export const USER_MESSAGES: Record<string, Msg> = {
   HINT_L4_LOCKED: { en: 'Answer unlocks after hints 1–3.', fr: 'La réponse vient après les indices 1–3.', ar: 'الإجابة بعد التلميحات 1–3.', darija: 'الإجابة تجي بعد الـhints 1–3.' },
   HINT_ORDER: { en: 'Take the hints in order.', fr: 'Prenez les indices dans l’ordre.', ar: 'خذ التلميحات بالترتيب.', darija: 'خذ الـhints بالترتيب.' },
   HINT_WINDOW_OPEN: { en: 'Peers still have the floor — hints wait.', fr: 'Les pairs ont encore la parole — les indices attendent.', ar: 'الأقران يتحدثون الآن — التلميحات تنتظر.', darija: 'الـpeers مازالو يحكيو — الـhints يستنّاو.' },
+  HANDLE_INVALID: { en: 'Use 3–20 letters, numbers, - or _.', fr: 'Utilisez 3 à 20 lettres, chiffres, - ou _.', ar: 'استعمل 3 إلى 20 حرفاً أو رقماً أو - أو _.', darija: 'استعمل 3 حتى 20 حرف ولا رقم ولا - ولا _.' },
+  LOGIN_FAILED: { en: 'Wrong name or passphrase.', fr: 'Nom ou phrase secrète incorrects.', ar: 'الاسم أو العبارة السرية غير صحيحة.', darija: 'الاسم ولا العبارة السرية غالطين.' },
   NICKNAME_EMPTY: { en: 'Pick a nickname.', fr: 'Choisissez un surnom.', ar: 'اختر كنية.', darija: 'اختار كنية.' },
   NICKNAME_TAKEN: { en: 'That nickname is taken in this circle.', fr: 'Ce surnom est déjà pris dans ce cercle.', ar: 'هذه الكنية مستعملة في هذه الحلقة.', darija: 'الكنية هذي ماخوذة في الحلقة.' },
+  PASSPHRASE_LENGTH: { en: 'Use at least 8 characters for the passphrase.', fr: 'La phrase secrète doit faire 8 caractères minimum.', ar: 'العبارة السرية تحتاج 8 أحرف على الأقل.', darija: 'العبارة السرية تحتاج 8 حروف على الأقل.' },
   NOT_A_MEMBER: { en: "You're not in this circle.", fr: 'Vous n’êtes pas dans ce cercle.', ar: 'أنت لست في هذه الحلقة.', darija: 'انتَ ماكش في الحلقة هذي.' },
   NOTE_EMPTY: { en: 'Write a note first.', fr: "Écrivez d'abord une note.", ar: 'اكتب ملاحظة أولاً.', darija: 'اكتب ملاحظة الأول.' },
   PEER_NOT_ASKER: { en: "The asker can't answer their own question.", fr: 'Celui qui pose la question ne peut pas y répondre.', ar: 'صاحب السؤال لا يجيب عليه.', darija: 'اللي سقسا ما ينجمش يجاوب.' },

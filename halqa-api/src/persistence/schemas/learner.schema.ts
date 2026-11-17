@@ -37,6 +37,16 @@ export class Learner {
   @Prop({ type: Passport }) passport?: Passport;
   /** Bumped on sign-out; tokens carrying an older epoch are rejected. */
   @Prop({ type: Number, default: 0 }) tokenEpoch!: number;
+
+  /**
+   * Account credential. A learner without one entered anonymously and can only
+   * be resumed through the token on this device; setting a credential is what
+   * turns the record into an account other devices can sign in to.
+   * `handle` is a chosen pseudonym, never a real-world identifier.
+   */
+  @Prop({ type: String, lowercase: true, trim: true }) handle?: string;
+  @Prop({ type: String, select: false }) secretSalt?: string;
+  @Prop({ type: String, select: false }) secretHash?: string;
 }
 // NOTE: no name/photo/gender/region/birth/age/address/phone/email fields.
 // The schema gate test (test/schema-gate.spec.ts) fails the build if they appear.
@@ -44,3 +54,6 @@ export type LearnerDocument = Learner & Document<string>;
 export const LearnerSchema = SchemaFactory.createForClass(Learner);
 LearnerSchema.index({ lastSeenAt: -1 });
 LearnerSchema.index({ 'passport.lang': 1 });
+// Anonymous learners carry no handle; a partial index keeps those untouched while
+// making "one account per handle" a database-enforced invariant.
+LearnerSchema.index({ handle: 1 }, { unique: true, partialFilterExpression: { handle: { $type: 'string' } } });
