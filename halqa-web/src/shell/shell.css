@@ -100,17 +100,22 @@ main {
 /* Landing opts out of the app chrome: the hero is full-bleed and carries its
    own header (brand, links, language), so the rail and the bottom nav stay out
    of the way. Keyed on the route wrapper rendered by Landing.tsx. */
-.shell:has(.landing-hero) {
+.shell:has(.landing-hero),
+.shell:has(.enter-hero) {
   display: block;
   max-width: none;
   padding: 0;
 }
 .shell:has(.landing-hero) .topbar,
 .shell:has(.landing-hero) .degrade-banner,
-.shell:has(.landing-hero) .bottomnav {
+.shell:has(.landing-hero) .bottomnav,
+.shell:has(.enter-hero) .topbar,
+.shell:has(.enter-hero) .degrade-banner,
+.shell:has(.enter-hero) .bottomnav {
   display: none;
 }
-.shell:has(.landing-hero) main {
+.shell:has(.landing-hero) main,
+.shell:has(.enter-hero) main {
   padding: 0;
 }
 @media (min-width: 1024px) {

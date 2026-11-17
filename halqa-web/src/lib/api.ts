@@ -95,7 +95,15 @@ export const api = {
 
   /* identity + dna */
   authSession: (nickname: string, context: ContextMode, avatarKey?: string) =>
-    post<{ token: string; learner: { id: string; nickname: string; avatarKey: string } }>('/auth/session', { nickname, context, avatarKey }),
+    post<{ token: string; learner: { id: string; nickname: string; avatarKey: string; handle: string | null } }>('/auth/session', { nickname, context, avatarKey }),
+  /** Turn the current (usually guest) record into an account: handle + passphrase. */
+  register: (input: { handle: string; passphrase: string; nickname?: string; avatarKey?: string; context?: ContextMode }) =>
+    post<{ token: string; learner: { id: string; nickname: string; avatarKey: string; handle: string | null } }>('/auth/register', input),
+  /** Sign back in from any device. */
+  login: (handle: string, passphrase: string) =>
+    post<{ token: string; learner: { id: string; nickname: string; avatarKey: string; handle: string | null } }>('/auth/login', { handle, passphrase }),
+  /** Rotate the secret; returns a fresh token because the epoch bumps. */
+  changePassphrase: (current: string, next: string) => post<{ token: string }>('/auth/passphrase', { current, next }),
   me: () => get<{ learner: unknown; passport: Passport | null }>('/me'),
   dnaItems: () => get<{ items: Array<{ id: string; prompt: string; options: string[] }> }>('/dna/items'),
   dna: (input: { nickname?: string; context?: string; topic?: string; answers: Record<string, string>; sessionId?: string; circleId?: string }) =>

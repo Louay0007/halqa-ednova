@@ -310,3 +310,256 @@ legend { font-weight: 700; color: var(--navy); padding: 0; margin-bottom: 0.4rem
 html[dir="rtl"] .thread li.me { align-self: flex-start; }
 html[dir="rtl"] .thread li.nova { align-self: flex-end; }
 body.dyslexia { letter-spacing: 0.04em; word-spacing: 0.08em; line-height: 1.8; }
+
+/* ── /enter — the auth surface, in the landing hero's language ──────────────
+   Same navy-deep panel, backdrop image and glass as watermelon hero-15, on the
+   opposite edge (forms instead of headlines). Written as unlayered CSS, not
+   Tailwind utilities: preflight is not imported, so native <button> chrome
+   survives any utility-only reset, and unlayered globals (.grid, .field)
+   outrank utilities anyway. */
+.enter-hero {
+  display: flex;
+  min-height: 100dvh;
+  padding: 0.375rem;
+  background: var(--navy-deep, #070f16);
+  color: #fff;
+  -webkit-font-smoothing: antialiased;
+}
+.enter-hero > .enter-frame {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 1.5rem;
+  background: var(--navy-deep, #070f16);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+.enter-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.enter-veil {
+  position: absolute;
+  inset: 0;
+  background: rgba(7, 15, 22, 0.72);
+}
+.enter-body {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  width: 100%;
+  max-width: 22rem;
+  padding: 3.5rem 1.25rem;
+}
+.enter-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.92);
+  text-decoration: none;
+  transition: opacity 0.2s ease-out;
+}
+.enter-brand:hover { opacity: 0.8; }
+.enter-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 300;
+  color: rgba(255, 255, 255, 0.95);
+}
+.enter-sub {
+  margin: -0.75rem 0 0;
+  max-width: 16rem;
+  font-size: var(--text-small);
+  line-height: 1.4;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.6);
+}
+.enter-panel {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 1.25rem;
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1), 0 18px 44px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.enter-tabs {
+  display: flex;
+  gap: 0.375rem;
+}
+.enter-tab {
+  flex: 1;
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  font: inherit;
+  font-size: var(--text-small);
+  color: rgba(255, 255, 255, 0.6);
+  background: transparent;
+  border: 0;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease-out, color 0.2s ease-out, transform 0.2s ease-out;
+}
+.enter-tab:hover:not(.is-on) { color: #fff; }
+.enter-tab:active { transform: scale(0.98); }
+.enter-tab.is-on {
+  font-weight: 500;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+.enter-field { display: flex; flex-direction: column; gap: 0.375rem; border: 0; padding: 0; margin: 0; }
+.enter-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+.enter-input {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  font: inherit;
+  font-size: var(--text-small);
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+  border: 0;
+  border-radius: 0.375rem;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  transition: background-color 0.2s ease-out, box-shadow 0.2s ease-out;
+}
+.enter-input::placeholder { color: rgba(255, 255, 255, 0.35); }
+.enter-input:focus-visible {
+  outline: none;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 0 0 1px rgba(30, 167, 161, 0.55), 0 0 0 3px color-mix(in srgb, var(--aqua) 28%, transparent);
+}
+.enter-nick { position: relative; }
+.enter-nick .enter-input { padding-inline-start: 2.5rem; }
+.enter-nick-glyph {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0.75rem;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+.enter-secret { position: relative; }
+.enter-secret .enter-input { padding-inline-end: 4rem; }
+.enter-reveal {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.6);
+  background: transparent;
+  border: 0;
+  border-radius: 0.375rem;
+  cursor: pointer;
+}
+.enter-reveal:hover { color: #fff; }
+.enter-hint { margin: 0; font-size: 0.6875rem; line-height: 1.4; color: rgba(255, 255, 255, 0.45); }
+.enter-hint.is-bad { color: rgba(255, 255, 255, 0.8); }
+.enter-avatars { display: grid; grid-template-columns: repeat(8, 1fr); gap: 0.25rem; }
+.enter-avatar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  font-size: 1.125rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 0;
+  border-radius: 0.375rem;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  cursor: pointer;
+  transition: box-shadow 0.2s ease-out, transform 0.2s ease-out;
+}
+.enter-avatar input { position: absolute; inset: 0; appearance: none; cursor: pointer; margin: 0; }
+.enter-avatar:hover { box-shadow: inset 0 0 0 1px rgba(30, 167, 161, 0.5); }
+.enter-avatar:active { transform: scale(0.94); }
+.enter-avatar.is-on {
+  background: color-mix(in srgb, var(--aqua) 22%, transparent);
+  box-shadow: inset 0 0 0 1px rgba(30, 167, 161, 0.7);
+}
+.enter-contexts { display: flex; flex-wrap: wrap; gap: 0.375rem; }
+.enter-context {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
+  padding: 0 0.875rem;
+  font: inherit;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.06);
+  border: 0;
+  border-radius: var(--radius-pill);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  transition: background-color 0.2s ease-out, color 0.2s ease-out, box-shadow 0.2s ease-out, transform 0.2s ease-out;
+}
+.enter-context input { position: absolute; inset: 0; appearance: none; cursor: pointer; margin: 0; }
+.enter-context:hover:not(.is-on) { color: #fff; }
+.enter-context:active { transform: scale(0.96); }
+.enter-context.is-on {
+  font-weight: 500;
+  color: #fff;
+  background: color-mix(in srgb, var(--aqua) 25%, transparent);
+  box-shadow: inset 0 0 0 1px rgba(30, 167, 161, 0.6);
+}
+.enter-submit {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0 1.5rem;
+  font: inherit;
+  font-size: var(--text-small);
+  color: var(--navy);
+  background: var(--paper);
+  border: 0;
+  border-radius: 0.375rem;
+  box-shadow: inset 0 2px 0 0 rgba(255, 255, 255, 1), inset 0 -1px 0 0 rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: background-color 0.2s ease-out, transform 0.2s ease-out, opacity 0.2s ease-out;
+}
+.enter-submit:hover:not(:disabled) { background: #e5e9e9; }
+.enter-submit:active:not(:disabled) { transform: scale(0.98); }
+.enter-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+.enter-foot { margin: 0; font-size: 0.75rem; color: rgba(255, 255, 255, 0.55); }
+.enter-foot a {
+  color: var(--aqua);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--aqua) 40%, transparent);
+  text-underline-offset: 4px;
+}
+.enter-foot a:hover { color: #fff; text-decoration-color: rgba(255, 255, 255, 0.5); }
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+.enter-logo { width: 2rem; height: 2rem; }
+.enter-head { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; text-align: center; }
