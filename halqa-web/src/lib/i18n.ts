@@ -44,6 +44,54 @@ export const STRINGS: Record<string, Record<Lang, string>> = {
   nova_thinking: { en: 'Nova is thinking…', fr: 'Nova réfléchit…', ar: 'Nova يفكّر…', darija: 'Nova يخمم…' },
   verified: { en: 'verified by Nova', fr: 'vérifié par Nova', ar: 'تحققت منه Nova', darija: 'تأكدت منو Nova' },
   retry: { en: 'Retry', fr: 'Réessayer', ar: 'حاول مجدداً', darija: 'عاود حاول' },
+
+  // §6.7 — shell systems (spec §3)
+  setup_hint: {
+    en: 'Backend not reachable',
+    fr: 'Backend injoignable',
+    ar: 'الـBackend غير متاح',
+    darija: 'الـBackend ما يخدمش',
+  },
+  setup_hint_body: {
+    en: 'Start the API, then reload this page.',
+    fr: 'Lance l’API, puis recharge cette page.',
+    ar: 'شغّل الـAPI ثم أعد تحميل الصفحة.',
+    darija: 'شغّل الـAPI وبعد reload الصفحة.',
+  },
+  setup_hint_cmd: { en: 'cd halqa-api && npm run start:dev', fr: 'cd halqa-api && npm run start:dev', ar: 'cd halqa-api && npm run start:dev', darija: 'cd halqa-api && npm run start:dev' },
+  open_passport: { en: 'Open passport', fr: 'Ouvrir le passeport', ar: 'افتح الجواز', darija: 'حلّ الجواز' },
+  close: { en: 'Close', fr: 'Fermer', ar: 'أغلق', darija: 'سدّ' },
+  copy_code: { en: 'Copy circle code', fr: 'Copier le code', ar: 'انسخ رمز الحلقة', darija: 'انسخ الرمز' },
+  copied: { en: 'Copied ✓', fr: 'Copié ✓', ar: 'تنسخ ✓', darija: 'تنسخ ✓' },
+  qr_circle: { en: 'Scan to join this circle', fr: 'Scanne pour rejoindre', ar: 'امسح للانضمام', darija: 'امسح باش تدخل' },
+  nav_circle: { en: 'Circle', fr: 'Cercle', ar: 'الحلقة', darija: 'الحلقة' },
+  nav_passport: { en: 'Passport', fr: 'Passeport', ar: 'الجواز', darija: 'الجواز' },
+  nav_board: { en: 'Board', fr: 'Tableau', ar: 'اللوحة', darija: 'اللوحة' },
+  nav_lab: { en: 'Lab', fr: 'Labo', ar: 'المختبر', darija: 'اللابو' },
+  stale: { en: 'stale', fr: 'périmé', ar: 'قديم', darija: 'قديم' },
+  quota_out: {
+    en: 'Quota out — simplified answers only',
+    fr: 'Quota épuisé — réponses simplifiées',
+    ar: 'انتهت الحصة — إجابات مبسطة فقط',
+    darija: 'وفات الكوطا — إجابات مختصرة برك',
+  },
+  pw_current: { en: 'Current passphrase', fr: 'Phrase actuelle', ar: 'العبارة الحالية', darija: 'العبارة الحالية' },
+  pw_new: { en: 'New passphrase', fr: 'Nouvelle phrase', ar: 'عبارة جديدة', darija: 'عبارة جديدة' },
+  pw_update: { en: 'Update passphrase', fr: 'Mettre à jour', ar: 'حدّث العبارة', darija: 'بدّل العبارة' },
+  pw_hint: {
+    en: '8 characters minimum — signs other devices out.',
+    fr: '8 caractères min. — déconnecte les autres appareils.',
+    ar: '8 أحرف على الأقل — يخرج الأجهزة الأخرى.',
+    darija: '8 حروف على الأقل — يخرّج الأجهزة الأخرى.',
+  },
+  guest_upgrade: {
+    en: 'Guest record — claim an account on /enter to keep your passport.',
+    fr: 'Compte invité — réclamez un compte sur /enter pour garder votre passeport.',
+    ar: 'سجل ضيف — أنشئ حساباً من /enter لتحفظ جوازك.',
+    darija: 'سيزيون ضيف — أصنع حساب من /enter باش تحفظ الجواز.',
+  },
+  sign_out: { en: 'Sign out', fr: 'Déconnexion', ar: 'خروج', darija: 'خرج' },
+  skip_content: { en: 'Skip to content', fr: 'Aller au contenu', ar: 'تجاوز إلى المحتوى', darija: 'تجاوز للمحتوى' },
 };
 
 export function t(key: string, lang: Lang): string {

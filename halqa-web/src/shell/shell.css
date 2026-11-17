@@ -176,3 +176,183 @@ main {
   min-height: 32px;
   border-radius: 6px;
 }
+
+/* §3.1 — join-code chip cluster: copy + QR popover. */
+.code-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.code-qr-btn {
+  border: 2px solid var(--line);
+  background: var(--card);
+  color: var(--navy);
+  border-radius: 8px;
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 1rem;
+}
+.code-qr-btn[aria-expanded='true'] {
+  border-color: var(--aqua);
+}
+.code-copied {
+  font-size: var(--text-micro);
+  color: var(--green);
+  font-weight: 800;
+  white-space: nowrap;
+}
+.code-popover {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  inset-inline-start: 0;
+  z-index: 40;
+  background: var(--card);
+  border: 2px solid var(--line);
+  border-radius: var(--radius-card);
+  padding: 0.75rem;
+  text-align: center;
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--navy) 18%, transparent);
+  animation: pop-in var(--dur-pop) var(--ease-out);
+}
+.code-popover p { margin: 0.4rem 0 0; font-weight: 800; color: var(--navy); }
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* §3.2 — degradation banner. One element, three non-green modes; enters with
+   a single height+fade, no looping animation. */
+.degrade-banner {
+  margin: 0.5rem 0 0;
+  padding: 0.55rem 0.85rem;
+  border-radius: 10px;
+  font-size: var(--text-small);
+  font-weight: 700;
+  animation: banner-in 200ms var(--ease-out);
+}
+.degrade-orange {
+  border: 1px solid color-mix(in srgb, var(--amber) 55%, var(--line));
+  background: color-mix(in srgb, var(--amber) 14%, var(--card));
+  color: var(--ink);
+}
+.degrade-red {
+  border: 1px solid color-mix(in srgb, var(--amber) 75%, var(--line));
+  background: color-mix(in srgb, var(--amber) 26%, var(--card));
+  color: var(--ink);
+}
+.degrade-black {
+  border: 1px solid var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+}
+@keyframes banner-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* §3.4 — passport slide-over sheet. Logical insets so RTL flips for free. */
+.sheet-root {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+.sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--navy-deep) 55%, transparent);
+  animation: fade-in var(--dur-panel) var(--ease-out);
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.sheet {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  width: min(26rem, 100vw);
+  background: var(--card);
+  border-inline-start: 2px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  animation: slide-in var(--dur-panel) var(--ease-out);
+}
+@keyframes slide-in {
+  from { transform: translateX(24px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+[dir='rtl'] .sheet { animation-name: slide-in-rtl; }
+@keyframes slide-in-rtl {
+  from { transform: translateX(-24px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  border-bottom: 2px solid var(--line);
+}
+.sheet-head h2 { margin: 0; }
+.sheet-close {
+  border: 2px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  border-radius: 8px;
+  min-width: 44px;
+  min-height: 44px;
+  font-size: 1rem;
+}
+.sheet-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+.sheet-body .identity {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+}
+.sheet-account {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.sheet-foot {
+  padding: 0.85rem 1rem;
+  border-top: 2px solid var(--line);
+}
+.explain-card {
+  margin: 0;
+  padding: 0.6rem 0.85rem;
+  border-inline-start: 3px solid var(--aqua);
+  background: color-mix(in srgb, var(--aqua) 8%, var(--card));
+  border-radius: 8px;
+  font-style: italic;
+  color: var(--ink);
+}
+
+/* §3.5 — boot-gate card. */
+.setup-hint code {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: var(--text-small);
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  padding: 0.15rem 0.4rem;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .code-popover,
+  .degrade-banner,
+  .sheet,
+  .sheet-backdrop {
+    animation: none;
+  }
+}

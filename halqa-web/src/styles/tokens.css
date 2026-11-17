@@ -15,6 +15,19 @@
   --paper: #f4f7f7;
   --card: #ffffff;
   --line: #c9d8db;
+  /* Dark surface — landing + /enter panels only (spec §2.1). Not a theme. */
+  --navy-deep: #070f16;
+
+  /* Nova's four labelled hats (spec §1.3 / §2.1). Always paired with the
+     label text — colour is never the only cue. */
+  --hat-mediator: #6546a6;
+  --hat-teammate: #3d8b57;
+  --hat-tutor: #1ea7a1;
+  --hat-facilitator: #d68a24;
+
+  /* S-B-U ring tiers (spec §2.1): bright = solid fill, steady = outline,
+     pulse = gentle opacity animation (static under reduced motion). */
+  --tier-pulse: #d68a24;
 
   /* SF Pro is the official face. It ships with Apple platforms only, so it is
      reached through the system font hooks (-apple-system / BlinkMacSystemFont)

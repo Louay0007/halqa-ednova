@@ -33,6 +33,7 @@ export function CirclesNew() {
     setErr(null);
     try {
       const r = await api.circleCreate({ topic, context, lang: circleLang, windowS, hostNickname: nick.trim() });
+      sessionStorage.setItem('halqa.context', context);
       sessionStorage.setItem('halqa.nick', nick.trim());
       login(r.token, r.hostLearnerId);
       setCircleId(r.circleId);
