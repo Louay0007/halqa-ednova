@@ -25,13 +25,13 @@ export function Landing() {
   const { lang, setLang } = useSession();
 
   const langSwitch = (
-    <label className="hidden sm:block">
+    <label className="relative hidden sm:block">
       <span className="visually-hidden">Language</span>
       <select
         value={lang}
         onChange={(e) => setLang(e.target.value as Lang)}
         aria-label="Language"
-        className="min-h-10 rounded-md border border-white/20 bg-white/10 px-2.5 text-xs font-medium tracking-[0.08em] text-white/80 uppercase outline-none backdrop-blur-md transition-colors duration-200 hover:bg-white/15"
+        className="min-h-11 appearance-none rounded-md border border-white/20 bg-white/10 pe-7 ps-2.5 text-xs font-medium tracking-[0.08em] text-white/80 uppercase outline-none backdrop-blur-md transition-colors duration-200 hover:bg-white/15"
       >
         {LANGS.map((l) => (
           <option key={l} value={l} className="text-ink">
@@ -39,6 +39,20 @@ export function Landing() {
           </option>
         ))}
       </select>
+      {/* appearance-none is required for min-h to apply on a native select in
+          Safari/WebKit, so the platform chevron is drawn back in by hand. */}
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 12 12"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="pointer-events-none absolute end-2 top-1/2 size-3 -translate-y-1/2 text-white/60"
+      >
+        <path d="M3 4.5 6 7.5 9 4.5" />
+      </svg>
     </label>
   );
 

@@ -135,7 +135,7 @@ export default function Hero15({
   const from = reduce ? 'visible' : 'hidden';
 
   const pill =
-    'inline-flex min-h-10 items-center justify-center rounded-md bg-paper px-6 text-sm font-normal text-navy shadow-[inset_0_2px_0_0_rgba(255,255,255,1),inset_0_-1px_0_0_rgba(0,0,0,0.2)] transition-[background-color,color,transform] duration-200 ease-out text-shadow-2xs no-underline hover:bg-gray-200 hover:text-ink active:scale-[0.96]';
+    'inline-flex min-h-11 items-center justify-center rounded-md bg-paper px-6 text-sm font-normal text-navy shadow-[inset_0_2px_0_0_rgba(255,255,255,1),inset_0_-1px_0_0_rgba(0,0,0,0.2)] transition-[background-color,color,transform] duration-200 ease-out text-shadow-2xs no-underline hover:bg-gray-200 hover:text-ink active:scale-[0.96]';
 
   return (
     <section className="relative isolate flex min-h-dvh w-full overflow-hidden bg-navy-deep px-1.5 py-1.5 text-white antialiased">
@@ -161,7 +161,7 @@ export default function Hero15({
         >
           <Link
             to="/"
-            className="inline-flex min-h-10 items-center gap-2 text-base font-semibold text-white/92 no-underline transition-[opacity,transform] duration-200 ease-out hover:opacity-80 active:scale-[0.96]"
+            className="inline-flex min-h-11 items-center gap-2 text-base font-semibold text-white/92 no-underline transition-[opacity,transform] duration-200 ease-out hover:opacity-80 active:scale-[0.96]"
           >
             <LogoIcon className="size-8" />
             <span translate="no">{brandName}</span>
@@ -172,7 +172,7 @@ export default function Hero15({
               <NavTarget
                 key={link.label}
                 link={link}
-                className="inline-flex min-h-10 items-center text-sm font-normal text-white/84 no-underline transition-[color,transform] duration-200 ease-out hover:text-white active:scale-[0.96]"
+                className="inline-flex min-h-11 items-center text-sm font-normal text-white/84 no-underline transition-[color,transform] duration-200 ease-out hover:text-white active:scale-[0.96]"
               />
             ))}
           </div>
@@ -224,7 +224,7 @@ export default function Hero15({
             viewport={{ once: true, amount: 0.8 }}
             className="mt-auto w-full pt-14 sm:pb-20"
           >
-            <motion.p variants={softReveal} className="text-xs font-medium tracking-[0.14em] text-white/40 uppercase">
+            <motion.p variants={softReveal} className="text-xs font-medium tracking-[0.14em] text-white/70 uppercase">
               {proofEyebrow}
             </motion.p>
             {/* Flex, not `.grid`: pages.css defines an unlayered `.grid` that
@@ -239,13 +239,13 @@ export default function Hero15({
                   <span className="text-2xl font-semibold tracking-[-0.02em] text-white tnum 2xl:text-3xl">
                     {proof.value}
                   </span>
-                  <span className="max-w-40 text-xs leading-4 text-white/50">{proof.label}</span>
+                  <span className="max-w-40 text-xs leading-4 text-white/70">{proof.label}</span>
                 </motion.div>
               ))}
             </div>
 
             {footnote && (
-              <motion.p variants={softReveal} className="mx-auto mt-10 max-w-2xl text-xs leading-5 text-white/40">
+              <motion.p variants={softReveal} className="mx-auto mt-10 max-w-2xl text-xs leading-5 text-white/60">
                 {footnote}
               </motion.p>
             )}
