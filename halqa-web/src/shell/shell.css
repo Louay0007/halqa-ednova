@@ -46,6 +46,7 @@
   border-radius: var(--radius-pill);
   padding: 0.25rem 0.8rem;
   font-weight: 800;
+  text-decoration: none;
 }
 .top-right {
   margin-inline-start: auto;

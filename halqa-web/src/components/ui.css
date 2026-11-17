@@ -118,6 +118,8 @@
   font-weight: 700;
   padding: 0.65rem 1.1rem;
   min-height: 44px;
+  /* Rendered on <a> too (links dressed as buttons) — never underline those. */
+  text-decoration: none;
   transition: transform var(--dur-press) var(--ease-out), opacity var(--dur-pop) var(--ease-out);
 }
 .btn:hover { opacity: 0.92; }

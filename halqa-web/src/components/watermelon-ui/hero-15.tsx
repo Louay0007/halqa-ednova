@@ -135,7 +135,7 @@ export default function Hero15({
   const from = reduce ? 'visible' : 'hidden';
 
   const pill =
-    'inline-flex min-h-10 items-center justify-center rounded-md bg-paper px-6 text-sm font-normal text-navy shadow-[inset_0_2px_0_0_rgba(255,255,255,1),inset_0_-1px_0_0_rgba(0,0,0,0.2)] transition-[background-color,color,transform] duration-200 ease-out text-shadow-2xs hover:bg-gray-200 hover:text-ink active:scale-[0.96]';
+    'inline-flex min-h-10 items-center justify-center rounded-md bg-paper px-6 text-sm font-normal text-navy shadow-[inset_0_2px_0_0_rgba(255,255,255,1),inset_0_-1px_0_0_rgba(0,0,0,0.2)] transition-[background-color,color,transform] duration-200 ease-out text-shadow-2xs no-underline hover:bg-gray-200 hover:text-ink active:scale-[0.96]';
 
   return (
     <section className="relative isolate flex min-h-dvh w-full overflow-hidden bg-navy-deep px-1.5 py-1.5 text-white antialiased">
@@ -161,7 +161,7 @@ export default function Hero15({
         >
           <Link
             to="/"
-            className="inline-flex min-h-10 items-center gap-2 text-base font-semibold text-white/92 transition-[opacity,transform] duration-200 ease-out hover:opacity-80 active:scale-[0.96]"
+            className="inline-flex min-h-10 items-center gap-2 text-base font-semibold text-white/92 no-underline transition-[opacity,transform] duration-200 ease-out hover:opacity-80 active:scale-[0.96]"
           >
             <LogoIcon className="size-8" />
             <span translate="no">{brandName}</span>
@@ -172,7 +172,7 @@ export default function Hero15({
               <NavTarget
                 key={link.label}
                 link={link}
-                className="inline-flex min-h-10 items-center text-sm font-normal text-white/84 transition-[color,transform] duration-200 ease-out hover:text-white active:scale-[0.96]"
+                className="inline-flex min-h-10 items-center text-sm font-normal text-white/84 no-underline transition-[color,transform] duration-200 ease-out hover:text-white active:scale-[0.96]"
               />
             ))}
           </div>
@@ -189,7 +189,9 @@ export default function Hero15({
           <motion.div variants={softReveal} className="mx-auto max-w-4xl 2xl:max-w-7xl">
             <h1 className="text-[clamp(2.9rem,6.1vw,6.55rem)] leading-[0.98] font-light tracking-normal text-balance text-white/95">
               <span className="block">{headingLine1}</span>
-              <span className="mt-1 block font-serif text-[1.06em] leading-[0.92] font-normal text-white italic">
+              {/* SF Pro is the app's single face — the italic second line keeps
+                  the vendor's emphasis without introducing a serif. */}
+              <span className="mt-1 block text-[1.06em] leading-[0.92] font-extralight text-white italic">
                 {headingLine2}
               </span>
             </h1>
@@ -208,7 +210,7 @@ export default function Hero15({
             </Link>
             <Link
               to={secondaryCtaTo}
-              className="group/secondary inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-white/10 px-5 text-sm font-light text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.12),0_14px_34px_rgba(0,0,0,0.18)] backdrop-blur-md transition-[background-color,transform,box-shadow] duration-200 ease-out hover:bg-aqua/20 hover:shadow-[inset_0_0_0_1px_rgba(30,167,161,0.45),0_18px_42px_rgba(0,0,0,0.26)] active:scale-[0.96]"
+              className="group/secondary inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-white/10 px-5 text-sm font-light text-white no-underline shadow-[inset_0_0_0_1px_rgba(255,255,255,0.12),0_14px_34px_rgba(0,0,0,0.18)] backdrop-blur-md transition-[background-color,transform,box-shadow] duration-200 ease-out hover:bg-aqua/20 hover:shadow-[inset_0_0_0_1px_rgba(30,167,161,0.45),0_18px_42px_rgba(0,0,0,0.26)] active:scale-[0.96]"
             >
               {secondaryCtaLabel}
               <ArrowRight className="size-3.5 transition-transform duration-200 ease-out group-hover/secondary:translate-x-0.5 rtl:rotate-180 rtl:group-hover/secondary:-translate-x-0.5" />
@@ -222,22 +224,28 @@ export default function Hero15({
             viewport={{ once: true, amount: 0.8 }}
             className="mt-auto w-full pt-14 sm:pb-20"
           >
-            <motion.p variants={softReveal} className="text-sm font-light text-white/50 2xl:text-lg">
+            <motion.p variants={softReveal} className="text-xs font-medium tracking-[0.14em] text-white/40 uppercase">
               {proofEyebrow}
             </motion.p>
-            <div className="mx-auto mt-5 flex max-w-2xl flex-wrap items-center justify-center gap-x-10 gap-y-5">
+            {/* Flex, not `.grid`: pages.css defines an unlayered `.grid` that
+                forces two columns and would outrank grid-cols-3 here. */}
+            <div className="mx-auto mt-6 flex w-full max-w-2xl flex-col items-center gap-y-6 sm:flex-row sm:items-start sm:justify-center sm:gap-x-12">
               {proofs.map((proof) => (
-                <motion.div key={proof.label} variants={proofReveal} className="flex items-baseline gap-2.5">
-                  <span className="text-3xl font-medium tracking-[-0.02em] text-white/90 tnum 2xl:text-4xl">
+                <motion.div
+                  key={proof.label}
+                  variants={proofReveal}
+                  className="flex flex-col items-center gap-1 sm:w-40 sm:items-start"
+                >
+                  <span className="text-2xl font-semibold tracking-[-0.02em] text-white tnum 2xl:text-3xl">
                     {proof.value}
                   </span>
-                  <span className="max-w-28 text-start text-xs leading-4 text-white/45">{proof.label}</span>
+                  <span className="max-w-40 text-xs leading-4 text-white/50">{proof.label}</span>
                 </motion.div>
               ))}
             </div>
 
             {footnote && (
-              <motion.p variants={softReveal} className="mx-auto mt-8 max-w-2xl text-xs leading-5 text-white/35">
+              <motion.p variants={softReveal} className="mx-auto mt-10 max-w-2xl text-xs leading-5 text-white/40">
                 {footnote}
               </motion.p>
             )}

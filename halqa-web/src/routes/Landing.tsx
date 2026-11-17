@@ -17,8 +17,8 @@ const NAV: NavLinkItem[] = [
 
 const PROOFS = [
   { value: '4 → 0', label: 'AI calls once the network drops' },
-  { value: 'H1 → H4', label: 'hint ladder before any answer' },
-  { value: '4', label: 'languages: FR · AR · Darija · EN' },
+  { value: 'H1 → H4', label: 'Hint ladder before any answer' },
+  { value: '4', label: 'French · Arabic · Darija · English' },
 ];
 
 export function Landing() {
@@ -31,7 +31,7 @@ export function Landing() {
         value={lang}
         onChange={(e) => setLang(e.target.value as Lang)}
         aria-label="Language"
-        className="min-h-10 rounded-md border border-white/20 bg-white/10 px-2 text-xs text-white/80 outline-none backdrop-blur-md transition-colors duration-200 hover:bg-white/15"
+        className="min-h-10 rounded-md border border-white/20 bg-white/10 px-2.5 text-xs font-medium tracking-[0.08em] text-white/80 uppercase outline-none backdrop-blur-md transition-colors duration-200 hover:bg-white/15"
       >
         {LANGS.map((l) => (
           <option key={l} value={l} className="text-ink">
@@ -44,8 +44,8 @@ export function Landing() {
 
   const footnote: ReactNode = (
     <>
-      Anonymous · synthetic data only · the AI supports teachers, never replaces them. IEEE SB/WIE.
-      {lang === 'fr' && ' Aucune voix laissée de côté.'}
+      Anonymous · synthetic data only · the AI supports teachers, never replaces them · IEEE SB / WIE
+      {lang === 'fr' && ' · Aucune voix laissée de côté.'}
     </>
   );
 
@@ -56,7 +56,7 @@ export function Landing() {
         navExtra={langSwitch}
         headingLine1="No voice"
         headingLine2="left behind"
-        description="AI-mediated peer study circles. Learners answer first; the AI steps in only afterwards — with a credit economy, an offline fallback and four languages."
+        description="Peer study circles, mediated by AI. Learners answer first; the AI steps in only afterwards — with a credit economy, an offline fallback and four languages."
         primaryCtaLabel="Join a circle"
         primaryCtaTo="/enter"
         secondaryCtaLabel="Have a code?"
