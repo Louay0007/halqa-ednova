@@ -94,6 +94,37 @@ export const STRINGS: Record<string, Record<Lang, string>> = {
   sign_out: { en: 'Sign out', fr: 'Déconnexion', ar: 'خروج', darija: 'خرج' },
   skip_content: { en: 'Skip to content', fr: 'Aller au contenu', ar: 'تجاوز إلى المحتوى', darija: 'تجاوز للمحتوى' },
 
+  // §4 R2 — diagnostic / live passport
+  dna_title: { en: 'Diagnose — 4 taps, 3 minutes', fr: 'Diagnostique — 4 tapes, 3 minutes', ar: 'تشخيص — 4 ضغطات، 3 دقائق', darija: 'تشخيص — 4 ضغوط، 3 دقيقة' },
+  dna_sub: { en: 'Four questions. Your learner passport fills itself live.', fr: 'Quatre questions. Votre passeport se remplit en direct.', ar: 'أربعة أسئلة. جوازك يملأ نفسه مباشرة.', darija: '4 أسئلة. جوازك كيملا هو نفسه مباشرة.' },
+  dna_load: { en: 'Could not load the diagnostic.', fr: 'Impossible de charger le diagnostic.', ar: 'تعذّر تحميل التشخيص.', darija: 'ما صلّحتش تحميل التشخيص.' },
+  dna_failed: { en: 'Diagnostic failed — retry.', fr: 'Diagnostic impossible — réessayer.', ar: 'فشل التشخيص — حاول مجدداً.', darija: 'فشل التشخيص — عاود حاول.' },
+  dna_saving: { en: 'Saving…', fr: 'Enregistrement…', ar: 'جارٍ الحفظ…', darija: 'جارٍ الحفظ…' },
+  dna_submit: { en: 'See my passport →', fr: 'Voir mon passeport →', ar: 'شوف جوازي →', darija: 'شوف جوازي →' },
+  dna_ready: { en: 'Passport ready ✓', fr: 'Passeport prêt ✓', ar: 'الجواز جاهز ✓', darija: 'الجواز جاهز ✓' },
+  dna_progress: { en: 'Tap to fill · {n} of 4', fr: 'اضغط باش تملي · {n} من 4', ar: 'اضغط باش تملي · {n} من 4', darija: 'اضغط باش تملي · {n} من 4' },
+  passport_live: { en: 'Learner Passport', fr: 'Passeport de l’apprenant', ar: 'جواز المتعلّم', darija: 'جواز المتعلّم' },
+  passport_level: { en: 'Level', fr: 'Niveau', ar: 'المستوى', darija: 'المستوى' },
+  passport_style: { en: 'Style', fr: 'Style', ar: 'الأسلوب', darija: 'الأسلوب' },
+  passport_lang: { en: 'Language', fr: 'Langue', ar: 'اللغة', darija: 'اللغة' },
+  passport_hints: { en: 'Hints', fr: 'Indices', ar: 'التلميحات', darija: 'التلميحات' },
+  passport_invite: { en: 'Invite me', fr: 'ادعني', ar: 'ادعني', darija: 'ادعني' },
+  dna_hint_eager: { en: 'eager', fr: 'avide', ar: 'جاهز', darija: 'كيعرف' },
+  dna_hint_normal: { en: 'normal', fr: 'normal', ar: 'عادي', darija: 'عادي' },
+  solo_title: { en: 'Teach Nova — solo', fr: 'Enseigne Nova — solo', ar: 'عَلّم Nova — منفرد', darija: 'عَلّم Nova — منفرد' },
+  solo_start: { en: 'Start — Nova is the curious student', fr: 'Commencer — Nova est l’élève curieux', ar: 'ابدأ — Nova الطالب الفضولي', darija: 'ابدأ — Nova الطالب الفضولي' },
+  solo_start_copy: { en: 'One learner, one hat, eight turns. Nova asks, you teach.', fr: 'Un apprenant, un chapeau, huit tours. Nova questionne, vous enseignez.', ar: 'متعلّم واحد، غطاء واحد، ثماني جولات. Nova تسأل، وأنت تدرّس.', darija: 'متعلّم واحد، غطاء واحد، 8 جولات. Nova تسول، وأنت كتعليم.' },
+  solo_enter: { en: 'Enter first, then come back →', fr: 'Entrez d’abord, puis revenez →', ar: 'ادخل أولاً، ثم عد →', darija: 'ادخل الأول، وبعداد →' },
+  solo_progress: { en: 'Teach Nova {n} of {m} turns', fr: 'Enseigne Nova {n} de {m} tours', ar: 'عَلّم Nova {n} من {m} الجولات', darija: 'عَلّم Nova {n} من {m} الجولات' },
+  solo_teacher: { en: 'Answer as the teacher — Nova learns from you.', fr: 'Réponds comme l’enseignant — Nova apprend de toi.', ar: 'أجب كالمعلم — Nova يتعلّم منك.', darija: 'أجب كالأستاذ — Nova كيتعلّم منك.' },
+  solo_send: { en: 'Your explanation', fr: 'Votre explication', ar: 'شرحك', darija: 'شرحك' },
+  solo_send_short: { en: 'Send', fr: 'Envoyer', ar: 'أرسل', darija: 'أرسل' },
+  solo_budget: { en: 'Solo budget: {n} turns used', fr: 'Budget solo : {n} tours passés', ar: 'الميزانية المنفردة: {n} جولة', darija: 'ميزانية المنفرد: {n} جولة' },
+  solo_invite: { en: 'Invite a friend — make it a circle', fr: 'Invite un ami — transforme ça en cercle', ar: 'ادعُ صديقاً — حوّل ذلك إلى حلقة', darija: 'ادع صاحب — حوّل هاك إلى حلقة' },
+  solo_qr: { en: 'Invite QR', fr: 'QR d’invitation', ar: 'رمز النداء', darija: 'رمز الدعوة' },
+  solo_code: { en: 'code', fr: 'code', ar: 'الرمز', darija: 'الرمز' },
+  dna_invited: { en: 'Invited', fr: 'Invité', ar: 'مُدعو', darija: 'مدعو' },
+
   // §4 R7 — session room
   agenda: { en: 'Agenda', fr: 'Déroulé', ar: 'الأجندة', darija: 'الأجندة' },
   members: { en: 'Members', fr: 'Membres', ar: 'الأعضاء', darija: 'الأعضاء' },
@@ -125,8 +156,10 @@ export const STRINGS: Record<string, Record<Lang, string>> = {
   stale_s: { en: 'stale {n}s', fr: 'périmé {n}s', ar: 'قديم {n}ث', darija: 'قديم {n}ث' },
 };
 
-export function t(key: string, lang: Lang): string {
-  return STRINGS[key]?.[lang] ?? STRINGS[key]?.en ?? key;
+export function t(key: string, lang: Lang, vars?: Record<string, string | number>): string {
+  let s = STRINGS[key]?.[lang] ?? STRINGS[key]?.en ?? key;
+  if (vars) for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, String(v));
+  return s;
 }
 
 export const RTL: Lang[] = ['ar'];export type { Lang };

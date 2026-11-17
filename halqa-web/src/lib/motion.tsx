@@ -37,12 +37,12 @@ export function Reveal({
   children,
 }: {
   index?: number;
-  as?: 'section' | 'article' | 'div' | 'header' | 'footer' | 'form';
+  as?: 'section' | 'article' | 'div' | 'header' | 'footer' | 'form' | 'fieldset';
   className?: string;
   children?: React.ReactNode;
 }) {
   const props = useSectionReveal(index);
-  const M = motion[as] as typeof motion.div;
+  const M = (motion as unknown as Record<string, typeof motion.div>)[as] as typeof motion.div;
   return (
     <M className={className} {...props}>
       {children}
