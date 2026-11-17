@@ -17,8 +17,10 @@ export default defineConfig({
         description:
           'AI-mediated peer learning circle. Peers first, Nova balances, verifies and lights the way.',
         lang: 'fr',
-        theme_color: '#123047',
-        background_color: '#f4f7f7',
+        // Must track --navy-deep (night field): the installed splash and the
+        // status bar render before any CSS is parsed, so they cannot inherit.
+        theme_color: '#070f16',
+        background_color: '#070f16',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
@@ -27,10 +29,15 @@ export default defineConfig({
           { src: 'icon.svg', sizes: 'any', type: 'image/svg+xml' },
           { src: 'icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: 'icon-512.png', sizes: '512x512', type: 'image/png' },
-          { src: 'icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: 'icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       workbox: {
+        // Precache the night-field backdrop. It is referenced by the shell,
+        // landing and /enter, so a first load with no network would otherwise
+        // paint the veil over nothing. Everything else in public/ is either
+        // already in the manifest icons or runtime-cached.
+        globPatterns: ['**/*.{js,css,html,svg,png,avif,webmanifest,woff2}'],
         runtimeCaching: [
           {
             urlPattern: /\/api\/v1\/questions\/.*\/state/,
