@@ -56,23 +56,33 @@ export class ErrorBoundary extends Component<Props, State> {
     // A navigation should not leave the previous route's error on screen: if the
     // failure belongs to a route we have since left, drop it during render.
     if (!error || atId !== this.props.boundaryId) return this.props.children;
-
-    const { lang } = this.props;
-    const stale = isStaleBuild(error);
-
-    return (
-      <section className="card" role="alert" style={{ margin: '24px auto', maxWidth: 560 }}>
-        <h2>{t('error_title', lang)}</h2>
-        <p className="muted">{stale ? t('error_stale_build', lang) : t('error_body', lang)}</p>
-        <div className="row">
-          <button type="button" className="btn" style={{ minHeight: 44 }} onClick={this.reload}>
-            {t('reload', lang)}
-          </button>
-          <a className="btn btn-ghost" style={{ minHeight: 44 }} href="/">
-            {t('back_home', lang)}
-          </a>
-        </div>
-      </section>
-    );
+    return <CrashCard lang={this.props.lang} stale={isStaleBuild(error)} onReload={this.reload} />;
   }
+}
+
+/**
+ * The recovery card itself, split out so it can be rendered and audited without
+ * throwing inside a boundary.
+ *
+ * React 19 re-throws a boundary-caught error out of whatever scope rendered it,
+ * so a test that mounts a throwing child to inspect the fallback fails on the
+ * fixture rather than on the assertion. Extracting the presentational half keeps
+ * the a11y gate (§6.6) honest: it checks the card that actually ships, not a
+ * hand-written replica of it.
+ */
+export function CrashCard({ lang, stale, onReload }: { lang: Lang; stale: boolean; onReload: () => void }): ReactNode {
+  return (
+    <section className="card" role="alert" style={{ margin: '24px auto', maxWidth: 560 }}>
+      <h2>{t('error_title', lang)}</h2>
+      <p className="muted">{stale ? t('error_stale_build', lang) : t('error_body', lang)}</p>
+      <div className="row">
+        <button type="button" className="btn" style={{ minHeight: 44 }} onClick={onReload}>
+          {t('reload', lang)}
+        </button>
+        <a className="btn btn-ghost" style={{ minHeight: 44 }} href="/">
+          {t('back_home', lang)}
+        </a>
+      </div>
+    </section>
+  );
 }

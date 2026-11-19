@@ -73,6 +73,11 @@ jobs:
       - name: i18n parity
         run: npm run i18n:check
 
+      # Unit + axe accessibility (§6.6). The a11y gate runs axe-core for real on
+      # the 404 and crash card rather than asserting hand-counted attributes.
+      - name: Unit and a11y tests
+        run: npx vitest run
+
       # The build fails by design without VITE_API_BASE (vite.config.ts guard),
       # so CI supplies a placeholder: this job proves the bundle compiles, not
       # that it points anywhere reachable.
