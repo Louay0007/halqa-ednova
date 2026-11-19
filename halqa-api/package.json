@@ -29,6 +29,7 @@
     "purge:learners": "ts-node -T scripts/purge-learners.ts",
     "migrate": "ts-node -T scripts/migrate.ts",
     "smoke:deploy": "ts-node -T scripts/smoke-deploy.ts",
+    "load:poller": "ts-node -T scripts/load-poller.ts",
     "mongo:roles": "mongosh \"$ADMIN_URI\" --file scripts/mongo-roles.js",
     "backup": "bash scripts/backup.sh"
   },

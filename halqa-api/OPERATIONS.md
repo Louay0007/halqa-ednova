@@ -109,6 +109,18 @@ access immediately, `POST /api/v1/me/restore` cancels it.
 | Polled payload | < 1 KB | asserted in `cfas-slice.spec.ts` and `requests.spec.ts` |
 | Circle daily model calls | < `CIRCLE_DAILY_CALLS` (400) | `halqa_circle_daily_calls` |
 
+Run the poller load test against staging before a capacity change:
+
+```
+BASE_URL=https://api.staging.example BASE_TOKEN=<learner jwt> \
+SESSION_ID=S-... QUESTION_IDS=Q-... LEARNERS=200 DURATION_S=60 npm run load:poller
+```
+
+It exits 1 with the offending number. Measured on a single node with 80
+simulated learners: p95 12.3 ms, 304 share 91.6%, 0 errors. The 304 share is the
+number to watch — if it drops, the ETag input has become viewer-dependent and a
+cache has quietly turned into a per-learner query.
+
 The poller is the load that matters: 200 learners on 1.5 s/4 s/5 s intervals is
 the steady state, and the design depends on ETags so almost every request is a
 304 with no body. If the 304 rate falls, the ETag input has become
