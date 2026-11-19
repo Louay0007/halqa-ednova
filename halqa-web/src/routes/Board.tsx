@@ -4,7 +4,7 @@ import { api } from '../lib/api';
 import { useSession } from '../lib/session';
 import { ErrorNote, SbuRings } from '../components/ui';
 import { Reveal, useSectionReveal } from '../lib/motion';
-import { t } from '../lib/i18n';
+import { t, topicLabel } from '../lib/i18n';
 
 interface CircleCard {
   id: string;
@@ -63,9 +63,11 @@ export function Board() {
         <button type="submit" className="btn" style={{ minHeight: 44 }} disabled={creating || !nicks.trim()}>
           {creating ? '…' : t('match_btn', lang)}
         </button>
-        {groups.map((g) => (
+        {groups.map((g, gi) => (
           <div key={g.circleId} className="match-group">
-            <strong translate="no">{g.circleId}</strong>
+            {/* The matcher returns `C-match-1…`, a position label, not a circle.
+                Naming it "group 2" is honest; showing the fake id was not. */}
+            <strong>{t('match_group', lang, { n: gi + 1 })}</strong>
             <div className="match-chips">
               {g.learnerIds.map((l) => <span key={l} className="chip" translate="no">{l}</span>)}
             </div>
@@ -78,13 +80,22 @@ export function Board() {
       <section className="board-grid" aria-label={t('circles', lang)}>
         {circles.map((c, i) => (
           <Reveal as="article" key={c.id} className={`card board-card${c.needsHuman ? ' needs-human' : ''}`} index={i + 2}>
-            <h2 translate="no">{c.id}</h2>
-            <p className="muted" translate="no">{c.topic}</p>
+            {/* The topic is the circle's name to a human; the id is a reference,
+                so it moves to a muted line under it instead of being the <h2>. */}
+            <h2>{topicLabel(c.topic, lang)}</h2>
+            <p className="hint tnum" translate="no">{c.id}</p>
             {c.noSession ? (
               <span className="muted">{t('no_session', lang)}</span>
             ) : (
               <>
-                <SbuRings S={c.S ?? 0} B={c.B ?? 0.5} U={c.U ?? 0.5} />
+                {/* No measured S-B-U means no rings. The old `?? 0.5` defaults
+                    drew a perfectly healthy circle out of missing data — the same
+                    visual language the app uses for measured health. */}
+                {typeof c.S === 'number' && typeof c.B === 'number' && typeof c.U === 'number' ? (
+                  <SbuRings S={c.S} B={c.B} U={c.U} />
+                ) : (
+                  <span className="muted">{t('no_session', lang)}</span>
+                )}
                 {c.needsHuman && (
                   <Link className="needs-human-link" to={`/mentor?circleId=${c.id}`}>
                     {t('needs_human_now', lang)} →

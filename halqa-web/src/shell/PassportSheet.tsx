@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { api, ApiFailure } from '../lib/api';
 import { useSession } from '../lib/session';
 import { t } from '../lib/i18n';
-import { PassportView } from '../routes/Dna';
+import { PassportView } from '../components/PassportView';
 import { iconFor } from '../lib/avatars';
 
 interface MeData {
@@ -24,6 +24,7 @@ export function PassportSheet({ onClose }: { onClose: () => void }) {
   const [pwMsg, setPwMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pwBusy, setPwBusy] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     api.me().then((r) => setData(r.data as MeData)).catch(() => undefined);
@@ -35,14 +36,40 @@ export function PassportSheet({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     closeRef.current?.focus();
+    const panel = panelRef.current;
+    /** `aria-modal="true"` promises the rest of the page is inert. Without a trap
+     *  the learner tabs straight out into the shell behind the sheet. */
+    const focusables = () =>
+      Array.from(
+        panel?.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ) ?? [],
+      ).filter((el) => el.offsetParent !== null);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const list = focusables();
+      if (list.length === 0) return;
+      const first = list[0];
+      const last = list[list.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      if (e.shiftKey && (active === first || !panel?.contains(active))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
       window.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
+      document.body.style.overflow = prev;
     };
   }, [onClose]);
 
@@ -57,7 +84,7 @@ export function PassportSheet({ onClose }: { onClose: () => void }) {
       login(r.token, learnerId);
       setCurrent('');
       setNext('');
-      setPwMsg({ ok: true, text: t('copied', lang) });
+      setPwMsg({ ok: true, text: t('pw_rotated', lang) });
     } catch (e) {
       const f = e as ApiFailure;
       setPwMsg({ ok: false, text: f.body?.user_msg?.[lang] ?? f.body?.code ?? '—' });
@@ -83,7 +110,7 @@ export function PassportSheet({ onClose }: { onClose: () => void }) {
   return (
     <div className="sheet-root">
       <div className="sheet-backdrop" onClick={onClose} aria-hidden="true" />
-      <aside className="sheet" role="dialog" aria-modal="true" aria-label={t('nav_passport', lang)}>
+      <aside ref={panelRef} className="sheet" role="dialog" aria-modal="true" aria-label={t('nav_passport', lang)}>
         <header className="sheet-head">
           <h2>{t('nav_passport', lang)}</h2>
           <button ref={closeRef} type="button" className="sheet-close" onClick={onClose} aria-label={t('close', lang)}>
@@ -150,7 +177,7 @@ export function PassportSheet({ onClose }: { onClose: () => void }) {
                 style={{ minHeight: 44 }}
               />
               {pwMsg && (
-                <p className="hint" role="status">
+                <p className={`hint${pwMsg.ok ? ' ok' : ''}`} role="status">
                   {pwMsg.text}
                 </p>
               )}

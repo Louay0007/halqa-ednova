@@ -8,6 +8,11 @@ export type Lang = 'ar' | 'darija' | 'fr' | 'en';
 export type ContextMode = 'class' | 'study' | 'community' | 'workshop' | 'program' | 'solo';
 export type DegradationMode = 'green' | 'orange' | 'red' | 'black';
 
+/** The coach rephrase `style` enum — the backend's `RephraseDto` whitelists exactly
+ *  these six and has no `@IsOptional`, so this is the only valid value set. */
+export const REWRITE_STYLES = ['visual', 'analogy', 'steps', 'example', 'repetition', 'practice'] as const;
+export type RewriteStyle = (typeof REWRITE_STYLES)[number];
+
 export interface ApiError {
   error: string;
   code: string;
@@ -78,6 +83,8 @@ async function req<T>(path: string, init?: RequestInit & { etag?: string }): Pro
 
 const get = <T>(p: string, etag?: string) => req<T>(p, { method: 'GET', etag }).then((r) => r);
 const post = <T>(p: string, body?: unknown) => req<T>(p, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) }).then((r) => r.data);
+const patch = <T>(p: string, body: unknown) =>
+  req<T>(p, { method: 'PATCH', body: JSON.stringify(body) }).then((r) => r.data);
 
 /* platform */
 export const api = {
@@ -105,7 +112,15 @@ export const api = {
   /** Rotate the secret; returns a fresh token because the epoch bumps. */
   changePassphrase: (current: string, next: string) => post<{ token: string }>('/auth/passphrase', { current, next }),
   me: () => get<{ learner: unknown; passport: Passport | null }>('/me'),
-  dnaItems: () => get<{ items: Array<{ id: string; prompt: string; options: string[] }> }>('/dna/items'),
+  /** Update avatar / context on the caller's own record. The backend DTO
+   *  whitelists exactly these two fields, and `forbidNonWhitelisted` rejects
+   *  anything else, so the parameter type is deliberately narrow. */
+  updateMe: (input: { avatarKey?: string; context?: ContextMode }) =>
+    patch<{ id: string; nickname: string; avatarKey: string; context: string; handle: string | null }>('/me', input),
+  dnaItems: () =>
+    get<{ items: Array<{ id: string; prompt: string; options: Array<{ value: string; label: string }> }> }>(
+      '/dna/items',
+    ),
   dna: (input: { nickname?: string; context?: string; topic?: string; answers: Record<string, string>; sessionId?: string; circleId?: string }) =>
     post<{ learnerId: string; passport: Passport }>('/dna', input),
   explainCard: (learnerId: string) => get<{ card: string; visible: boolean }>(`/passports/${learnerId}/explain-card`),
@@ -115,19 +130,34 @@ export const api = {
   circleCreate: (input: { topic: string; context: ContextMode; lang: Lang; title?: string; windowS?: number; hostNickname: string }) =>
     post<{ circleId: string; joinCode: string; hostLearnerId: string; token: string }>('/circles', input),
   circleJoin: (circleId: string, nickname: string, learnerId?: string) => post<{ learnerId: string; role: string; token: string }>(`/circles/${circleId}/join`, { nickname, learnerId }),
+  /** Public context capabilities: agenda template, matcher/mentor-board flags,
+   *  bandwidth. `/circles/new` previews the agenda from this instead of hardcoding
+   *  the five steps, so a context that drops a step stops advertising it. */
+  contextConfig: (mode: ContextMode) =>
+    get<{
+      agenda: Array<{ id: string; kind: string; plannedS?: number }>;
+      matcher: boolean;
+      mentorBoard: boolean;
+      spacedRepetition: boolean;
+      bandwidth: string;
+    }>(`/contexts/${mode}/config`),
   circleByCode: (code: string) => get<{ circleId: string; topic: string; members: number }>(`/circles/by-code/${encodeURIComponent(code.trim().toUpperCase())}`),
-  circleGet: (circleId: string) => get<{ _id: string; topic: string; members: Array<{ learnerId: string; role: string; nickname?: string }>; joinCode: string; windowS: number }>(`/circles/${circleId}`),
+  circleGet: (circleId: string) => get<{ _id: string; topic: string; context: ContextMode; members: Array<{ learnerId: string; role: string; nickname?: string }>; joinCode: string; windowS: number }>(`/circles/${circleId}`),
   circleHealth: (circleId: string) => get<Health>(`/circles/${circleId}/health`),
   sessionStart: (circleId: string) => post<{ sessionId: string }>(`/circles/${circleId}/sessions`),
   sessionEnd: (sessionId: string) => post<{ endedAt: string; health: unknown; credits: unknown; usage: unknown }>(`/sessions/${sessionId}/end`),
-  sessionCredits: (sessionId: string) => get<{ credits: Array<{ learnerId: string; total: number }>; dispersion: number; dominant: unknown }>(`/sessions/${sessionId}/credits`),
+  /* No client for `GET /sessions/:id/credits`: its `dominant` field is a
+     private dominance signal ("never exposed publicly" in equity.service),
+     and `sessionGet` already carries the credits array the UI renders. */
   sessionGet: (sessionId: string) =>
     get<{ _id: string; agenda?: { templateId: string; steps: Array<{ id: string; kind: string; plannedS?: number; done: boolean }> }; credits?: Array<{ learnerId: string; total: number }> }>(`/sessions/${sessionId}`),
 
   /* coach (private, per-member) */
   coachNudge: (targetId: string, input: { sessionId: string; circleId: string }) =>
     post<{ nudge: string; private: true }>(`/coach/nudge/${targetId}`, input),
-  coachRephrase: (input: { sessionId: string; circleId: string; text: string; style?: string; lang?: Lang }) =>
+  /** `style` is required by the API (`RephraseDto` has no `@IsOptional`): omitting it
+   *  is an instant 400, so the type refuses to compile without one. */
+  coachRephrase: (input: { sessionId: string; circleId: string; text: string; style: RewriteStyle; lang?: Lang }) =>
     post<{ suggestion: string }>('/coach/rephrase', input),
 
   /* questions (CF-AS) */
@@ -164,7 +194,15 @@ export const api = {
   board: (topic?: string) => get<{ circles: Array<{ id: string; topic: string; S?: number; B?: number; U?: number; needsHuman?: boolean; noSession?: boolean }> }>(`/board${topic ? `?topic=${topic}` : ''}`),
   mentorJoin: (circleId: string, mentorId: string) => post<{ ok: boolean; role: string }>(`/circles/${circleId}/mentor/join`, { mentorId }),
   mentorNote: (circleId: string, mentorId: string, text: string, sessionId?: string) => post<{ noteId: string }>('/mentor/notes', { circleId, mentorId, text, sessionId }),
-  mentorBrief: (circleId: string, sessionId: string) => get<{ brief: string; words: number }>(`/mentor/brief?circleId=${circleId}&sessionId=${sessionId}`),
+  /** Both params are mandatory server-side (`assertMember` runs on each), and an
+   *  empty `sessionId=` reaches it as a string that matches nothing — so refuse the
+   *  call here rather than sending a request that can only 403. */
+  mentorBrief: (circleId: string, sessionId: string) => {
+    if (!circleId || !sessionId) return Promise.reject(new Error('mentorBrief needs circleId and sessionId'));
+    return get<{ brief: string; words: number }>(
+      `/mentor/brief?circleId=${encodeURIComponent(circleId)}&sessionId=${encodeURIComponent(sessionId)}`,
+    );
+  },
   dashboard: (circleId?: string) => get<{ sessions: Array<{ sessionId: string; health: { S: number; B: number; U: number; needsHuman: boolean } | null; talkShare: Array<{ learnerId: string; total: number }>; stuck: boolean }>; styleMix: Record<string, number>; aggregatesOnly: boolean }>(`/dashboard${circleId ? `?circleId=${circleId}` : ''}`),
   xp: (learnerId: string) => get<{ total: number; badges: string[] }>(`/learners/${learnerId}/xp`),
 };

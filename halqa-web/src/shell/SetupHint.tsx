@@ -1,7 +1,7 @@
 import { t } from '../lib/i18n';
 import type { Lang } from '../lib/api';
 
-/** Spec §3.5 boot gate — rendered instead of the app shell when /healthz
+/** Spec §3.5 boot gate — rendered instead of the app shell when /readyz
  *  fails at startup, so a stopped backend never produces a blank screen. */
 export function SetupHint({ lang, onRetry }: { lang: Lang; onRetry: () => void }) {
   return (

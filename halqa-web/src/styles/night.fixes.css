@@ -1,0 +1,271 @@
+/* Night-field fix pass — the corrections layered on top of the theme in
+   night.css. Split out so the theme file stays what it claims to be: the
+   dark re-skin. Everything here is a deliberate defect fix (viewport frame,
+   floating legends, tier distinction, AA, tap targets), each with the reason
+   recorded next to the rule. Both files are `import`ed together in App.tsx.
+
+   Unscoped rules at the bottom (.enter-hint, .enter-hint a, .enter-foot a)
+   intentionally reach /enter, which also sits on the night field but is not
+   inside .shell.is-app. */
+
+/* ---- UI fix pass ------------------------------------------------------
+   1. Footer nav was position:sticky inside a scrolling document, so it
+      drifted into the page content mid-scroll. The night shell is a fixed
+      viewport frame: only <main> scrolls.
+   2. Fieldset legends and floating labels were clipped/dimmed by the glass
+      card; they are now card-header rows.
+   3. S-B-U tiers lost their distinction (all three looked identical), and
+      the needs-human pulse was invisible on glass.
+   4. Muted-on-dark and the mentor observer chip were under AA.
+   5. Cite chips measured 22px; the hit area is expanded to 44px.
+   6. The background photograph was 4096x2731 in an 800px frame — a 140 KB+
+      decode for a blurred backdrop. It stays, but is now a CSS layer with
+      an explicit position so it never shifts.                            */
+
+.shell.is-app {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+.shell.is-app main {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 1.25rem;
+}
+.shell.is-app .bottomnav {
+  position: static;
+  flex: 0 0 auto;
+  inset: auto;
+  bottom: auto;
+  margin: 0 auto 0.5rem;
+}
+
+/* Glass cards: legends/labels become a header row instead of a cut border. */
+.shell.is-app fieldset.card,
+.shell.is-app .choice-group {
+  padding: 0.9rem 1rem 1rem;
+}
+.shell.is-app fieldset.card > legend,
+.shell.is-app .choice-group > legend {
+  /* A <legend> is painted at the fieldset's border edge and ignores padding.
+     Floating it returns it to the padding box; the child rows clear it. */
+  float: inline-start;
+  width: 100%;
+  padding: 0;
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.66);
+}
+.shell.is-app fieldset.card > legend + *,
+.shell.is-app .choice-group > legend + * {
+  clear: both;
+  margin-top: 0.7rem;
+}
+.shell.is-app fieldset.card > legend strong { color: rgba(255, 255, 255, 0.5); font-weight: 500; }
+
+/* Ring tiers: components/ui.css owns the single rule set, driven by the
+   --tier-* tokens. The night field only re-points them, so the three states
+   stay distinct on glass without a second copy of the selectors. */
+.shell.is-app {
+  --tier-bright-fill: color-mix(in srgb, var(--aqua) 26%, transparent);
+  --tier-bright-ring: var(--aqua);
+  --tier-bright-ink: #fff;
+  --tier-steady-fill: rgba(255, 255, 255, 0.06);
+  --tier-steady-ring: rgba(255, 255, 255, 0.34);
+  --tier-steady-ink: rgba(255, 255, 255, 0.88);
+  --tier-pulse-fill: rgba(255, 255, 255, 0.04);
+  --tier-pulse-ring: color-mix(in srgb, var(--gold) 62%, transparent);
+  --tier-pulse-ink: #f2c078;
+}
+.shell.is-app .ring .ring-v { color: var(--muted-on-dark); }
+
+/* Needs-human: visible on glass, still gentle. */
+.shell.is-app .card.needs-human {
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--plum) 70%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--plum) 14%, transparent);
+}
+.shell.is-app .needs-human-text { color: #d3c1ff; }
+.shell.is-app .needs-human-link { color: #d3c1ff; }
+
+/* AA on dark. */
+.shell.is-app .observer {
+  background: color-mix(in srgb, var(--plum) 34%, transparent);
+  color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+.shell.is-app .mode-pill.mode-orange { color: #ffd9a3; }
+.shell.is-app .mode-pill.mode-red { color: #ffc79a; }
+.shell.is-app .mode-pill.mode-green { color: #b7f0c8; }
+.shell.is-app .stale-chip,
+.shell.is-app .cites-warn { color: #ffd9a3; }
+.shell.is-app .drift-kept strong { color: #b7f0c8; }
+.shell.is-app .drift-lost strong,
+.shell.is-app .drift-dist strong { color: #ffd9a3; }
+.shell.is-app .badge { background: color-mix(in srgb, var(--gold) 88%, #fff); }
+.shell.is-app .host-crown { color: #ffd9a3; }
+
+/* Cite chips stay small visually, but hit 44px. */
+.shell.is-app .cite {
+  position: relative;
+  color: #9aeee8;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+.shell.is-app .cite::after {
+  content: '';
+  position: absolute;
+  inset: -12px -4px;
+}
+
+/* Backdrop photograph: stable layer, no layout shift. */
+.shell.is-app .app-bg {
+  object-position: center 40%;
+  filter: saturate(0.85) blur(0.5px);
+}
+@media (max-width: 1023px) {
+  /* Below the desktop rail layout, rings and quota would only crowd the
+     header — the room shows both in its own rails. */
+  .shell.is-app .topbar .sbu,
+  .shell.is-app .topbar .quota { display: none; }
+  .shell.is-app .topbar { padding: 0.6rem 1rem; gap: 0.5rem; }
+}
+@media (max-width: 640px) {
+  .shell.is-app main { padding: 0.25rem 1rem 1rem; }
+  .shell.is-app .topbar { padding: 0.6rem 1rem; gap: 0.5rem; }
+  .shell.is-app .bottomnav { width: calc(100% - 1rem); margin-bottom: 0.375rem; }
+  .shell.is-app .topbar .lang select { font-size: 0.7rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shell.is-app .ring-pulse { animation: none; }
+  .shell.is-app .card.needs-human { animation: none; }
+}
+
+/* Hat chips: white on the light-theme colours fails AA on the dark field.
+   Deepen the four backgrounds and keep the semantic hue. */
+.shell.is-app .hat-mediator { background: #4b2f86; }
+.shell.is-app .hat-teammate { background: #1f6b42; }
+.shell.is-app .hat-tutor { background: #0f4d82; }
+.shell.is-app .hat-facilitator { background: #9a4f12; }
+
+/* /enter hint line: 11px at 45% white was 4.43:1 — lifted to 60% (6.0:1). */
+.enter-hint { color: rgba(255, 255, 255, 0.6); }
+.enter-hint a, .enter-foot a { color: #8fe6df; }
+
+/* Inline text links inside glass cards had no padding; give them a 44px
+   hit box without changing the visual size. */
+.shell.is-app main p > a,
+.shell.is-app .enter-foot a {
+  position: relative;
+  display: inline-block;
+}
+.shell.is-app main p > a::after {
+  content: '';
+  position: absolute;
+  inset: -13px 0;
+}
+
+/* Tier chips stacked inline without gap ("T0hors ligne"); the light theme
+   relied on a margin the night reset dropped. */
+.shell.is-app .tier-chip {
+  color: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  margin: 0 0.3rem 0.3rem 0;
+}
+.shell.is-app .cite + .cite { margin-inline-start: 0.3rem; }
+.shell.is-app .cites-warn { color: #ffd9a3; }
+
+/* Fallback answers (T0) must read as a deliberate offline state, not an
+   error: a quiet gold rule and a label, no red. */
+.shell.is-app .qcard .answer-text { color: rgba(255, 255, 255, 0.88); }
+.shell.is-app .q-resolved .tier-chip:first-of-type { color: #ffd9a3; }
+
+/* The light theme marks the CF-AS state with an inline-start rule, but
+   `.shell.is-app .card` sets `border: 0` and out-specifies a single class. The
+   state would therefore disappear inside the app shell — the only place the
+   session room ever renders. Restate it here at the same specificity. */
+.shell.is-app .qcard { border-inline-start: 4px solid rgba(255, 255, 255, 0.22); }
+.shell.is-app .q-open { border-inline-start-color: var(--aqua); }
+.shell.is-app .q-nova-thinking { border-inline-start-color: #ffd9a3; }
+.shell.is-app .q-resolved { border-inline-start-color: #7fd6a0; }
+
+/* /me uses .auth-card + .identity, which the night re-skin never covered —
+   they rendered as opaque white blocks on the dark field. */
+.shell.is-app .auth-card,
+.shell.is-app .identity {
+  background: var(--glass);
+  border: 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: var(--ink-on-dark);
+  border-radius: 0.75rem;
+}
+.shell.is-app .identity {
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+.shell.is-app .identity-glyph {
+  background: rgba(255, 255, 255, 0.08);
+  border: 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+.shell.is-app .auth-lede { color: var(--muted-on-dark); }
+.shell.is-app .auth-card .hint,
+.shell.is-app .identity-text .hint { color: var(--muted-on-dark); }
+.shell.is-app .auth-card input {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  border: 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+.shell.is-app .auth-foot { color: var(--muted-on-dark); }
+
+/* The success hint was only ever coloured inside the composer, so every other
+   "Copied ✓" / "Code valid" / "Passphrase updated" rendered as grey body copy
+   on the dark field. `--green` (#3d8b57) is a light-theme ink; on glass it
+   needs the lift below to clear AA at 12px. */
+.shell.is-app .hint.ok {
+  color: #8fdcae;
+  font-weight: 600;
+}
+
+/* The coach rephrase picker is new; it inherits the input skin so it does not
+   read as an out-of-place native control on the glass. */
+.shell.is-app .coach-style-field select {
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  border: 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  border-radius: 0.5rem;
+  padding-inline: 0.6rem;
+}
+.shell.is-app .coach-style-field > span { color: var(--muted-on-dark); }
+.shell.is-app .coach-style-field option { background: #0b1b26; color: #fff; }
+
+/* `.rail` and `.room` were undefined, so the session room's three columns had
+   no glass and sat directly on the backdrop photograph. */
+.shell.is-app .rail > .card,
+.shell.is-app .peer-composer {
+  background: var(--glass);
+  border: 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 0.75rem;
+}
+
+/* The setup card is now inline inside <main> instead of replacing the shell. */
+.shell.is-app .setup-inline .card {
+  background: var(--glass);
+  border: 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  color: var(--ink-on-dark);
+}

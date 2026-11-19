@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ApiFailure, api } from '../lib/api';
 import { useSession } from '../lib/session';
@@ -11,7 +11,7 @@ import { t } from '../lib/i18n';
 export function CirclesJoin() {
   const [params] = useSearchParams();
   const nav = useNavigate();
-  const { lang, learnerId, setCircleId, login } = useSession();
+  const { lang, learnerId, setCircleId, setJoinCode, login } = useSession();
   const initial = (params.get('code') ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
   const [digits, setDigits] = useState<string[]>(Array.from({ length: 6 }, (_, i) => initial[i] ?? ''));
   const refs = useRef<Array<HTMLInputElement | null>>([]);
@@ -21,22 +21,44 @@ export function CirclesJoin() {
   const [busy, setBusy] = useState(false);
   const code = digits.join('');
 
-  const lookup = async (c: string) => {
-    setErr(null);
-    setPreview(null);
-    if (c.trim().length < 4) return;
-    try {
-      const r = await api.circleByCode(c.trim());
-      setPreview(r.data);
-    } catch (e) {
-      const f = e as ApiFailure;
-      setErr(f.body?.user_msg?.[lang] ?? '—');
-    }
-  };
+  // Stable identity so the ?code= prefill effect can depend on it honestly
+  // (react-hooks/exhaustive-deps) without re-firing on every render.
+  const lookup = useCallback(
+    async (c: string) => {
+      setErr(null);
+      setPreview(null);
+      if (c.trim().length < 4) return;
+      try {
+        const r = await api.circleByCode(c.trim());
+        setPreview(r.data);
+      } catch (e) {
+        const f = e as ApiFailure;
+        setErr(f.body?.user_msg?.[lang] ?? '—');
+      }
+    },
+    [lang],
+  );
 
+  // ?code= prefill → one lookup, only for a full 6-character code. The lookup
+  // is fired from an effect but the state lands asynchronously (in .then), so
+  // no render happens inside the effect itself.
   useEffect(() => {
-    if (initial.length === 6) void lookup(initial);
-  }, []);
+    if (initial.length !== 6) return;
+    let live = true;
+    void (async () => {
+      const r = await api.circleByCode(initial).catch((e: unknown) => {
+        if (live) {
+          const f = e as ApiFailure;
+          setErr(f.body?.user_msg?.[lang] ?? '—');
+        }
+        return null;
+      });
+      if (live && r) setPreview(r.data);
+    })();
+    return () => {
+      live = false;
+    };
+  }, [initial, lang]);
 
   const put = (i: number, raw: string) => {
     const clean = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -78,11 +100,20 @@ export function CirclesJoin() {
     setBusy(true);
     setErr(null);
     try {
-      const id = preview?.circleId ?? code.trim();
+      // `POST /circles/:id/join` is keyed by the Mongo id, never the code. If the
+      // learner never tapped "check", resolve the code first — passing the code
+      // straight through is a guaranteed 404.
+      let id = preview?.circleId;
+      if (!id) {
+        const found = await api.circleByCode(code.trim());
+        id = found.data.circleId;
+        setPreview(found.data);
+      }
       const r = await api.circleJoin(id, nick.trim(), learnerId || undefined);
       sessionStorage.setItem('halqa.nick', nick.trim());
       login(r.token, r.learnerId);
       setCircleId(id);
+      setJoinCode(code.trim());
       nav(`/c/${id}`);
     } catch (e) {
       const f = e as ApiFailure;

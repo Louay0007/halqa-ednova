@@ -3,8 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import { ApiFailure, api, type Lang } from '../lib/api';
 import { useSession } from '../lib/session';
 import { t } from '../lib/i18n';
-import { iconFor } from '../lib/avatars';
-import { PassportView } from './Dna';
+import { AVATARS, iconFor } from '../lib/avatars';
+import { PassportView } from '../components/PassportView';
 
 interface MeData {
   learner: { id?: string; nickname?: string; avatarKey?: string; context?: string; handle?: string | null };
@@ -22,6 +22,8 @@ export function Me() {
   const [next, setNext] = useState('');
   const [pwMsg, setPwMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pwBusy, setPwBusy] = useState(false);
+  const [avatarMsg, setAvatarMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [avatarBusy, setAvatarBusy] = useState(false);
 
   useEffect(() => {
     api
@@ -48,6 +50,24 @@ export function Me() {
       });
   };
 
+  /** Persist a new avatar. `PATCH /me` is the only endpoint that can change it
+   *  after creation, and it rejects keys outside AVATAR_KEYS, not substitutes. */
+  const pickAvatar = async (key: string) => {
+    if (avatarBusy || key === data?.learner.avatarKey) return;
+    setAvatarBusy(true);
+    setAvatarMsg(null);
+    try {
+      const r = await api.updateMe({ avatarKey: key });
+      setData((d) => (d ? { ...d, learner: { ...d.learner, avatarKey: r.avatarKey } } : d));
+      setAvatarMsg({ ok: true, text: t('avatar_saved', lang) });
+    } catch (e) {
+      const f = e as ApiFailure;
+      setAvatarMsg({ ok: false, text: f.body?.user_msg?.[lang as Lang] ?? t('avatar_failed', lang) });
+    } finally {
+      setAvatarBusy(false);
+    }
+  };
+
   const rotatePassphrase = async (e: React.FormEvent) => {
     e.preventDefault();
     if (pwBusy || !current || next.length < 8) return;
@@ -60,7 +80,7 @@ export function Me() {
       login(r.token, learnerId);
       setCurrent('');
       setNext('');
-      setPwMsg({ ok: true, text: 'Passphrase updated — this device is signed in with it.' });
+      setPwMsg({ ok: true, text: t('pw_rotated', lang) });
     } catch (e) {
       const f = e as ApiFailure;
       const code = f.body?.code ?? '';
@@ -68,10 +88,10 @@ export function Me() {
         ok: false,
         text:
           code === 'LOGIN_FAILED'
-            ? 'Wrong current passphrase.'
+            ? t('pw_wrong_current', lang)
             : code === 'PASSPHRASE_LENGTH'
-              ? 'Use at least 8 characters.'
-              : (f.body?.user_msg?.[lang as Lang] ?? 'Could not update — try again.'),
+              ? t('pw_too_short', lang)
+              : (f.body?.user_msg?.[lang as Lang] ?? t('pw_update_failed', lang)),
       });
     } finally {
       setPwBusy(false);
@@ -118,20 +138,48 @@ export function Me() {
 
         {xp && (
           <p className="hint tnum">
-            XP {xp.total} · badges {xp.badges.join(', ') || '—'}
+            {t('xp_badges', lang, { n: xp.total, b: xp.badges.join(', ') || '—' })}
           </p>
         )}
+      </section>
+
+      <section className="auth-card">
+        <fieldset className="avatar-field">
+          <legend className="hint">{t('enter_avatar', lang)}</legend>
+          <div className="avatars" role="radiogroup" aria-label={t('enter_avatar', lang)} translate="no">
+            {AVATARS.map((a) => (
+              <label key={a} className={`avatar-opt${data.learner.avatarKey === a ? ' avatar-opt-on' : ''}`}>
+                <input
+                  type="radio"
+                  name="avatar"
+                  value={a}
+                  checked={data.learner.avatarKey === a}
+                  disabled={avatarBusy}
+                  onChange={() => pickAvatar(a)}
+                />
+                <span aria-hidden="true">{iconFor(a)}</span>
+                <span className="visually-hidden">{a}</span>
+              </label>
+            ))}
+          </div>
+          <p className="hint">{t('avatar_hint', lang)}</p>
+          {avatarMsg && (
+            <p className={`hint${avatarMsg.ok ? ' ok' : ''}`} role="status">
+              {avatarMsg.text}
+            </p>
+          )}
+        </fieldset>
       </section>
 
       {data.learner.handle ? (
         <section className="auth-card">
           <h2 className="hint" style={{ margin: 0 }}>
-            Account
+            {t('account', lang)}
           </h2>
           <form onSubmit={rotatePassphrase} className="flex flex-col gap-3" noValidate>
             <div>
               <label htmlFor="pw-current" className="hint">
-                Current passphrase
+                {t('pw_current', lang)}
               </label>
               <input
                 id="pw-current"
@@ -144,7 +192,7 @@ export function Me() {
             </div>
             <div>
               <label htmlFor="pw-next" className="hint">
-                New passphrase
+                {t('pw_new', lang)}
               </label>
               <input
                 id="pw-next"
@@ -156,32 +204,31 @@ export function Me() {
                 value={next}
                 onChange={(e) => setNext(e.target.value)}
               />
-              <p className="hint">8 characters minimum. Rotation signs every other device out.</p>
+              <p className="hint">{t('pw_min_hint', lang)}</p>
             </div>
             {pwMsg && (
-              <p className="hint" role="status">
+              <p className={`hint${pwMsg.ok ? ' ok' : ''}`} role="status">
                 {pwMsg.text}
               </p>
             )}
             <button type="submit" className="btn btn-small" disabled={pwBusy || !current || next.length < 8}>
-              {pwBusy ? 'Updating…' : 'Update passphrase'}
+              {pwBusy ? t('pw_updating', lang) : t('pw_update', lang)}
             </button>
           </form>
         </section>
       ) : (
         <section className="auth-card">
           <p className="hint" style={{ margin: 0 }}>
-            This is still a guest record. Claim an account from <Link to="/enter">/enter</Link> to keep your passport on
-            any device.
+            {t('guest_record_hint', lang)} <Link to="/enter">/enter</Link> {t('guest_record_tail', lang)}
           </p>
         </section>
       )}
 
       <footer className="auth-foot">
         <button type="button" className="btn btn-ghost btn-small" onClick={signOut} disabled={busy}>
-          {busy ? 'Signing out…' : 'Sign out'}
+          {busy ? t('signing_out', lang) : t('sign_out', lang)}
         </button>
-        <span className="hint">Revokes this device token.</span>
+        <span className="hint">{t('signout_hint', lang)}</span>
       </footer>
     </div>
   );

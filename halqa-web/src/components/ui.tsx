@@ -1,40 +1,52 @@
 import './ui.css';
 import { useSession } from '../lib/session';
-import { t } from '../lib/i18n';
+import { hatLabel, t } from '../lib/i18n';
 
+const HAT_CLASS: Record<string, string> = {
+  Mediator: 'hat-mediator',
+  Teammate: 'hat-teammate',
+  Tutor: 'hat-tutor',
+  Facilitator: 'hat-facilitator',
+  NOVA_NOVICE: 'hat-teammate',
+  NOVA_CURIOUS: 'hat-teammate',
+  NOVA_SKEPTIC: 'hat-mediator',
+  NOVA_EXAMINER: 'hat-facilitator',
+  NOVA: 'hat-tutor',
+};
+
+/** Hat badge. The label is translated — it used to read "Mediator · وسيط" in
+ *  every language, which is only correct in `ar`/`darija`. */
 export function HatChip({ hat }: { hat: string }) {
-  const map: Record<string, { label: string; cls: string }> = {
-    Mediator: { label: 'Mediator · وسيط', cls: 'hat-mediator' },
-    Teammate: { label: 'Teammate · زميل', cls: 'hat-teammate' },
-    Tutor: { label: 'Tutor · معلّم', cls: 'hat-tutor' },
-    Facilitator: { label: 'Facilitator · مسيّر', cls: 'hat-facilitator' },
-    NOVA_NOVICE: { label: 'Nova · curious', cls: 'hat-teammate' },
-    NOVA_SKEPTIC: { label: 'Nova · skeptic', cls: 'hat-mediator' },
-    NOVA_CURIOUS: { label: 'Nova · curious', cls: 'hat-teammate' },
-    NOVA_EXAMINER: { label: 'Nova · examiner', cls: 'hat-facilitator' },
-    NOVA: { label: 'Nova', cls: 'hat-tutor' },
-  };
-  const v = map[hat] ?? { label: hat, cls: 'hat-tutor' };
+  const { lang } = useSession();
   return (
-    <span className={`hat ${v.cls}`} translate="no">
-      ★ {v.label}
+    <span className={`hat ${HAT_CLASS[hat] ?? 'hat-tutor'}`} translate="no">
+      ★ {hatLabel(hat, lang)}
     </span>
   );
 }
 
 export function SbuRings({ S, B, U }: { S: number; B: number; U: number }) {
+  const { lang } = useSession();
   const rings = [
-    { k: 'S', v: S, name: 'Structured' },
-    { k: 'B', v: B, name: 'Balanced' },
-    { k: 'U', v: U, name: 'Understood' },
+    { k: 'S', v: S, name: t('sbu_structured', lang) },
+    { k: 'B', v: B, name: t('sbu_balanced', lang) },
+    { k: 'U', v: U, name: t('sbu_understood', lang) },
   ] as const;
   const tier = (v: number) => (v >= 0.75 ? 'bright' : v >= 0.45 ? 'steady' : 'pulse');
   return (
-    <div className="sbu" role="group" aria-label="Circle health S B U">
+    <div className="sbu" role="group" aria-label={t('sbu_group', lang)}>
       {rings.map((r) => (
-        <div key={r.k} className={`ring ring-${tier(r.v)}`} title={`${r.name}: ${r.v.toFixed(2)}`}>
-          <span className="ring-k">{r.k}</span>
-          <span className="ring-v tnum">{r.v.toFixed(2)}</span>
+        // The reading lived only in a `title=` on the ring, which is hover-only
+        // and was never announced: the group label names the three axes but
+        // carried none of their numbers. Each ring now speaks its own value.
+        <div
+          key={r.k}
+          className={`ring ring-${tier(r.v)}`}
+          role="img"
+          aria-label={t('sbu_ring', lang, { name: r.name, v: r.v.toFixed(2) })}
+        >
+          <span className="ring-k" aria-hidden="true">{r.k}</span>
+          <span className="ring-v tnum" aria-hidden="true">{r.v.toFixed(2)}</span>
         </div>
       ))}
     </div>
@@ -42,9 +54,20 @@ export function SbuRings({ S, B, U }: { S: number; B: number; U: number }) {
 }
 
 export function QuotaMeter({ cUsed, cCap, lUsed, lCap }: { cUsed: number; cCap: number; lUsed: number; lCap: number }) {
+  const { lang } = useSession();
   const low = cUsed / Math.max(1, cCap) > 0.8 || lUsed / Math.max(1, lCap) > 0.8;
   return (
-    <div className={`quota${low ? ' quota-low' : ''}`} role="meter" aria-label={`Compact ${cUsed} of ${cCap}, Larger ${lUsed} of ${lCap}`}>
+    // `role="meter"` without aria-valuenow/min/max is invalid ARIA — the role
+    // promises a reading and assistive tech had none to announce. The value is
+    // the compact tier's usage; the label names both tiers.
+    <div
+      className={`quota${low ? ' quota-low' : ''}`}
+      role="meter"
+      aria-valuenow={cUsed}
+      aria-valuemin={0}
+      aria-valuemax={cCap}
+      aria-label={t('quota_label', lang, { c: cUsed, cc: cCap, l: lUsed, lc: lCap })}
+    >
       <span className="tnum">
         C {cUsed}/{cCap}
       </span>
@@ -64,7 +87,7 @@ export function CiteChips({ cites, onOpen }: { cites: string[]; onOpen?: (id: st
   return (
     <span className="cites">
       {cites.map((c) => (
-        <button key={c} type="button" className="cite" translate="no" onClick={() => onOpen?.(c)} aria-label={`Source ${c}`}>
+        <button key={c} type="button" className="cite" translate="no" onClick={() => onOpen?.(c)} aria-label={t('source_n', lang, { n: c })}>
           {c}
         </button>
       ))}
@@ -73,6 +96,7 @@ export function CiteChips({ cites, onOpen }: { cites: string[]; onOpen?: (id: st
 }
 
 export function ErrorNote({ code, msg, retryable, onRetry }: { code: string; msg: string; retryable: boolean; onRetry?: () => void }) {
+  const { lang } = useSession();
   return (
     <div className="error-note" role="alert" aria-live="polite">
       <strong>{msg}</strong>
@@ -80,8 +104,8 @@ export function ErrorNote({ code, msg, retryable, onRetry }: { code: string; msg
         {code}
       </span>
       {retryable && onRetry && (
-        <button type="button" className="btn btn-small" onClick={onRetry}>
-          Retry
+        <button type="button" className="btn btn-small" style={{ minHeight: 44 }} onClick={onRetry}>
+          {t('retry', lang)}
         </button>
       )}
     </div>
@@ -101,11 +125,12 @@ export function EmptyState({ title, hint, action }: { title: string; hint?: stri
 import { useCountdown } from '../lib/useCountdown';
 
 export function CountdownRing({ endsAt }: { endsAt?: string }) {
+  const { lang } = useSession();
   const remain = useCountdown(endsAt);
   const mm = Math.floor(remain / 60);
   const ss = String(remain % 60).padStart(2, '0');
   return (
-    <span className="countdown tnum" role="timer" aria-label={`${remain} seconds left for peers`}>
+    <span className="countdown tnum" role="timer" aria-label={t('countdown_left', lang, { n: remain })}>
       {mm}:{ss}
     </span>
   );

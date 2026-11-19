@@ -31,12 +31,28 @@
   align-items: center;
   transition: transform var(--dur-press) var(--ease-out), opacity var(--dur-pop) var(--ease-out);
 }
+/* The three tiers are one rule set driven by tokens (tokens.css
+   --tier-*), so the night field re-points tokens instead of overriding
+   selectors here. bright = solid fill, steady = outline, pulse = gentle
+   opacity animation (static under reduced motion). */
 .ring-bright {
-  border-color: var(--aqua);
-  background: color-mix(in srgb, var(--aqua) 12%, var(--card));
+  border-color: var(--tier-bright-ring);
+  background: var(--tier-bright-fill);
+  color: var(--tier-bright-ink);
+}
+.ring-steady {
+  border-color: var(--tier-steady-ring);
+  background: var(--tier-steady-fill);
+  color: var(--tier-steady-ink);
 }
 .ring-pulse {
+  border-color: var(--tier-pulse-ring);
+  background: var(--tier-pulse-fill);
+  color: var(--tier-pulse-ink);
   animation: ring-pulse 2.4s var(--ease-in-out) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ring-pulse { animation: none; }
 }
 @keyframes ring-pulse {
   0%, 100% { opacity: 1; }

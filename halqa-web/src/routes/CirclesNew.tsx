@@ -5,7 +5,7 @@ import { ApiFailure, api, type ContextMode, type Lang } from '../lib/api';
 import { useSession } from '../lib/session';
 import { ErrorNote } from '../components/ui';
 import { Reveal } from '../lib/motion';
-import { t } from '../lib/i18n';
+import { stepLabel, t, topicLabel } from '../lib/i18n';
 
 const TOPICS = ['binary_search', 'fractions'] as const;
 const CONTEXTS: ContextMode[] = ['class', 'study', 'community', 'workshop', 'program', 'solo'];
@@ -13,7 +13,7 @@ const LANGS: Lang[] = ['fr', 'darija', 'ar', 'en'];
 
 export function CirclesNew() {
   const nav = useNavigate();
-  const { lang, setCircleId, setSessionId, login } = useSession();
+  const { lang, setCircleId, setJoinCode, setSessionId, login } = useSession();
   const [topic, setTopic] = useState<string>('binary_search');
   const [context, setContext] = useState<ContextMode>('study');
   const [circleLang, setCircleLang] = useState<Lang>('darija');
@@ -48,6 +48,7 @@ export function CirclesNew() {
       sessionStorage.setItem('halqa.nick', nick.trim());
       login(r.token, r.hostLearnerId);
       setCircleId(r.circleId);
+      setJoinCode(r.joinCode);
       setSessionId('');
       setResult({ circleId: r.circleId, joinCode: r.joinCode });
     } catch (e) {
@@ -113,7 +114,7 @@ export function CirclesNew() {
             {TOPICS.map((tp) => (
               <label key={tp} className={`choice-card${topic === tp ? ' choice-on' : ''}`}>
                 <input type="radio" name="topic" value={tp} checked={topic === tp} onChange={() => setTopic(tp)} />
-                <span className="choice-title" translate="no">{tp}</span>
+                <span className="choice-title">{topicLabel(tp, lang)}</span>
                 <span className="chunk-chips tnum">
                   {(Object.entries(counts[tp] ?? {})).map(([l, n]) => (
                     <span key={l} className="chunk-chip" translate="no">{l} {n}</span>
@@ -159,7 +160,7 @@ export function CirclesNew() {
           <h2>{t('agenda_preview', lang)}</h2>
           <ol className="agenda">
             {['goal', 'explain', 'challenge', 'teachback', 'recap'].map((s, i) => (
-              <li key={s}><span className="agenda-tick tnum">{i + 1}</span><span translate="no">{s}</span></li>
+              <li key={s}><span className="agenda-tick tnum">{i + 1}</span><span>{stepLabel(s, lang)}</span></li>
             ))}
           </ol>
         </Reveal>

@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import Hero15, { type NavLinkItem } from '../components/watermelon-ui/hero-15';
 import { useSession } from '../lib/session';
 import type { Lang } from '../lib/api';
+import { t } from '../lib/i18n';
 
 // Landing is the hero and nothing else. Its own nav carries the brand, the
 // language switch and the entry CTAs — the app rail is hidden for this route
@@ -9,28 +10,31 @@ import type { Lang } from '../lib/api';
 
 const LANGS: Lang[] = ['fr', 'darija', 'ar', 'en'];
 
-const NAV: NavLinkItem[] = [
-  { label: 'Circles', to: '/circles/join' },
-  { label: 'Board', to: '/board' },
-  { label: 'Passport', to: '/me' },
-];
-
-const PROOFS = [
-  { value: '4 → 0', label: 'AI calls once the network drops' },
-  { value: 'H1 → H4', label: 'Hint ladder before any answer' },
-  { value: '4', label: 'French · Arabic · Darija · English' },
-];
-
 export function Landing() {
   const { lang, setLang } = useSession();
 
+  // Built in the component, not at module scope: the labels depend on the
+  // current language, and a module constant would keep whichever one rendered first.
+  const nav: NavLinkItem[] = [
+    { label: t('nav_circles', lang), to: '/circles/join' },
+    { label: t('nav_board', lang), to: '/board' },
+    { label: t('nav_passport', lang), to: '/me' },
+  ];
+
+  // The `value` fields stay literal — `4 → 0`, `H1 → H4` and `4` are numerals, not prose.
+  const proofs = [
+    { value: '4 → 0', label: t('landing_proof_offline', lang) },
+    { value: 'H1 → H4', label: t('landing_proof_ladder', lang) },
+    { value: '4', label: t('landing_proof_langs', lang) },
+  ];
+
   const langSwitch = (
     <label className="relative hidden sm:block">
-      <span className="visually-hidden">Language</span>
+      <span className="visually-hidden">{t('passport_lang', lang)}</span>
       <select
         value={lang}
         onChange={(e) => setLang(e.target.value as Lang)}
-        aria-label="Language"
+        aria-label={t('passport_lang', lang)}
         className="min-h-11 appearance-none rounded-md border border-white/20 bg-white/10 pe-7 ps-2.5 text-xs font-medium tracking-[0.08em] text-white/80 uppercase outline-none backdrop-blur-md transition-colors duration-200 hover:bg-white/15"
       >
         {LANGS.map((l) => (
@@ -56,29 +60,24 @@ export function Landing() {
     </label>
   );
 
-  const footnote: ReactNode = (
-    <>
-      Anonymous · synthetic data only · the AI supports teachers, never replaces them · IEEE SB / WIE
-      {lang === 'fr' && ' · Aucune voix laissée de côté.'}
-    </>
-  );
+  const footnote: ReactNode = t('landing_footnote', lang);
 
   return (
     <div className="landing-hero">
       <Hero15
-        navLinks={NAV}
+        navLinks={nav}
         navExtra={langSwitch}
-        headingLine1="No voice"
-        headingLine2="left behind"
-        description="Peer study circles, mediated by AI. Learners answer first; the AI steps in only afterwards — with a credit economy, an offline fallback and four languages."
-        primaryCtaLabel="Join a circle"
+        headingLine1={t('landing_h1', lang)}
+        headingLine2={t('landing_h2', lang)}
+        description={t('landing_desc', lang)}
+        primaryCtaLabel={t('join_circle', lang)}
         primaryCtaTo="/enter"
-        secondaryCtaLabel="Have a code?"
+        secondaryCtaLabel={t('have_code_short', lang)}
         secondaryCtaTo="/circles/join"
-        signupLabel="Sign in"
+        signupLabel={t('enter_signin_cta', lang)}
         signupTo="/enter"
-        proofEyebrow="Peers first, by design"
-        proofs={PROOFS}
+        proofEyebrow={t('landing_proof_eyebrow', lang)}
+        proofs={proofs}
         footnote={footnote}
       />
     </div>

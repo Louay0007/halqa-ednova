@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ApiFailure, api } from '../lib/api';
+import { ApiFailure, api, type ContextMode } from '../lib/api';
 import { useSession } from '../lib/session';
-import { ErrorNote, SbuRings } from '../components/ui';
+import { ErrorNote } from '../components/ui';
 import { Reveal } from '../lib/motion';
-import { t } from '../lib/i18n';
+import { roleLabel, stepLabel, t, topicLabel } from '../lib/i18n';
 import { iconFor } from '../lib/avatars';
 
 interface Member {
@@ -17,10 +17,14 @@ interface Member {
 export function Lobby() {
   const { circleId = '' } = useParams();
   const nav = useNavigate();
-  const { lang, learnerId, setCircleId, setSessionId } = useSession();
-  const [circle, setCircle] = useState<{ topic: string; members: Member[]; joinCode: string; windowS: number } | null>(null);
+  const { lang, learnerId, setCircleId, setJoinCode, setSessionId } = useSession();
+  const [circle, setCircle] = useState<{ topic: string; context: ContextMode; members: Member[]; joinCode: string; windowS: number } | null>(null);
   const [cards, setCards] = useState<Record<string, string>>({});
   const [err, setErr] = useState<string | null>(null);
+  /** Agenda preview comes from `GET /contexts/:mode/config`, not from a
+   *  hardcoded five-step list: solo runs three steps and workshop four, so the
+   *  fixed list promised learners steps their session would never contain. */
+  const [steps, setSteps] = useState<Array<{ id: string; kind: string; plannedS?: number }>>([]);
   const [copied, setCopied] = useState(false);
   const [starting, setStarting] = useState(false);
 
@@ -30,6 +34,9 @@ export function Lobby() {
       .circleGet(circleId)
       .then(async (r) => {
         setCircle(r.data);
+        // Keeps the header chip/QR shareable after a page reload, not only right
+        // after create/join.
+        setJoinCode(r.data.joinCode);
         const next: Record<string, string> = {};
         for (const m of r.data.members) {
           try {
@@ -42,7 +49,24 @@ export function Lobby() {
         setCards(next);
       })
       .catch((e: ApiFailure) => setErr(e.body?.user_msg?.[lang] ?? '—'));
-  }, [circleId, lang, setCircleId]);
+  }, [circleId, lang, setCircleId, setJoinCode]);
+
+  // The circle's own context decides its agenda; read it from the circle we
+  // just loaded so the preview matches the session about to start.
+  useEffect(() => {
+    const mode = circle?.context;
+    if (!mode) return;
+    let dead = false;
+    api
+      .contextConfig(mode)
+      .then((r) => {
+        if (!dead) setSteps(r.data.agenda);
+      })
+      .catch(() => undefined);
+    return () => {
+      dead = true;
+    };
+  }, [circle?.context]);
 
   const start = async () => {
     setStarting(true);
@@ -69,12 +93,15 @@ export function Lobby() {
     <div className="page lobby">
       <Reveal as="header" className="lobby-head card" index={0}>
         <div>
-          <h1 translate="no">{circle.topic}</h1>
+          <h1>{topicLabel(circle.topic, lang)}</h1>
           <p className="muted tnum">
             {t('code_label', lang)} <strong translate="no">{circle.joinCode}</strong> · {t('peer_window', lang)} <strong>{circle.windowS}s</strong>
           </p>
         </div>
-        <SbuRings S={0.3} B={0.5} U={0.5} />
+        <div className="lobby-count">
+          <span className="tnum">{circle.members.length}</span>
+          <span className="hint">{t('members', lang)}</span>
+        </div>
       </Reveal>
 
       <Reveal as="section" className="card lobby-share" index={1}>
@@ -98,7 +125,7 @@ export function Lobby() {
                 <span className="member-glyph" aria-hidden="true" translate="no">{iconFor(m.avatarKey)}</span>
                 <strong translate="no">{m.nickname ?? m.learnerId}</strong>
                 {host && <span className="host-crown" title={t('host', lang)} aria-label={t('host', lang)}>♛</span>}
-                <span className="muted" translate="no">{m.role}</span>
+                <span className="muted">{roleLabel(m.role, lang)}</span>
                 {cards[m.learnerId] && (
                   <blockquote className="explain-card roster-explain" translate="no">{cards[m.learnerId]}</blockquote>
                 )}
@@ -111,8 +138,12 @@ export function Lobby() {
       <Reveal as="section" className="card lobby-agenda" index={3}>
         <h2>{t('agenda_preview', lang)}</h2>
         <ol className="agenda">
-          {['goal', 'explain', 'challenge', 'teachback', 'recap'].map((s, i) => (
-            <li key={s}><span className="agenda-tick tnum">{i + 1}</span><span translate="no">{s}</span></li>
+          {steps.map((s, i) => (
+            <li key={s.id}>
+              <span className="agenda-tick tnum">{i + 1}</span>
+              <span>{stepLabel(s.kind, lang)}</span>
+              {s.plannedS != null && <span className="hint tnum">{Math.round(s.plannedS / 60)}′</span>}
+            </li>
           ))}
         </ol>
       </Reveal>

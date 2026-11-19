@@ -9,7 +9,8 @@ import { t } from '../lib/i18n';
 export function Mentor() {
   const [params] = useSearchParams();
   const { lang, learnerId, sessionId } = useSession();
-  const [circleId, setCircleId] = useState(params.get('circleId') ?? '');
+  const [rawCode, setRawCode] = useState(params.get('circleId') ?? '');
+  const [circleId, setCircleId] = useState('');
   const [joined, setJoined] = useState(false);
   const [note, setNote] = useState('');
   const [notes, setNotes] = useState<string[]>([]);
@@ -17,10 +18,22 @@ export function Mentor() {
   const [briefBusy, setBriefBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
+  /** Mentors are handed the 6-character code, not the internal id, so resolve it
+   *  first — the join endpoint is keyed by the Mongo `_id`. A full 24-hex id is
+   *  passed through unchanged for deep links that already have one. */
+  const resolve = async (raw: string): Promise<string> => {
+    const v = raw.trim();
+    if (/^[0-9a-f]{24}$/i.test(v)) return v;
+    const r = await api.circleByCode(v);
+    return r.data.circleId;
+  };
+
   const join = async () => {
     setErr(null);
     try {
-      await api.mentorJoin(circleId.trim(), learnerId);
+      const id = await resolve(rawCode);
+      await api.mentorJoin(id, learnerId);
+      setCircleId(id);
       setJoined(true);
     } catch (e) {
       setErr(((e as ApiFailure).body?.user_msg?.[lang]) ?? '—');
@@ -65,9 +78,9 @@ export function Mentor() {
       <Reveal as="section" className="card choice-group" index={1}>
         <label htmlFor="mcircle">{t('code_label', lang)}</label>
         <div className="row">
-          <input id="mcircle" value={circleId} onChange={(e) => setCircleId(e.target.value)} placeholder="C-…" translate="no" />
+          <input id="mcircle" value={rawCode} onChange={(e) => setRawCode(e.target.value)} placeholder="C-…" translate="no" />
           {!joined && (
-            <button type="button" className="btn btn-small" style={{ minHeight: 44 }} onClick={join} disabled={!circleId || !learnerId}>
+            <button type="button" className="btn btn-small" style={{ minHeight: 44 }} onClick={join} disabled={!rawCode.trim() || !learnerId}>
               {t('mentor_join', lang)}
             </button>
           )}
@@ -84,9 +97,14 @@ export function Mentor() {
                 <p className="hint tnum">{brief.words} {t('words', lang)}</p>
               </>
             ) : (
-              <button type="button" className="btn btn-ghost btn-small" style={{ minHeight: 44 }} onClick={loadBrief} disabled={briefBusy}>
-                {briefBusy ? '…' : t('mentor_load', lang)}
-              </button>
+              <>
+                <button type="button" className="btn btn-ghost btn-small" style={{ minHeight: 44 }} onClick={loadBrief} disabled={briefBusy || !sessionId}>
+                  {briefBusy ? '…' : t('mentor_load', lang)}
+                </button>
+                {/* `GET /mentor/brief` needs a live session id; without one the
+                    request can only fail, so say why instead of letting it 400. */}
+                {!sessionId && <p className="hint">{t('mentor_need_session', lang)}</p>}
+              </>
             )}
           </Reveal>
 

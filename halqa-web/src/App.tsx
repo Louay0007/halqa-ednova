@@ -1,6 +1,7 @@
 import { Suspense, lazy, type ReactElement } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { SessionProvider, useSession } from './lib/session';
+import { t } from './lib/i18n';
 import { Shell } from './shell/Shell';
 import { Landing } from './routes/Landing';
 // Order matters: Tailwind is layered, so unlayered app CSS always outranks it.
@@ -10,6 +11,7 @@ import './components/ui.css';
 import './shell/shell.css';
 import './styles/pages.css';
 import './styles/night.css';
+import './styles/night.fixes.css';
 
 const Enter = lazy(() => import('./routes/Enter').then((m) => ({ default: m.Enter })));
 const Dna = lazy(() => import('./routes/Dna').then((m) => ({ default: m.Dna })));
@@ -37,12 +39,19 @@ function RequireAuth({ children }: { children: ReactElement }) {
   return children;
 }
 
+/** Lazy route chunk placeholder — announced in the learner's own language, not
+ *  a hardcoded English string read out by a screen reader mid-flow. */
+function RouteFallback() {
+  const { lang } = useSession();
+  return <div className="skel" style={{ height: 120 }} role="status" aria-label={t('loading', lang)} />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <SessionProvider>
         <Shell>
-          <Suspense fallback={<div className="skel" style={{ height: 120 }} role="status" aria-label="Loading…" />}>
+          <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/enter" element={<Enter />} />
@@ -54,7 +63,7 @@ export default function App() {
               <Route path="/c/:circleId/s/:sessionId" element={<RequireAuth>{<SessionRoom />}</RequireAuth>} />
               <Route path="/c/:circleId/s/:sessionId/debrief" element={<RequireAuth>{<Debrief />}</RequireAuth>} />
               <Route path="/board" element={<Board />} />
-              <Route path="/mentor" element={<Mentor />} />
+              <Route path="/mentor" element={<RequireAuth>{<Mentor />}</RequireAuth>} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/lab" element={<Lab />} />
               <Route path="/me" element={<RequireAuth>{<Me />}</RequireAuth>} />

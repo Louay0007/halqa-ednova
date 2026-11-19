@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ApiFailure, api, type Capsule } from '../lib/api';
 import { useSession } from '../lib/session';
-import { CiteChips, ErrorNote, HatChip, SbuRings } from '../components/ui';
+import { ErrorNote, HatChip, SbuRings } from '../components/ui';
 import { Reveal } from '../lib/motion';
 import { t } from '../lib/i18n';
 
@@ -72,9 +72,12 @@ export function Debrief() {
   const runWhisper = async () => {
     setErr(null);
     const qids = await api.questionList(sessionId).then((r) => r.data?.qids ?? []).catch(() => []);
+    // `POST /whisper` runs `assertMembers` over every step author, so a synthetic
+    // 'peer' id is a guaranteed 403. The relay is the learner's own retelling of
+    // what peers said — attributing it to them is also what the exercise means.
     const answered = await Promise.all(
       qids.slice(0, 3).map((qid) =>
-        api.questionState(qid).then((r) => (r.data?.resolution === 'peers_verified' && r.data.answer ? [{ authorId: 'peer', text: r.data.answer.text }] : [])).catch(() => []),
+        api.questionState(qid).then((r) => (r.data?.resolution === 'peers_verified' && r.data.answer ? [{ authorId: learnerId, text: r.data.answer.text }] : [])).catch(() => []),
       ),
     );
     const steps = [...answered.flat()];
@@ -129,7 +132,16 @@ export function Debrief() {
               <p translate="no">{capsule.visual_desc}</p>
             </div>
             <p className="capsule-next"><strong>{t('next_step', lang)}:</strong> <span translate="no">{capsule.next_step}</span></p>
-            <CiteChips cites={capsule.mini_quiz} />
+            {capsule.mini_quiz?.length > 0 && (
+              <>
+                <h3 className="capsule-quiz-title">{t('mini_quiz', lang)}</h3>
+                <ol className="capsule-quiz">
+                  {capsule.mini_quiz.map((q, i) => (
+                    <li key={i} translate="no">{q}</li>
+                  ))}
+                </ol>
+              </>
+            )}
           </>
         ) : null}
       </Reveal>

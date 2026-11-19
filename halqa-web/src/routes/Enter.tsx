@@ -31,14 +31,9 @@ const HANDLE_RE = /^[a-z0-9][a-z0-9_-]{2,19}$/;
 const PASSPHRASE_MIN = 8;
 const PASSPHRASE_MAX = 128;
 
-const CONTEXTS: Array<{ id: ContextMode; label: string; desc: string }> = [
-  { id: 'study', label: 'Study', desc: 'Revision circle with friends' },
-  { id: 'class', label: 'Class', desc: 'Teacher-led lesson' },
-  { id: 'workshop', label: 'Workshop', desc: 'Matched groups + mentor board' },
-  { id: 'community', label: 'Community', desc: 'Low-bandwidth friendly' },
-  { id: 'program', label: 'Program', desc: 'Repeated sessions, spaced review' },
-  { id: 'solo', label: 'Solo', desc: 'Just you + Nova' },
-];
+/** Context ids are the API's; labels come from `t()` so the picker is readable in
+ *  every language instead of English-only. Keys are `enter_ctx_<id>` / `_d`. */
+const CONTEXTS: ContextMode[] = ['study', 'class', 'workshop', 'community', 'program', 'solo'];
 
 const sectionVariants: Variants = {
   hidden: {},
@@ -63,7 +58,7 @@ export function Enter() {
   const [avatar, setAvatar] = useState<string>(() => AVATARS[Math.floor(Math.random() * AVATARS.length)]);
   const [context, setContext] = useState<ContextMode>(() => {
     const c = params.get('context') as ContextMode | null;
-    return c && CONTEXTS.some((x) => x.id === c) ? c : 'study';
+    return c && CONTEXTS.includes(c) ? c : 'study';
   });
   const [err, setErr] = useState<{ code: string; msg: string; retryable: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -85,15 +80,15 @@ export function Enter() {
     handle.length === 0 || isGuest
       ? null
       : !HANDLE_RE.test(handle.trim())
-        ? 'Use 3–20 letters, numbers, - or _'
+        ? t('enter_handle_bad', lang)
         : null;
   const secretProblem =
     passphrase.length === 0 || isGuest
       ? null
       : passphrase.length < PASSPHRASE_MIN
-        ? `At least ${PASSPHRASE_MIN} characters`
+        ? t('enter_min_chars', lang, { n: PASSPHRASE_MIN })
         : passphrase.length > PASSPHRASE_MAX
-          ? `${PASSPHRASE_MAX} characters maximum`
+          ? t('enter_pw_long', lang, { n: PASSPHRASE_MAX })
           : null;
 
   const canSubmit =
@@ -121,6 +116,11 @@ export function Enter() {
               context,
             })
           : await api.login(handle.trim(), passphrase);
+      // `Shell` reads `halqa.context` to decide whether the workshop surfaces
+      // (Board, Lab) belong in the rail, and `/circles/new` writes it too — but
+      // this entry screen never did, so a learner who chose "workshop" here
+      // signed in and then could not see the page they chose it for.
+      sessionStorage.setItem('halqa.context', context);
       login(r.token, r.learner.id);
       const next = params.get('next');
       if (next) nav(next, { replace: true });
@@ -129,7 +129,7 @@ export function Enter() {
       const f = e as ApiFailure;
       setErr({
         code: f.body?.code ?? 'ENTER_FAILED',
-        msg: f.body?.user_msg?.[lang] ?? 'Could not continue — try again.',
+        msg: f.body?.user_msg?.[lang] ?? t('enter_failed', lang),
         retryable: f.body?.retryable ?? true,
       });
     } finally {
@@ -168,7 +168,7 @@ export function Enter() {
 
           <motion.div variants={softReveal} className="enter-panel">
             <form onSubmit={submit} noValidate>
-              <div className="enter-tabs" role="group" aria-label="Sign in, create an account, or try as a guest">
+              <div className="enter-tabs" role="group" aria-label={t('enter_tabs_label', lang)}>
                 {(['signup', 'signin', 'guest'] as const).map((m) => (
                   <button key={m} type="button" className={`enter-tab${mode === m ? ' is-on' : ''}`} aria-pressed={mode === m} onClick={() => pick(m)}>
                     {m === 'signup' ? t('enter_signup_cta', lang) : m === 'signin' ? t('enter_signin_cta', lang) : t('enter_guest_cta_short', lang)}
@@ -180,7 +180,7 @@ export function Enter() {
                 {isGuest ? (
                   <div className="enter-field">
                     <label className="enter-label" htmlFor="nick">
-                      Nickname
+                      {t('enter_nick', lang)}
                     </label>
                     <div className="enter-nick">
                       <span className="enter-nick-glyph" aria-hidden="true" translate="no">
@@ -209,7 +209,7 @@ export function Enter() {
                   <>
                     <div className="enter-field">
                       <label className="enter-label" htmlFor="handle">
-                        Pseudonym
+                        {t('enter_pseudonym', lang)}
                       </label>
                       <input
                         id="handle"
@@ -234,7 +234,7 @@ export function Enter() {
 
                     <div className="enter-field">
                       <label className="enter-label" htmlFor="secret">
-                        Passphrase
+                        {t('enter_passphrase', lang)}
                       </label>
                       <div className="enter-secret">
                         <input
@@ -269,7 +269,7 @@ export function Enter() {
 
                 <fieldset className="enter-field">
                   <legend className="enter-label">{t('enter_avatar', lang)}</legend>
-                  <div className="enter-avatars" role="radiogroup" aria-label="Avatar" translate="no">
+                  <div className="enter-avatars" role="radiogroup" aria-label={t('enter_avatar', lang)} translate="no">
                     {AVATARS.map((a) => (
                       <label key={a} className={`enter-avatar${avatar === a ? ' is-on' : ''}`}>
                         <input type="radio" name="avatar" value={a} checked={avatar === a} onChange={() => setAvatar(a)} />
@@ -282,16 +282,16 @@ export function Enter() {
 
                 <fieldset className="enter-field">
                   <legend className="enter-label">{t('enter_context', lang)}</legend>
-                  <div className="enter-contexts" role="radiogroup" aria-label="Context" translate="no">
+                  <div className="enter-contexts" role="radiogroup" aria-label={t('enter_context', lang)}>
                     {CONTEXTS.map((c) => (
-                      <label key={c.id} className={`enter-context${context === c.id ? ' is-on' : ''}`}>
-                        <input type="radio" name="context" value={c.id} checked={context === c.id} onChange={() => setContext(c.id)} />
-                        {c.label}
-                        <span className="visually-hidden"> — {c.desc}</span>
+                      <label key={c} className={`enter-context${context === c ? ' is-on' : ''}`}>
+                        <input type="radio" name="context" value={c} checked={context === c} onChange={() => setContext(c)} />
+                        {t(`enter_ctx_${c}`, lang)}
+                        <span className="visually-hidden"> — {t(`enter_ctx_${c}_d`, lang)}</span>
                       </label>
                     ))}
                   </div>
-                  <p className="enter-hint">{CONTEXTS.find((c) => c.id === context)?.desc}</p>
+                  <p className="enter-hint">{t(`enter_ctx_${context}_d`, lang)}</p>
                 </fieldset>
 
                 {err && <ErrorNote code={err.code} msg={err.msg} retryable={err.retryable} onRetry={() => setErr(null)} />}
@@ -311,7 +311,7 @@ export function Enter() {
                 </button>
 
                 <p className="enter-hint" style={{ textAlign: 'center' }}>
-                  No email. No phone. {isSignup ? t('enter_foot_signup', lang) : t('enter_foot_other', lang)}
+                  {t('enter_no_email', lang)} {isSignup ? t('enter_foot_signup', lang) : t('enter_foot_other', lang)}
                 </p>
               </div>
             </form>

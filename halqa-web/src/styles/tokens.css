@@ -31,8 +31,18 @@
   --hat-facilitator: #d68a24;
 
   /* S-B-U ring tiers (spec §2.1): bright = solid fill, steady = outline,
-     pulse = gentle opacity animation (static under reduced motion). */
-  --tier-pulse: #d68a24;
+     pulse = gentle opacity animation (static under reduced motion).
+     The ring surfaces live here so the night field only has to re-point
+     tokens — components/ui.css owns the single rule set (no overrides). */
+  --tier-bright-fill: color-mix(in srgb, var(--aqua) 12%, var(--card));
+  --tier-bright-ring: var(--aqua);
+  --tier-bright-ink: var(--navy);
+  --tier-steady-fill: var(--card);
+  --tier-steady-ring: var(--line);
+  --tier-steady-ink: var(--navy);
+  --tier-pulse-fill: var(--card);
+  --tier-pulse-ring: #d68a24;
+  --tier-pulse-ink: var(--navy);
 
   /* SF Pro is the official face. It ships with Apple platforms only, so it is
      reached through the system font hooks (-apple-system / BlinkMacSystemFont)

@@ -4,12 +4,19 @@ import { ApiFailure, api, type ContextMode } from '../lib/api';
 import { useSession } from '../lib/session';
 import { ErrorNote } from '../components/ui';
 import { Reveal } from '../lib/motion';
-import { t } from '../lib/i18n';
+import { styleLabel, t } from '../lib/i18n';
+
+interface DnaOption {
+  /** Submitted to POST /dna — the enum the API validates. */
+  value: string;
+  /** Shown to the learner (may differ from the value, e.g. S1). */
+  label: string;
+}
 
 interface DnaItem {
   id: string;
   prompt: string;
-  options: string[];
+  options: DnaOption[];
 }
 
 interface PassportLike {
@@ -60,7 +67,7 @@ function LivePassport({ p }: { p: PassportLike }) {
       </div>
       <div>
         <dt>{t('passport_style', lang)}</dt>
-        <dd translate="no">{top}-first</dd>
+        <dd>{t('style_first', lang, { s: styleLabel(top, lang) })}</dd>
       </div>
       <div>
         <dt>{t('passport_lang', lang)}</dt>
@@ -88,12 +95,13 @@ export function Dna() {
   const [busy, setBusy] = useState(false);
   const [passport, setPassport] = useState<PassportLike | null>(null);
 
+  // Dna items are T0/static; the error copy is the only lang-dependent part.
   useEffect(() => {
     api
       .dnaItems()
       .then((r) => setItems(r.data.items))
-      .catch(() => setErr((t('dna_load', lang) as unknown as string)));
-  }, []);
+      .catch(() => setErr(t('dna_load', lang)));
+  }, [lang]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,7 +128,18 @@ export function Dna() {
   const ready = doneCount === 4;
 
   return (
-    <div className="page duo">
+    <div className="page duo dna">
+      {/* The live passport comes first in source order: `.passport-live` is
+          `position: sticky` only on wide screens, and in a single column it was
+          stacking *after* the four fieldsets — so the "it sees me" moment never
+          appeared until the learner had already finished tapping. */}
+      <aside className="card passport-live" aria-live="polite" aria-label={t('passport_live', lang)}>
+        <h2>{t('passport_live', lang)}</h2>
+        <LivePassport p={passport ?? livePassport(answers) ?? ({} as PassportLike)} />
+        <p className="hint tnum">
+          {t('dna_progress', lang, { n: doneCount })}
+        </p>
+      </aside>
       <form onSubmit={submit} className="stack">
         <Reveal as="header" className="duo-head" index={0}>
           <h1>{t('dna_title', lang)}</h1>
@@ -133,16 +152,16 @@ export function Dna() {
             </legend>
             <div className="opt-row" role="radiogroup" aria-label={it.prompt}>
               {it.options.map((o) => (
-                <label key={o} className={`opt${answers[it.id] === o ? ' opt-on' : ''}`}>
+                <label key={o.value} className={`opt${answers[it.id] === o.value ? ' opt-on' : ''}`}>
                   <input
                     type="radio"
                     name={it.id}
-                    value={o}
-                    checked={answers[it.id] === o}
-                    onChange={() => setAnswers((a) => ({ ...a, [it.id]: o }))}
+                    value={o.value}
+                    checked={answers[it.id] === o.value}
+                    onChange={() => setAnswers((a) => ({ ...a, [it.id]: o.value }))}
                     className="opt-radio"
                   />
-                  <span>{o}</span>
+                  <span translate="no">{o.label}</span>
                 </label>
               ))}
             </div>
@@ -153,45 +172,7 @@ export function Dna() {
           {passport ? t('dna_ready', lang) : busy ? t('dna_saving', lang) : t('dna_submit', lang)}
         </button>
       </form>
-      <aside className="card passport-live" aria-live="polite" aria-label="Passport preview">
-        <h2>{t('passport_live', lang)}</h2>
-        <LivePassport p={passport ?? livePassport(answers) ?? ({}) as PassportLike} />
-        <p className="hint tnum">
-          {t('dna_progress', lang, { n: doneCount })} · {doneCount}/4
-        </p>
-      </aside>
     </div>
   );
 }
 
-export function PassportView({ p }: { p: Record<string, unknown> }) {
-  const { lang } = useSession();
-  const w = (p.styleWeights ?? {}) as Record<string, number>;
-  const top = Object.entries(w).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'visual';
-  const eager = Number(p.hintEagerness ?? 0.5) > 0.7;
-  const normal = Number(p.hintEagerness ?? 0.5) > 0.4;
-  return (
-    <dl className="passport">
-      <div>
-        <dt>{t('passport_level', lang)}</dt>
-        <dd translate="no">{String(p.level ?? '—')}</dd>
-      </div>
-      <div>
-        <dt>{t('passport_style', lang)}</dt>
-        <dd translate="no">{top}-first</dd>
-      </div>
-      <div>
-        <dt>{t('passport_lang', lang)}</dt>
-        <dd translate="no">{String(p.lang ?? '—')}</dd>
-      </div>
-      <div>
-        <dt>{t('passport_hints', lang)}</dt>
-        <dd>{eager ? t('dna_hint_eager', lang) : normal ? t('dna_hint_normal', lang) : t('dna_hint_light', lang)}</dd>
-      </div>
-      <div>
-        <dt>{t('passport_invite', lang)}</dt>
-        <dd>{p.inviteMe ? t('dna_invited', lang) : '—'}</dd>
-      </div>
-    </dl>
-  );
-}

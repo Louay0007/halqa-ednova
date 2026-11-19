@@ -156,6 +156,17 @@ legend { font-weight: 700; color: var(--navy); padding: 0; margin-bottom: 0.4rem
 .nick-row input { padding-inline-start: 2.75rem; }
 
 /* Avatars: radio labels, native input hidden but focusable for a11y. */
+/* `Me` renders the picker inside an .auth-card, where the legend is an inline
+   label rather than the uppercase .enter-label used on the sign-in screen. */
+.avatar-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.avatar-field legend { margin-block-end: 0.5rem; }
 .avatars {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -255,6 +266,15 @@ legend { font-weight: 700; color: var(--navy); padding: 0; margin-bottom: 0.4rem
 .check { display: inline-flex; gap: 0.4rem; align-items: center; min-height: 44px; }
 .check input { width: 1.2rem; height: 1.2rem; }
 .qcard { scroll-margin-top: 1rem; }
+/* The card carries a state modifier from the CF-AS machine
+   (`q-open` / `q-nova-thinking` / `q-resolved`). Only the night theme styled
+   `q-resolved`, so in light mode all three states looked identical — the
+   status a learner most needs to read was the one with no visual cue.
+   Colour is never the sole cue: the state word is also in the aria-label. */
+.qcard { border-inline-start: 4px solid var(--line); }
+.q-open { border-inline-start-color: var(--aqua); }
+.q-nova-thinking { border-inline-start-color: var(--gold); }
+.q-resolved { border-inline-start-color: var(--green); }
 .qtext { font-size: var(--text-h2); font-weight: 800; color: var(--navy); margin: 0.35rem 0 0.6rem; overflow-wrap: anywhere; }
 .qhead { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
 .qstate { font-size: var(--text-small); color: var(--muted); font-weight: 800; }
@@ -313,6 +333,11 @@ legend { font-weight: 700; color: var(--navy); padding: 0; margin-bottom: 0.4rem
 .room-empty { text-align: center; padding: 1.5rem 0; }
 .ladder .step-locked { opacity: 0.6; cursor: not-allowed; }
 .stages { padding-inline-start: 1.2rem; color: var(--muted); }
+/* ThinkingSteps renders `<li class="stage stage-done stage-live">`; only the
+   `.stage-dot` children had rules, so the rows themselves collapsed together
+   with no spacing and a finished stage was indistinguishable from a pending one. */
+.stage { margin-block: 0.15rem; transition: color var(--dur-pop) var(--ease-out); }
+.stage-done { color: var(--aqua-ink); }
 .ladder { display: flex; gap: 0.4rem; }
 .step {
   width: 44px; height: 44px; border-radius: 12px;
@@ -338,6 +363,9 @@ legend { font-weight: 700; color: var(--navy); padding: 0; margin-bottom: 0.4rem
 .drift-kept { border-color: var(--green); }
 .drift-lost { border-color: var(--amber); }
 .drift-dist { border-color: var(--plum); }
+/* The fourth bucket: text the relay invented. It had a border colour missing, so
+   "added" rendered identical to a neutral column while the other three were coded. */
+.drift-add { border-color: var(--aqua); }
 .drift .chip { font-size: var(--text-small); background: var(--paper); border-radius: 6px; padding: 0.15rem 0.4rem; }
 
 /* Solo thread */
@@ -535,9 +563,11 @@ body.dyslexia { letter-spacing: 0.04em; word-spacing: 0.08em; line-height: 1.8; 
   cursor: pointer;
 }
 .enter-reveal:hover { color: #fff; }
-.enter-hint { margin: 0; font-size: 0.6875rem; line-height: 1.4; color: rgba(255, 255, 255, 0.45); }
-.enter-hint.is-bad { color: rgba(255, 255, 255, 0.8); }
-.enter-avatars { display: grid; grid-template-columns: repeat(8, 1fr); gap: 0.25rem; }
+.enter-hint { margin: 0; font-size: 0.75rem; line-height: 1.4; color: rgba(255, 255, 255, 0.45); }
+.enter-hint.is-bad { color: #ffd9a3; }
+/* 8 across a 22rem panel gave ≈35px targets — below the 44px floor the app
+   audits itself against. 4×2 gives 44px+ with the same 8 avatars. */
+.enter-avatars { display: grid; grid-template-columns: repeat(4, minmax(44px, 1fr)); gap: 0.375rem; }
 .enter-avatar {
   position: relative;
   display: flex;
@@ -564,7 +594,7 @@ body.dyslexia { letter-spacing: 0.04em; word-spacing: 0.08em; line-height: 1.8; 
   position: relative;
   display: inline-flex;
   align-items: center;
-  min-height: 2.25rem;
+  min-height: 44px;
   padding: 0 0.875rem;
   font: inherit;
   font-size: 0.75rem;
@@ -627,7 +657,11 @@ body.dyslexia { letter-spacing: 0.04em; word-spacing: 0.08em; line-height: 1.8; 
 .opt-radio { position: absolute; opacity: 0; pointer-events: none; }
 .opt-label { display: inline-flex; min-height: 44px; align-items: center; }
 .opt-row .opt { position: relative; }
-.passport-live { position: sticky; top: 1rem; }
+/* Sticky only where the two-column grid actually exists — sticky in a single
+   column pushed the live passport below all four fieldsets on mobile. */
+@media (min-width: 900px) {
+  .passport-live { position: sticky; top: 1rem; }
+}
 
 /* §4 R3 — solo (P2) */
 .solo-start { display: flex; flex-direction: column; gap: 0.75rem; align-items: flex-start; }
@@ -752,3 +786,217 @@ body.dyslexia { letter-spacing: 0.04em; word-spacing: 0.08em; line-height: 1.8; 
 .events li { display: flex; gap: 0.5rem; align-items: baseline; border-bottom: 1px solid var(--line); padding: 0.3rem 0; font-size: var(--text-small); flex-wrap: wrap; }
 .event-type { font-weight: 800; color: var(--aqua-ink); }
 .event-payload { font-size: var(--text-micro); color: var(--muted); }
+/* ── Missing-class pass ────────────────────────────────────────────────────
+   Every selector below is a class the routes already render but no stylesheet
+   defined, so those blocks were falling back to bare browser defaults. Kept at
+   the end of pages.css, in source order of the screen that uses them, and
+   written against tokens only so the night re-skin in night.css keeps working
+   by re-pointing variables instead of needing a second rule set here. */
+
+/* --- Circles: create + join ------------------------------------------- */
+.new-circle,
+.join-circle {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* The 6-box code entry: each box must clear 44px on its own. */
+.join-circle .code-boxes {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+.join-circle .code-box {
+  min-height: 56px;
+  text-align: center;
+  font-size: var(--text-h2);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  padding: 0;
+  text-transform: uppercase;
+}
+.join-circle .code-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 0.6rem;
+}
+
+/* The join QR + deep link after creation. */
+.result-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: flex-start;
+}
+.result-page .code {
+  letter-spacing: 0.14em;
+}
+
+/* --- Lobby ------------------------------------------------------------- */
+.lobby {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.lobby-roster,
+.lobby-agenda {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.lobby-roster .roster {
+  display: grid;
+  gap: 0.5rem;
+}
+.lobby-count {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.1;
+}
+.lobby-count > .tnum {
+  font-size: var(--text-h2);
+  font-weight: 800;
+  color: var(--navy);
+}
+.lobby-actions {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* --- Session room ------------------------------------------------------ */
+/* `.room-grid` exists in pages.css; these are the shell around it. */
+.room {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+.peer-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* --- Board + matcher --------------------------------------------------- */
+.board,
+.matcher {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+/* Lab renders `card route-table` AROUND a `table.rtable`. Styling .route-table as
+   a table collapsed the card into table display and the real <table> got none of
+   it; the table rules below target .rtable, the element that exists. */
+.route-table .rtable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-small);
+}
+.route-table .rtable caption {
+  text-align: start;
+  padding-bottom: 0.4rem;
+  color: var(--muted);
+}
+.route-table .rtable th,
+.route-table .rtable td {
+  text-align: start;
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.route-table .rtable th {
+  font-size: var(--text-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+/* --- Solo -------------------------------------------------------------- */
+.solo-progress {
+  display: grid;
+  gap: 0.35rem;
+}
+
+/* --- Debrief capsule --------------------------------------------------- */
+.capsule-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.capsule-quiz-title {
+  margin: 0;
+  font-size: var(--text-small);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.capsule-quiz {
+  margin: 0;
+  padding-inline-start: 1.2rem;
+  display: grid;
+  gap: 0.35rem;
+  color: var(--ink);
+}
+
+/* --- Lab / chaos ------------------------------------------------------- */
+.chaos {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* --- Shared: the green success hint ------------------------------------
+   Only `.composer .hint.ok` was ever defined, so "Copied ✓", "Code valid",
+   "Passphrase updated" rendered as ordinary grey text everywhere else. */
+.hint.ok {
+  color: var(--green);
+  font-weight: 700;
+}
+
+/* --- Auth pages -------------------------------------------------------- */
+.page.auth {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* --- Coach rephrase style picker --------------------------------------- */
+.coach-style-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: var(--text-small);
+}
+.coach-style-field select {
+  min-height: 44px;
+}
+
+/* --- API-down inline notice --------------------------------------------
+   `SetupHint` used to replace the whole shell; it is now a card inside
+   <main>, so it needs the narrow measure without the full-page padding. */
+.setup-inline {
+  padding: 0;
+}
+.setup-inline .setup-hint {
+  border: 0;
+  padding: 0;
+}
+
+/* --- Touch targets ----------------------------------------------------- */
+/* 40px failed the 44px audit the app documents for itself. */
+.hatchip {
+  min-height: 44px;
+}

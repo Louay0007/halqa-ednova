@@ -2,6 +2,8 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { registerSW } from 'virtual:pwa-register';
 import App from './App.tsx';
+import { t } from './lib/i18n';
+import type { Lang } from './lib/api';
 
 // Render immediately. The API is probed in the background and, if it is down,
 // a dismissible notice appears — the shell, hero and offline tools still work.
@@ -14,13 +16,25 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 );
 
-function notice(msg: string) {
+/** These banners live outside React, so they cannot use the session context; they
+ *  read the same persisted key the provider writes. Text is set with textContent —
+ *  the message embeds `base`, which is env-supplied and must not be parsed as HTML. */
+const lang = (): Lang => (sessionStorage.getItem('halqa.lang') as Lang) || 'fr';
+
+function banner(text: string, action: { label: string; ariaLabel?: string; onClick: () => void }) {
   const el = document.createElement('div');
   el.className = 'api-notice';
   el.setAttribute('role', 'status');
-  el.innerHTML = `<span>${msg}</span><button type="button" aria-label="Dismiss">✕</button>`;
-  el.querySelector('button')!.onclick = () => el.remove();
+  const msg = document.createElement('span');
+  msg.textContent = text;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = action.label;
+  btn.setAttribute('aria-label', action.ariaLabel ?? action.label);
+  btn.onclick = action.onClick;
+  el.append(msg, btn);
   document.querySelector('.shell')?.prepend(el);
+  return el;
 }
 
 fetch(`${base}/healthz`, { signal: AbortSignal.timeout(4000) })
@@ -30,7 +44,7 @@ fetch(`${base}/healthz`, { signal: AbortSignal.timeout(4000) })
   .catch(() => {
     // Deferred one frame so .shell exists.
     requestAnimationFrame(() =>
-      notice(`API unreachable at <code>${base}</code> — offline tools still work. Notice auto-hides when the API is up.`),
+      banner(t('api_down', lang(), { base }), { label: '✕', ariaLabel: t('dismiss', lang()), onClick: () => document.querySelector('.api-notice')?.remove() }),
     );
     const id = setInterval(async () => {
       try {
@@ -50,11 +64,6 @@ fetch(`${base}/healthz`, { signal: AbortSignal.timeout(4000) })
 // a learner mid-question would lose the peer window.
 registerSW({
   onNeedRefresh() {
-    const el = document.createElement('div');
-    el.className = 'api-notice';
-    el.setAttribute('role', 'status');
-    el.innerHTML = '<span>A newer version is available.</span><button type="button">Reload</button>';
-    el.querySelector('button')!.onclick = () => location.reload();
-    document.querySelector('.shell')?.prepend(el);
+    banner(t('sw_newer', lang()), { label: t('reload', lang()), onClick: () => location.reload() });
   },
 });

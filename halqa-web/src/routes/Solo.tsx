@@ -35,7 +35,7 @@ export function Solo() {
       setThread([{ who: r.hat, text: r.probe }]);
     } catch (e) {
       const f = e as ApiFailure;
-      setErr((f.body?.user_msg?.[lang]) ?? 'Solo failed to start.');
+      setErr((f.body?.user_msg?.[lang]) ?? t('solo_failed', lang));
     }
   };
 
@@ -52,7 +52,7 @@ export function Solo() {
       setProgress(r.progress);
     } catch (e) {
       const f = e as ApiFailure;
-      setErr((f.body?.user_msg?.[lang]) ?? 'Turn failed.');
+      setErr((f.body?.user_msg?.[lang]) ?? t('solo_turn_failed', lang));
     } finally {
       setBusy(false);
     }
@@ -74,7 +74,7 @@ export function Solo() {
       ) : (
         <>
           <div className="solo-top">
-            <div className="hat-row" role="group" aria-label="Nova hat">
+            <div className="hat-row" role="group" aria-label={t('solo_hat', lang)}>
               {HATS.map((h) => (
                 <button
                   key={h.key}
@@ -84,7 +84,7 @@ export function Solo() {
                   onClick={() => api.soloHat(sid, h.key).then((r) => setHat(r.hat)).catch(() => undefined)}
                   translate="no"
                 >
-                  {h.key.replace('NOVA_', '')}
+                  {t(`nova_${h.key.replace('NOVA_', '').toLowerCase()}`, lang)}
                 </button>
               ))}
             </div>
@@ -92,11 +92,11 @@ export function Solo() {
               <div className="progress" role="progressbar" aria-valuenow={turnsDone} aria-valuemin={0} aria-valuemax={MAX_TURNS}>
                 <i style={{ width: `${(turnsDone / MAX_TURNS) * 100}%` }} />
               </div>
-              <p className="hint tnum">{t('solo_progress', lang, { n: turnsDone })}</p>
+              <p className="hint tnum">{t('solo_progress', lang, { n: turnsDone, m: MAX_TURNS })}</p>
             </div>
           </div>
 
-          <ol className="thread solo-thread" aria-label="Nova and teacher thread">
+          <ol className="thread solo-thread" aria-label={t('solo_thread', lang)}>
             {thread.map((m, i) => (
               <li key={i} className={m.who === learnerId ? 'me' : 'nova'}>
                 {m.who !== learnerId && <HatChip hat={m.who} />}
@@ -120,7 +120,8 @@ export function Solo() {
 
           {usage && (
             <p className="muted tnum solo-budget">
-              {t('solo_budget', lang, { n: turnsDone })} · {usage.cUsed}/{MAX_TURNS} compact · {usage.lUsed} larger
+              {t('solo_budget', lang, { n: turnsDone })} ·{' '}
+              {t('solo_budget_mix', lang, { n: usage.cUsed, m: MAX_TURNS, l: usage.lUsed })}
             </p>
           )}
 
