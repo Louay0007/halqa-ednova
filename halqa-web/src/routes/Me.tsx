@@ -15,7 +15,7 @@ export function Me() {
   const { learnerId, lang, login, logout } = useSession();
   const nav = useNavigate();
   const [data, setData] = useState<MeData | null>(null);
-  const [xp, setXp] = useState<{ total: number; badges: string[] } | null>(null);
+  const [xp, setXp] = useState<{ total: number; badges: string[]; streakDays: number } | null>(null);
   const [busy, setBusy] = useState(false);
   // Passphrase rotation — only meaningful once the record is a real account.
   const [current, setCurrent] = useState('');
@@ -32,7 +32,7 @@ export function Me() {
       .catch(() => undefined);
     if (learnerId)
       api
-        .xp(learnerId)
+        .progress()
         .then((r) => setXp(r.data))
         .catch(() => undefined);
   }, [learnerId]);

@@ -5,6 +5,7 @@ import { APP_CONFIG } from '../../core/config/config.module';
 import type { AppConfig } from '../../core/config/app-config';
 import { LlmPort, LlmRequest, LlmResult, LlmStep } from '../../domain/ports/llm-port';
 import { LlmCall, LlmCallDocument } from '../../persistence/schemas/ai.schema';
+import { MetricsService } from '../../metrics/metrics.service';
 
 /**
  * THE ONLY file that knows model names/keys. Providers are swapped via env
@@ -32,6 +33,7 @@ export class ProviderAdapter implements LlmPort {
   constructor(
     @Inject(APP_CONFIG) private readonly cfg: AppConfig,
     @InjectModel(LlmCall.name) private readonly calls: Model<LlmCallDocument>,
+    private readonly metrics: MetricsService,
   ) {}
 
   get compactModel(): string {
@@ -65,6 +67,8 @@ export class ProviderAdapter implements LlmPort {
     try {
       const out = await run();
       const result: LlmResult = { ...out, cached: false };
+      // L-share is the cost claim the report defends, so it must be a live metric.
+      this.metrics.llmCalls.inc({ tier, step: req.step });
       await this.logCall({ step: req.step, tier, result, ok: true });
       return result;
     } catch (err) {

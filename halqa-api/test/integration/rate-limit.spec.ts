@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getConnectionToken } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
 import request from 'supertest';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { startReplSet } from './support/mongo';
 import { AppModule } from '../../src/app.module';
 import { GlobalExceptionFilter } from '../../src/core/filters/global-exception.filter';
 import { requestIdMiddleware } from '../../src/core/interceptors/request-id.middleware';
@@ -15,15 +15,15 @@ import { requestIdMiddleware } from '../../src/core/interceptors/request-id.midd
 // Own module instance on purpose: the limiter is in-process, so exhausting the
 // budget here must not leak into the other specs.
 describe('rate limit (integration)', () => {
-  let mongod: MongoMemoryServer;
+  let mongod: { uri: string; stop: () => Promise<unknown> };
   let app: INestApplication;
 
   beforeAll(async () => {
     process.env.NODE_ENV = 'test';
     process.env.MONGODB_URI = 'mongodb://placeholder:27017/halqa-test';
     process.env.TOKEN_SECRET = 'rate-limit-test-secret';
-    mongod = await MongoMemoryServer.create();
-    process.env.MONGODB_URI = mongod.getUri('halqa-test');
+    mongod = await startReplSet('halqa-ratelimit');
+    process.env.MONGODB_URI = mongod.uri;
 
     const module: TestingModule = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = module.createNestApplication();

@@ -1,5 +1,6 @@
 import { DegradationService } from '../../src/ai/degradation/degradation.service';
 import { EventBus } from '../../src/telemetry/event-bus';
+import { MetricsService } from '../../src/metrics/metrics.service';
 
 /**
  * A failing provider used to be invisible: `evaluate()` was only ever called with
@@ -11,7 +12,8 @@ const bus = { emit: jest.fn().mockResolvedValue(undefined) } as unknown as Event
 describe('degradation ladder', () => {
   let svc: DegradationService;
   beforeEach(() => {
-    svc = new DegradationService();
+    // Metrics is a real instance: the mode gauge is part of the contract now.
+    svc = new DegradationService(new MetricsService());
     (bus.emit as jest.Mock).mockClear();
   });
 

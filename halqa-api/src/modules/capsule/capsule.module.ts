@@ -4,11 +4,12 @@ import { TelemetryModule } from '../../telemetry/telemetry.module';
 import { AdapterModule } from '../../ai/adapter/adapter.module';
 import { GovernorModule } from '../../ai/governor/governor.module';
 import { KnowledgeModule } from '../knowledge/knowledge.module';
+import { GamificationModule } from '../gamification/gamification.module';
 import { CapsuleService } from './capsule.service';
 import { CapsuleController } from './capsule.controller';
 
 @Module({
-  imports: [PersistenceModule, TelemetryModule, AdapterModule, GovernorModule, KnowledgeModule],
+  imports: [PersistenceModule, TelemetryModule, AdapterModule, GovernorModule, KnowledgeModule, GamificationModule],
   providers: [CapsuleService],
   controllers: [CapsuleController],
   exports: [CapsuleService],

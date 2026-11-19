@@ -4,7 +4,7 @@ import { MentorService } from './mentor.service';
 import { Roles } from '../../security/roles.decorator';
 import { CurrentUser } from '../../security/current-user.decorator';
 import { MembershipService } from '../../security/membership.service';
-import { RateLimit } from '../../security/rate-limit';
+import { LIMITS, RateLimit } from '../../security/rate-limit';
 
 class NoteDto {
   @IsString()
@@ -31,6 +31,7 @@ export class MentorController {
     private readonly members: MembershipService,
   ) {}
 
+  @RateLimit(LIMITS.write)
   @Post('circles/:id/mentor/join')
   join(@Param('id') id: string, @CurrentUser('sub') mentorId: string): Promise<{ ok: boolean; role: string }> {
     return this.mentor.join(id, mentorId);

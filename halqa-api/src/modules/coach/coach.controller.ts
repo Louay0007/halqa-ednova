@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { IsIn, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { CoachService } from './coach.service';
+import { LIMITS, RateLimit } from '../../security/rate-limit';
 import { Roles } from '../../security/roles.decorator';
 import { CurrentUser } from '../../security/current-user.decorator';
 import { MembershipService } from '../../security/membership.service';
@@ -47,6 +48,7 @@ export class CoachController {
     return this.coach.card(id);
   }
 
+  @RateLimit(LIMITS.ai)
   @Post('coach/nudge/:targetId')
   async nudge(
     @Param('targetId') target: string,
@@ -57,6 +59,7 @@ export class CoachController {
     return this.coach.nudge(explainerId, target, dto.sessionId, dto.circleId);
   }
 
+  @RateLimit(LIMITS.ai)
   @Post('coach/rephrase')
   async rephrase(@CurrentUser('sub') learnerId: string, @Body() dto: RephraseDto): Promise<{ suggestion: string }> {
     await this.members.assertMember(dto.circleId, learnerId);

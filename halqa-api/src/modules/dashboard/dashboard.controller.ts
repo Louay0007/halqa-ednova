@@ -5,7 +5,7 @@ import { Session, SessionDocument } from '../../persistence/schemas/session.sche
 import { Learner, LearnerDocument } from '../../persistence/schemas/learner.schema';
 import { SbuService } from '../sbu/sbu.service';
 import { EquityService } from '../equity/equity.service';
-import { Public } from '../../security/roles.decorator';
+import { Roles } from '../../security/roles.decorator';
 
 /**
  * DashboardController — teacher/mentor aggregation (F-DASH).
@@ -13,7 +13,7 @@ import { Public } from '../../security/roles.decorator';
  * style mix. No learner PII — nicknames stay circle-local, dashboards show
  * totals and distributions.
  */
-@Public()
+@Roles('mentor', 'admin')
 @Controller('dashboard')
 export class DashboardController {
   constructor(

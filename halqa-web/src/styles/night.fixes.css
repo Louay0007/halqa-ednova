@@ -155,6 +155,17 @@
 .enter-hint { color: rgba(255, 255, 255, 0.6); }
 .enter-hint a, .enter-foot a { color: #8fe6df; }
 
+/* Consent line: quieter than a hint but still above 4.5:1, because copy the
+   learner is meant to read must not be the least legible thing on the screen. */
+.enter-consent {
+  margin: 0.75rem auto 0;
+  max-width: 44ch;
+  font-size: 11px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.58);
+  text-align: center;
+}
+
 /* Inline text links inside glass cards had no padding; give them a 44px
    hit box without changing the visual size. */
 .shell.is-app main p > a,

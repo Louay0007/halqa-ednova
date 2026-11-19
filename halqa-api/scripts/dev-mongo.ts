@@ -14,7 +14,10 @@ const PORT = Number(process.env.DEV_MONGO_PORT ?? 27017);
 
 async function main(): Promise<void> {
   const mongod = await MongoMemoryServer.create({
-    instance: { port: PORT, dbName: 'halqa' },
+    // A single-node replica set, not standalone: multi-document transactions
+    // (§4.6) are a no-op error on standalone, and discovering that late means
+    // rewriting the settling flows against a different dev database.
+    instance: { port: PORT, dbName: 'halqa', replSet: 'rs0' },
   });
   console.log(`[dev-mongo] listening on ${mongod.getUri('halqa')}`);
 

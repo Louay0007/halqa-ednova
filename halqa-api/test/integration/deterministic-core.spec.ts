@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { Connection, Model } from 'mongoose';
 import request from 'supertest';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { startReplSet } from './support/mongo';
 import { AppModule } from '../../src/app.module';
 import { GlobalExceptionFilter } from '../../src/core/filters/global-exception.filter';
 import { requestIdMiddleware } from '../../src/core/interceptors/request-id.middleware';
@@ -19,7 +19,7 @@ import { Session, SessionDocument } from '../../src/persistence/schemas/session.
 // - credits worked example: quality (7) > volume (12 plain → ≈2.56)
 // - every event recomputes S-B-U; rings reproducible from healthInputs
 describe('phase-2 deterministic core (integration)', () => {
-  let mongod: MongoMemoryServer;
+  let mongod: { uri: string; stop: () => Promise<unknown> };
   let app: INestApplication;
   let equity: EquityService;
   let sbu: SbuService;
@@ -31,8 +31,8 @@ describe('phase-2 deterministic core (integration)', () => {
     process.env.NODE_ENV = 'test';
     process.env.CHAOS_ENABLED = 'true';
     process.env.TOKEN_SECRET = 'phase2-test-secret';
-    mongod = await MongoMemoryServer.create();
-    process.env.MONGODB_URI = mongod.getUri('halqa-phase2');
+    mongod = await startReplSet('halqa-phase2');
+    process.env.MONGODB_URI = mongod.uri;
 
     const module: TestingModule = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = module.createNestApplication();
@@ -77,6 +77,23 @@ describe('phase-2 deterministic core (integration)', () => {
   it('dna: items + completion writes passport', async () => {
     const items = await request(app.getHttpServer()).get('/api/v1/dna/items').expect(200);
     expect(items.body.items.map((i: { id: string }) => i.id)).toEqual(['L1', 'S1', 'G1', 'C1']);
+    // Every option must carry the enum the API validates, and every value must
+    // be accepted by POST /dna. Regression: S1 used to expose display strings
+    // ("picture-desc (visual)") that the validator rejected.
+    const accepted: Record<string, string[]> = {
+      L1: ['novice', 'beginner', 'intermediate'],
+      S1: ['visual', 'analogy', 'steps'],
+      G1: ['ar', 'darija', 'fr', 'en'],
+      C1: ['sure', 'unsure', 'lost'],
+    };
+    for (const item of items.body.items as Array<{ id: string; options: Array<{ value: string; label: string }> }>) {
+      expect(item.options.length).toBeGreaterThan(0);
+      for (const o of item.options) {
+        expect(typeof o.value).toBe('string');
+        expect(typeof o.label).toBe('string');
+        expect(accepted[item.id]).toContain(o.value);
+      }
+    }
 
     const res = await request(app.getHttpServer())
       .post('/api/v1/dna')

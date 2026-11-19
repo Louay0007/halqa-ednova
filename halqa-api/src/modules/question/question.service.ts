@@ -13,6 +13,7 @@ import { RouterService } from '../../ai/router/router.service';
 import { PeerWindowService } from '../peer-window/peer-window.service';
 import { HintService } from '../hints/hint.service';
 import { EquityService } from '../equity/equity.service';
+import { MembershipService } from '../../security/membership.service';
 import { Circle, CircleDocument } from '../../persistence/schemas/circle.schema';
 import { Session, SessionDocument } from '../../persistence/schemas/session.schema';
 import { Learner, LearnerDocument } from '../../persistence/schemas/learner.schema';
@@ -68,6 +69,7 @@ export class QuestionService {
     private readonly windows: PeerWindowService,
     private readonly hints: HintService,
     private readonly equity: EquityService,
+    private readonly members: MembershipService,
     private readonly bus: EventBus,
   ) {}
 
@@ -284,12 +286,48 @@ export class QuestionService {
     return { hint: served.hint, level: served.level, cites: served.cites };
   }
 
+  /**
+   * Confirm the caller may see this question at all, by resolving the question's
+   * session to its circle. Applied to the poller and every question route so a
+   * known qid is not a blanket read grant.
+   */
+  async assertQuestionMember(questionId: string, learnerId: string): Promise<void> {
+    const q = await this.questions.findOne({ _id: questionId }).select('sessionId').lean().exec();
+    if (!q) throw Err.missing(`QUESTION_NOT_FOUND:${questionId}`);
+    await this.members.assertSessionMember(q.sessionId, learnerId);
+  }
+
+  /**
+   * Asker-only extras (thinking stages, hidden-answer readiness, deep dive).
+   *
+   * Split out of `getState` so the shared poller body carries nothing
+   * viewer-dependent: one ETag, one cacheable document, every peer. Derives the
+   * viewer from the token — never from a query param.
+   */
+  async askerView(
+    questionId: string,
+    viewerId: string,
+  ): Promise<{ stages: unknown[]; quickTakeReady: boolean; deepDiveReady: boolean; deepDive?: { text: string; cites: string[] } }> {
+    const q = await this.questions.findOne({ _id: questionId }).lean().exec();
+    if (!q) throw Err.missing(`QUESTION_NOT_FOUND:${questionId}`);
+    await this.members.assertSessionMember(q.sessionId, viewerId);
+    if (q.askerId !== viewerId) throw Err.denied(`ASKER_ONLY:${questionId}`);
+
+    const qt = (q.quickTake ?? {}) as { text?: string };
+    const dd = (q.deepDive ?? {}) as { ready?: boolean; text?: string; cites?: string[] };
+    return {
+      stages: q.stages ?? [],
+      quickTakeReady: !!qt.text,
+      deepDiveReady: dd.ready === true,
+      ...(dd.ready === true ? { deepDive: { text: dd.text ?? '', cites: dd.cites ?? [] } } : {}),
+    };
+  }
+
   /** Poller view. Answer text truncated to keep the payload <1 KB. */
-  async getState(questionId: string, askerId?: string): Promise<{ view: StateView; etag: string }> {
+  async getState(questionId: string): Promise<{ view: StateView; etag: string }> {
     const q = await this.questions.findOne({ _id: questionId }).lean().exec();
     if (!q) throw Err.missing(`QUESTION_NOT_FOUND:${questionId}`);
     const peerCount = await this.answers.countDocuments({ questionId }).exec();
-    const isAsker = !!askerId && askerId === q.askerId;
 
     const view: StateView = {
       qid: q._id,
@@ -313,14 +351,6 @@ export class QuestionService {
         cached: q.answer.cached,
         truncated: text.length > ANSWER_PREVIEW_CHARS,
       };
-    }
-    if (isAsker) {
-      view.stages = q.stages ?? [];
-      const qt = (q.quickTake ?? {}) as { text?: string };
-      const dd = (q.deepDive ?? {}) as { ready?: boolean; text?: string; cites?: string[] };
-      view.quickTakeReady = !!qt.text;
-      view.deepDiveReady = dd.ready === true;
-      if (dd.ready === true) view.deepDive = { text: dd.text ?? '', cites: dd.cites ?? [] };
     }
     const etag = `"${createHash('sha1').update(JSON.stringify(view)).digest('hex')}"`;
     return { view, etag };

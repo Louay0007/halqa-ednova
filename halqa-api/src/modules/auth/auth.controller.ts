@@ -1,9 +1,10 @@
-import { Body, Controller, Get, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Patch, Post } from '@nestjs/common';
 import { IsIn, IsNotEmpty, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { AuthService, LearnerView } from './auth.service';
+import { DataSubjectService } from './data-subject.service';
 import { CurrentUser, OptionalUser } from '../../security/current-user.decorator';
 import { Public, Roles } from '../../security/roles.decorator';
-import { RateLimit } from '../../security/rate-limit';
+import { LIMITS, RateLimit } from '../../security/rate-limit';
 import { PASSPHRASE_MAX, PASSPHRASE_MIN } from '../../security/credentials';
 
 const CONTEXT_VALUES = ['class', 'study', 'community', 'workshop', 'program', 'solo'];
@@ -76,7 +77,10 @@ class PassphraseDto {
 
 @Controller()
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly dataSubject: DataSubjectService,
+  ) {}
 
   /**
    * Guest entry: mints a throwaway learner with no credential. Kept because the
@@ -131,6 +135,7 @@ export class AuthController {
   }
 
   @Roles('learner')
+  @RateLimit(LIMITS.write)
   @Patch('me')
   update(@CurrentUser('sub') learnerId: string, @Body() dto: UpdateMeDto): Promise<LearnerView> {
     return this.auth.update(learnerId, dto);
@@ -143,9 +148,50 @@ export class AuthController {
     return this.auth.changePassphrase(learnerId, dto.current, dto.next);
   }
 
+  /** Extend the session without re-entering a passphrase (see AuthService.refresh). */
   @Roles('learner')
+  @RateLimit(LIMITS.poll)
+  @Post('auth/refresh')
+  refresh(@CurrentUser('sub') learnerId: string): Promise<{ token: string; expiresInS: number }> {
+    return this.auth.refresh(learnerId);
+  }
+
+  @Roles('learner')
+  @RateLimit(LIMITS.poll)
   @Post('auth/signout')
   signout(@CurrentUser('sub') learnerId: string): Promise<{ ok: true }> {
     return this.auth.signout(learnerId);
+  }
+
+  /**
+   * Everything stored about the caller, as one JSON file (§3.10).
+   *
+   * Scoped to `me` and derived from the token: an export is the most sensitive
+   * read in the app, so there is deliberately no `:id` form to get wrong.
+   */
+  @Roles('learner')
+  @RateLimit({ limit: 3, windowS: 300 })
+  @Get('me/export')
+  exportMe(@CurrentUser('sub') learnerId: string): Promise<unknown> {
+    return this.dataSubject.export(learnerId);
+  }
+
+  /**
+   * Ask to be forgotten. Access stops now (the epoch bumps); the data follows
+   * after the grace window, which `DELETE` can cancel.
+   */
+  @Roles('learner')
+  @RateLimit({ limit: 3, windowS: 300 })
+  @Delete('me')
+  deleteMe(@CurrentUser('sub') learnerId: string): Promise<{ ok: true; purgeAfter: string }> {
+    return this.dataSubject.requestDeletion(learnerId);
+  }
+
+  /** Change of heart inside the grace window. */
+  @Roles('learner')
+  @RateLimit({ limit: 3, windowS: 300 })
+  @Post('me/restore')
+  restoreMe(@CurrentUser('sub') learnerId: string): Promise<{ ok: true }> {
+    return this.dataSubject.cancelDeletion(learnerId);
   }
 }

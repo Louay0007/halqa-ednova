@@ -18,9 +18,12 @@ export function Debrief() {
   const [capsule, setCapsule] = useState<Capsule | null>(null);
   const [building, setBuilding] = useState(true);
   const [err, setErr] = useState<string | null>(null);
-  const [battle, setBattle] = useState<{ bid: string; items: Array<{ qid: string; stem: string; choices: string[] }> } | null>(null);
+  const [battle, setBattle] = useState<{
+    bid: string;
+    items: Array<{ qid: string; stem: string; choices: Array<{ key: string; text: string }> }>;
+  } | null>(null);
   const [answers, setAnswers] = useState<Record<string, { correct: boolean; explain: string; xp: number }>>({});
-  const [xp, setXp] = useState<{ total: number; badges: string[] } | null>(null);
+  const [xp, setXp] = useState<{ total: number; badges: string[]; streakDays: number } | null>(null);
   const [toast, setToast] = useState<number | null>(null);
   const [whisper, setWhisper] = useState<{ chainId: string; steps: unknown[]; driftMap: Drift; tier: string } | null>(null);
   const [relay, setRelay] = useState('');
@@ -42,7 +45,7 @@ export function Debrief() {
           .catch((e: ApiFailure) => setErr(e.body?.user_msg?.[lang] ?? '—'))
           .finally(() => setBuilding(false)),
       );
-    if (learnerId) api.xp(learnerId).then((r) => setXp(r.data)).catch(() => undefined);
+    if (learnerId) api.progress().then((r) => setXp(r.data)).catch(() => undefined);
   }, [sessionId, circleId, lang, learnerId]);
 
   const startBattle = async () => {
@@ -62,7 +65,7 @@ export function Debrief() {
       setAnswers((a) => ({ ...a, [qid]: r }));
       setToast(r.xp);
       setTimeout(() => setToast(null), 2400);
-      const x = await api.xp(learnerId).catch(() => null);
+      const x = await api.progress().catch(() => null);
       if (x) setXp(x.data);
     } catch (e) {
       setErr(((e as ApiFailure).body?.user_msg?.[lang]) ?? '—');
@@ -159,15 +162,17 @@ export function Debrief() {
                 <div className="row">
                   {it.choices.map((c) => (
                     <button
-                      key={c}
+                      key={c.key}
                       type="button"
                       className={`btn btn-small${ans ? ' btn-ghost' : ''}`}
                       style={{ minHeight: 44 }}
                       disabled={!!ans}
-                      onClick={() => answerBattle(it.qid, c)}
+                      // Submit the key: the server scores the letter, and display
+                      // text is never what it stored as the answer.
+                      onClick={() => answerBattle(it.qid, c.key)}
                       translate="no"
                     >
-                      {c}
+                      {c.text}
                     </button>
                   ))}
                 </div>

@@ -313,6 +313,10 @@ export function Enter() {
                 <p className="enter-hint" style={{ textAlign: 'center' }}>
                   {t('enter_no_email', lang)} {isSignup ? t('enter_foot_signup', lang) : t('enter_foot_other', lang)}
                 </p>
+
+                {/* Consent in plain language, on the form itself (§8.3). A learner
+                    should not have to hunt a policy page to learn what is kept. */}
+                <p className="enter-consent">{t('enter_consent', lang)}</p>
               </div>
             </form>
           </motion.div>

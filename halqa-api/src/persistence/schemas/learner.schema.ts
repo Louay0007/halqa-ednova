@@ -47,6 +47,17 @@ export class Learner {
   @Prop({ type: String, lowercase: true, trim: true }) handle?: string;
   @Prop({ type: String, select: false }) secretSalt?: string;
   @Prop({ type: String, select: false }) secretHash?: string;
+
+  /**
+   * Erasure lifecycle (§3.10). `deletedAt` is set the moment the learner asks and
+   * bumps the token epoch, so access stops immediately while the data waits out
+   * the grace window. `purgeAfter` is the deadline the purge job queries.
+   * `purgedAt` marks a tombstone: the row survives so the XP ledger and telemetry
+   * keep a valid reference, but every field describing a person is gone.
+   */
+  @Prop({ type: Date }) deletedAt?: Date;
+  @Prop({ type: Date }) purgeAfter?: Date;
+  @Prop({ type: Date }) purgedAt?: Date;
 }
 // NOTE: no name/photo/gender/region/birth/age/address/phone/email fields.
 // The schema gate test (test/schema-gate.spec.ts) fails the build if they appear.
@@ -57,3 +68,6 @@ LearnerSchema.index({ 'passport.lang': 1 });
 // Anonymous learners carry no handle; a partial index keeps those untouched while
 // making "one account per handle" a database-enforced invariant.
 LearnerSchema.index({ handle: 1 }, { unique: true, partialFilterExpression: { handle: { $type: 'string' } } });
+// The purge job asks "who is due?" once a day; a partial index keeps that a lookup
+// rather than a collection scan, and stays tiny because almost nobody is deleted.
+LearnerSchema.index({ purgeAfter: 1 }, { partialFilterExpression: { purgeAfter: { $type: 'date' } } });

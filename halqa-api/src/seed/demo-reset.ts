@@ -42,8 +42,9 @@ const LEARNERS: DemoLearner[] = [
 const MENTOR = 'Mentor-Amel';
 const TEACHER = 'Teacher-Leila';
 
-/** 30 nicknames for the matcher board — deterministic, no randomness. */
-const NICKNAMES_30 = Array.from({ length: 30 }, (_, i) => {
+/** 30 nicknames for the matcher board — deterministic, no randomness.
+ *  Exported for the matcher rehearsal (`POST /circles/match`) and tests. */
+export const NICKNAMES_30 = Array.from({ length: 30 }, (_, i) => {
   const animal = ['Fox', 'Owl', 'Star', 'Deer'][i % 4];
   return `${animal}-${String(i + 1).padStart(2, '0')}`;
 });

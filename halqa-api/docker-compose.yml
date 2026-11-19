@@ -1,16 +1,28 @@
+# Local development stack. For a production-shaped stack use docker-compose.prod.yml.
+#
+# Mongo runs as a single-node **replica set**, not standalone: transactions need
+# one, and `withTransaction` is used by the settling flows (§4.6). Standing this
+# up late is the classic way to discover a transaction wrapper cannot work.
 services:
   mongo:
     image: mongo:7
     restart: unless-stopped
+    command: ["--replSet", "rs0", "--bind_ip_all"]
     ports:
       - "27017:27017"
     volumes:
       - halqa-mongo:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      # Initiate the replica set on first boot, then ping. A healthcheck that only
+      # pings would report healthy on a standalone node with no replSet configured.
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet --eval 'try { rs.status().ok } catch (e) { rs.initiate({_id:\"rs0\",members:[{_id:0,host:\"localhost:27017\"}]}).ok }'",
+        ]
       interval: 10s
-      timeout: 5s
-      retries: 5
+      timeout: 10s
+      retries: 10
 
   api:
     build: .
@@ -23,12 +35,13 @@ services:
     environment:
       NODE_ENV: development
       PORT: 3000
-      MONGODB_URI: mongodb://mongo:27017/halqa
+      MONGODB_URI: mongodb://mongo:27017/halqa?replicaSet=rs0
+      CORS_ORIGINS: http://localhost:5173
       QUOTA_C: 20
       QUOTA_L: 5
       WINDOW_S: 45
-      CHAOS_ENABLED: "false"
-      # TOKEN_SECRET, PROVIDER_* come from the shell environment — never committed.
+      CHAOS_ENABLED: "true"
+      # TOKEN_SECRET and PROVIDER_* come from the shell environment — never committed.
     env_file: []
 volumes:
   halqa-mongo:

@@ -39,6 +39,9 @@ export const ANALYTICS_EVENTS = [
   'solo_turn',
   'invite_sent',
   'xp_award',
+  /** A peer window settled later than the alert threshold: a real incident,
+   *  not jitter. Analysed to prove the expiry worker is keeping up. */
+  'settle_overdue',
 ] as const;
 export type AnalyticsEventType = (typeof ANALYTICS_EVENTS)[number];
 
@@ -58,6 +61,10 @@ export const TelemetryEventSchema = SchemaFactory.createForClass(TelemetryEvent)
 TelemetryEventSchema.index({ sessionId: 1, ts: 1 });
 TelemetryEventSchema.index({ circleId: 1, ts: -1 });
 TelemetryEventSchema.index({ type: 1, ts: -1 });
+// Retention (§4.7): nothing pruned this collection, so at classroom volume it
+// grows forever. 90 days covers a term plus a dispute window; archive before
+// lowering it if the report needs older history.
+TelemetryEventSchema.index({ ts: 1 }, { expireAfterSeconds: 90 * 24 * 60 * 60 });
 
 @Schema({ collection: 'mentor_notes' })
 export class MentorNote {

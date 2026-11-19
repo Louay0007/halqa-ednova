@@ -5,6 +5,7 @@ import { Model } from 'mongoose';
 import { MatcherService } from '../matcher/matcher.service';
 import { Circle, CircleDocument } from '../../persistence/schemas/circle.schema';
 import { CircleService } from '../circle/circle.service';
+import { LIMITS, RateLimit } from '../../security/rate-limit';
 import { Public } from '../../security/roles.decorator';
 
 class MatchDto {
@@ -29,6 +30,7 @@ export class WorkshopController {
     @InjectModel(Circle.name) private readonly circleModel: Model<CircleDocument>,
   ) {}
 
+  @RateLimit(LIMITS.write)
   @Post('circles/match')
   match(@Body() dto: MatchDto): unknown {
     const learners = dto.nicknames.map((n, i) => ({

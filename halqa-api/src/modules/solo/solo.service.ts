@@ -43,8 +43,10 @@ const HAT_PROBES: Record<SoloHat, string[]> = {
 @Injectable()
 export class SoloService {
   private readonly logger = new Logger(SoloService.name);
-  private hats = new Map<string, SoloHat>();
-  private turns = new Map<string, number>();
+  // Hat and turn count used to live in these two Maps, so a solo session reset to
+  // NOVA_NOVICE / turn 0 on every deploy (§4.4). The service already creates a
+  // durable `Session` document, so both fields live there now.
+
 
   constructor(
     @InjectModel(Session.name) private readonly sessions: Model<SessionDocument>,
@@ -63,11 +65,13 @@ export class SoloService {
       agenda: { templateId: 'solo', steps: [] },
       health: { S: 0, B: 0.5, U: 0.5, computedAt: new Date() },
       healthInputs: { solo: true },
+      lang,
+      // Hat is learner-chosen, so it must be stored, not derived from turn index.
+      soloHat: 'NOVA_NOVICE',
+      soloTurn: 0,
       startedAt: new Date(),
     });
     await this.governor.ensureSession(sessionId, { solo: true });
-    this.hats.set(sessionId, 'NOVA_NOVICE');
-    this.turns.set(sessionId, 0);
     const probe = HAT_PROBES.NOVA_NOVICE[0];
     await this.bus.emit({ sessionId, circleId: `C-solo-${learnerId}`, actor: 'NOVA', type: 'solo_turn', payload: { hat: 'NOVA_NOVICE', probe } });
     return { sessionId, hat: 'NOVA_NOVICE', probe };
@@ -76,9 +80,10 @@ export class SoloService {
   async turn(sessionId: string, learnerId: string, text: string, lang: string): Promise<{ novaTurn: string; hint?: string; progress: number }> {
     const session = await this.sessions.findOne({ _id: sessionId }).lean().exec();
     if (!session) throw Err.missing(`SESSION_NOT_FOUND:${sessionId}`);
-    const hat = this.hats.get(sessionId) ?? 'NOVA_NOVICE';
-    const n = (this.turns.get(sessionId) ?? 0) + 1;
-    this.turns.set(sessionId, n);
+    const hat = (session.soloHat as SoloHat | undefined) ?? 'NOVA_NOVICE';
+    const n = (session.soloTurn ?? 0) + 1;
+    // Atomic increment: two fast turns must not both read the same count.
+    await this.sessions.updateOne({ _id: sessionId }, { $inc: { soloTurn: 1 } }).exec();
 
     // C rephrase only (≤60 tokens), capped at 8/session by the governor.
     let novaTurn = HAT_PROBES[hat][n % HAT_PROBES[hat].length];
@@ -105,7 +110,8 @@ export class SoloService {
 
   async hat(sessionId: string, next: SoloHat): Promise<{ hat: SoloHat }> {
     if (!HAT_PROBES[next]) throw Err.bad(`SOLO_BAD_HAT:${next}`);
-    this.hats.set(sessionId, next);
+    const res = await this.sessions.updateOne({ _id: sessionId }, { $set: { soloHat: next } }).exec();
+    if (res.matchedCount === 0) throw Err.missing(`SESSION_NOT_FOUND:${sessionId}`);
     return { hat: next };
   }
 

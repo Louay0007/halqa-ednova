@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { Connection, Model } from 'mongoose';
 import request from 'supertest';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { startReplSet } from './support/mongo';
 import { AppModule } from '../../src/app.module';
 import { GlobalExceptionFilter } from '../../src/core/filters/global-exception.filter';
 import { requestIdMiddleware } from '../../src/core/interceptors/request-id.middleware';
@@ -22,7 +22,7 @@ import { newCircle } from './support/auth';
 //  + poll-first on seeded error, idempotent votes, L4 leak gate,
 //    poller <1 KB + ETag/304, L-share <25%, no L without a reservation.
 describe('phase-3 cfas vertical slice (integration)', () => {
-  let mongod: MongoMemoryServer;
+  let mongod: { uri: string; stop: () => Promise<unknown> };
   let app: INestApplication;
   let windows: PeerWindowService;
   let routerSvc: RouterService;
@@ -73,8 +73,8 @@ describe('phase-3 cfas vertical slice (integration)', () => {
     process.env.NODE_ENV = 'test';
     process.env.CHAOS_ENABLED = 'true';
     process.env.TOKEN_SECRET = 'phase3-test-secret';
-    mongod = await MongoMemoryServer.create();
-    process.env.MONGODB_URI = mongod.getUri('halqa-phase3');
+    mongod = await startReplSet('halqa-phase3');
+    process.env.MONGODB_URI = mongod.uri;
 
     const module: TestingModule = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(ProviderAdapter)
@@ -155,11 +155,23 @@ describe('phase-3 cfas vertical slice (integration)', () => {
     expect(byId.get(askerId)).toBe(3); // sharp_question
     expect(byId.get(peerId)).toBe(3); // good_explanation
 
-    // Asker sees stages; payload stays <1 KB.
-    const state = await request(app.getHttpServer()).get(`/api/v1/questions/${qid}/state?asker=${askerId}`).set(host.headers).expect(200);
+    // The shared poller is viewer-independent on purpose, so the asker's extras
+    // live on `/private` where they can be derived from the token instead of an
+    // `?asker=` param anyone could spoof (§3.2).
+    const state = await request(app.getHttpServer()).get(`/api/v1/questions/${qid}/state`).set(host.headers).expect(200);
+    // Once RESOLVED the answer is shared on purpose — the circle is supposed to
+    // learn it. What must never appear here is the asker-only scaffolding.
     expect(state.body.answer.text).toContain('halving');
-    expect(Array.isArray(state.body.stages)).toBe(true);
+    expect(state.body.stages).toBeUndefined();
+    expect(state.body.quickTakeReady).toBeUndefined();
     expect(JSON.stringify(state.body).length).toBeLessThan(1024);
+
+    const mine = await request(app.getHttpServer()).get(`/api/v1/questions/${qid}/private`).set(host.headers).expect(200);
+    expect(Array.isArray(mine.body.stages)).toBe(true);
+    // The asker's own private view is the only place Nova's answer appears.
+    expect(JSON.stringify(mine.body).length).toBeLessThan(2048);
+    // A peer asking for the same extras is refused: the route reads the token.
+    await request(app.getHttpServer()).get(`/api/v1/questions/${qid}/private`).set(peer.headers).expect(403);
   });
 
   it('script B (nobody answers): hint L1 path', async () => {
@@ -242,7 +254,7 @@ describe('phase-3 cfas vertical slice (integration)', () => {
   });
 
   it('poller: ETag/304 + peer view hides asker detail', async () => {
-    const { askerId, peerId, sessionId, host, peer } = await setup();
+    const { askerId, sessionId, host, peer } = await setup();
     const created = await request(app.getHttpServer())
       .post('/api/v1/questions')
       .set(host.headers)
@@ -250,14 +262,18 @@ describe('phase-3 cfas vertical slice (integration)', () => {
       .expect(201);
     const qid: string = created.body.qid;
 
-    const peerView = await request(app.getHttpServer()).get(`/api/v1/questions/${qid}/state?asker=${peerId}`).set(peer.headers).expect(200);
+    const peerView = await request(app.getHttpServer()).get(`/api/v1/questions/${qid}/state`).set(peer.headers).expect(200);
     expect(peerView.body.stages).toBeUndefined();
     expect(peerView.body.quickTakeReady).toBeUndefined();
     expect(JSON.stringify(peerView.body).length).toBeLessThan(1024);
 
     const etag: string = peerView.headers.etag;
     expect(etag).toBeDefined();
-    await request(app.getHttpServer()).get(`/api/v1/questions/${qid}/state?asker=${peerId}`).set(peer.headers).set('If-None-Match', etag).expect(304);
+    // The same ETag must serve the asker too — that is the point of splitting the
+    // viewer-dependent fields out, so one cached body works for the whole circle.
+    const askerView = await request(app.getHttpServer()).get(`/api/v1/questions/${qid}/state`).set(host.headers).expect(200);
+    expect(askerView.headers.etag).toBe(etag);
+    await request(app.getHttpServer()).get(`/api/v1/questions/${qid}/state`).set(peer.headers).set('If-None-Match', etag).expect(304);
   });
 
   it('guards: L-share <25% and every L call holds a reservation', async () => {

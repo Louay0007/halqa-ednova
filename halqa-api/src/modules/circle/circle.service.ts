@@ -14,6 +14,7 @@ import { Learner, LearnerDocument } from '../../persistence/schemas/learner.sche
 import { Session, SessionDocument } from '../../persistence/schemas/session.schema';
 import { EquityService } from '../equity/equity.service';
 import { SbuService } from '../sbu/sbu.service';
+import { MembershipService } from '../../security/membership.service';
 
 /**
  * CircleService (3.1) — circles, join codes, roles, context configs,
@@ -31,6 +32,7 @@ export class CircleService {
     private readonly equity: EquityService,
     private readonly sbu: SbuService,
     private readonly epochs: TokenEpochService,
+    private readonly members: MembershipService,
   ) {}
 
   async create(input: {
@@ -102,12 +104,31 @@ export class CircleService {
     return { learnerId: learner._id, role: 'peer', token };
   }
 
-  async get(circleId: string): Promise<unknown> {
+  /**
+   * Member view of a circle.
+   *
+   * Previously this spread the raw document, which handed the `joinCode` and the
+   * full member roster (nicknames + learner ids) to anyone who could name an id.
+   * The shape is now explicit and the join code is treated as a credential:
+   * returned only to the host, who needs it to re-invite.
+   */
+  async get(circleId: string, viewerId: string): Promise<unknown> {
+    await this.members.assertMember(circleId, viewerId);
     const circle = await this.circles.findOne({ _id: circleId }).lean().exec();
     if (!circle) throw Err.missing(`CIRCLE_NOT_FOUND:${circleId}`);
     const learners = await this.learners.find({ _id: { $in: circle.members.map((m) => m.learnerId) } }).lean().exec();
     const byId = new Map(learners.map((l) => [l._id, l.nickname]));
-    return { ...circle, members: circle.members.map((m) => ({ ...m, nickname: byId.get(m.learnerId) ?? '?' })) };
+    const isHost = circle.hostLearnerId === viewerId;
+
+    return {
+      _id: circle._id,
+      topic: circle.topic,
+      context: circle.context,
+      windowS: circle.windowS,
+      lang: circle.lang,
+      members: circle.members.map((m) => ({ ...m, nickname: byId.get(m.learnerId) ?? '?' })),
+      ...(isHost ? { joinCode: circle.joinCode } : {}),
+    };
   }
 
   configFor(mode: ContextMode): ContextConfig {

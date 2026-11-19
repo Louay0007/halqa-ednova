@@ -3,11 +3,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getConnectionToken } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
 import request from 'supertest';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { startReplSet } from './support/mongo';
 import { AppModule } from '../../src/app.module';
 import { GlobalExceptionFilter } from '../../src/core/filters/global-exception.filter';
 import { requestIdMiddleware } from '../../src/core/interceptors/request-id.middleware';
 import { EventBus } from '../../src/telemetry/event-bus';
+import { newStaff } from './support/auth';
 
 // Phase 0 exit criteria:
 // 1. app boots, /healthz + /readyz green
@@ -15,8 +16,10 @@ import { EventBus } from '../../src/telemetry/event-bus';
 // 3. uniform error shape on unknown route + validation failure
 // 4. no chaos routes in production bundle path (checked via NODE_ENV switch is
 //    covered by asserting the controller is registered here in test env)
+let SECRET = 'integration-test-secret';
+
 describe('phase-0 foundation (integration)', () => {
-  let mongod: MongoMemoryServer;
+  let mongod: { uri: string; stop: () => Promise<unknown> };
   let app: INestApplication;
   let bus: EventBus;
 
@@ -24,8 +27,9 @@ describe('phase-0 foundation (integration)', () => {
     process.env.NODE_ENV = 'test';
     process.env.MONGODB_URI = 'mongodb://placeholder:27017/halqa-test';
     process.env.TOKEN_SECRET = 'integration-test-secret';
-    mongod = await MongoMemoryServer.create();
-    process.env.MONGODB_URI = mongod.getUri('halqa-test');
+    SECRET = process.env.TOKEN_SECRET;
+    mongod = await startReplSet('halqa-test');
+    process.env.MONGODB_URI = mongod.uri;
 
     const module: TestingModule = await Test.createTestingModule({ imports: [AppModule] }).compile();
     app = module.createNestApplication();
@@ -63,8 +67,11 @@ describe('phase-0 foundation (integration)', () => {
       type: 'session_start',
       payload: { source: 'phase0-test' },
     });
+    // Telemetry is a mentor/admin debug surface now (§3.4): a learner token 403s.
+    const staff = await newStaff(app, SECRET, 'admin');
     const res = await request(app.getHttpServer())
       .get('/api/v1/telemetry/sessions/S-phase0/events')
+      .set(staff.headers)
       .expect(200);
     expect(Array.isArray(res.body)).toBe(true);
     expect(res.body.length).toBeGreaterThanOrEqual(1);
@@ -83,7 +90,10 @@ describe('phase-0 foundation (integration)', () => {
   });
 
   it('contract: every response carries no stack trace', async () => {
-    const res = await request(app.getHttpServer()).post('/api/v1/chaos').send({ mode: 'red' });
+    const res = await request(app.getHttpServer())
+      .post('/api/v1/chaos')
+      .set((await newStaff(app, SECRET, 'admin')).headers)
+      .send({ mode: 'red' });
     // chaos is registered in non-prod; assert EITHER a valid mode echo OR the
     // uniform error shape — never a stack.
     expect(JSON.stringify(res.body)).not.toMatch(/at\s+.*\(.*\.ts:/);

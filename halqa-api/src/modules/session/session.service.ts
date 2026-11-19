@@ -41,6 +41,8 @@ export class SessionService {
       _id: sessionId,
       circleId,
       agenda: { templateId: circle.context, steps: template.agenda.map((s) => ({ ...s, done: false })) },
+      // Denormalised so the capsule renders in the learner's language (§5.2).
+      lang: circle.lang,
       health: { S: 0, B: 0.5, U: 0.5, computedAt: new Date() },
       healthInputs: {},
       startedAt: new Date(),

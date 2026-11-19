@@ -32,7 +32,6 @@ export interface WhisperChain {
 @Injectable()
 export class WhisperService {
   private readonly logger = new Logger(WhisperService.name);
-  private chains = new Map<string, { sessionId: string; circleId: string; topic: string; steps: Array<{ authorId: string; text: string }> }>();
 
   constructor(
     @InjectModel(Artifact.name) private readonly artifacts: Model<ArtifactDocument>,
@@ -45,7 +44,11 @@ export class WhisperService {
   async run(sessionId: string, circleId: string, topic: string, steps: Array<{ authorId: string; text: string }>): Promise<WhisperChain> {
     if (steps.length < 2) throw Err.bad('WHISPER_NEEDS_CHAIN');
     const chainId = `W-${randomBytes(3).toString('hex')}`;
-    this.chains.set(chainId, { sessionId, circleId, topic, steps });
+    // The chain used to live in a Map, so `repair()` 404'd after any deploy and
+    // two replicas disagreed about which chains existed. It now lives on the
+    // `drift_map` artifact this method already writes, which is where it belongs:
+    // the chain is the input to that artifact.
+
 
     const checklist = this.checklistFor(topic);
     let drift = this.t0Compare(steps, checklist);
@@ -70,7 +73,16 @@ export class WhisperService {
     await this.artifacts
       .updateOne(
         { sessionId, kind: 'drift_map' },
-        { $set: { sessionId, circleId, kind: 'drift_map', body: { chainId, driftMap: drift }, tier, createdAt: new Date() } },
+        {
+          $set: {
+            sessionId,
+            circleId,
+            kind: 'drift_map',
+            body: { chainId, topic, steps, driftMap: drift },
+            tier,
+            createdAt: new Date(),
+          },
+        },
         { upsert: true },
       )
       .exec();
@@ -80,9 +92,15 @@ export class WhisperService {
   }
 
   async repair(chainId: string, sessionId: string, circleId: string, text: string): Promise<{ coverage: number }> {
-    const chain = this.chains.get(chainId);
-    if (!chain) throw Err.missing(`WHISPER_NOT_FOUND:${chainId}`);
-    const checklist = this.checklistFor(chain.topic);
+    // Read the chain back from the artifact, so a repair survives a restart and
+    // works from any replica.
+    const doc = await this.artifacts
+      .findOne({ sessionId, kind: 'drift_map', 'body.chainId': chainId })
+      .lean()
+      .exec();
+    const body = doc?.body as { topic?: string } | undefined;
+    if (!body?.topic) throw Err.missing(`WHISPER_NOT_FOUND:${chainId}`);
+    const checklist = this.checklistFor(body.topic);
     const lower = text.toLowerCase();
     const covered = checklist.filter((c) => lower.includes(c.split('-')[0]) || lower.includes(c));
     await this.bus.emit({ sessionId, circleId, actor: 'system', type: 'correction', payload: { chainId, coverage: covered.length / Math.max(1, checklist.length) } });

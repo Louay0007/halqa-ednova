@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    name: API — lint, build, test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: halqa-api
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: halqa-api/package-lock.json
+
+      - run: npm ci
+
+      # Secrets gate runs first: it is fast and the most expensive to discover late.
+      - name: Secrets scan
+        run: npm run lint:secrets
+
+      - name: Lint
+        run: npm run lint:check
+
+      - name: Typecheck + build
+        run: npm run build
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      # Uses mongodb-memory-server, so no MONGODB_URI is needed here.
+      - name: Integration tests
+        run: npm run test:int
+        env:
+          TOKEN_SECRET: ci-only-token-secret-at-least-32-bytes-long
+          NODE_ENV: test
+
+  web:
+    name: Web — typecheck, lint, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: halqa-web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: halqa-web/package-lock.json
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npx tsc -b
+
+      - name: i18n parity
+        run: npm run i18n:check
+
+      # The build fails by design without VITE_API_BASE (vite.config.ts guard),
+      # so CI supplies a placeholder: this job proves the bundle compiles, not
+      # that it points anywhere reachable.
+      - name: Build
+        run: npm run build
+        env:
+          VITE_API_BASE: https://api.ci.invalid/api/v1
+
+  # A clean clone used to fail to compile because routes/session/ was untracked.
+  # This job exists to make that class of mistake impossible to merge again.
+  clean-clone:
+    name: Clean clone builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Web installs and builds from tracked files only
+        working-directory: halqa-web
+        run: |
+          npm ci
+          npx tsc -b
+        env:
+          VITE_API_BASE: https://api.ci.invalid/api/v1

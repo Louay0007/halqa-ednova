@@ -20,6 +20,9 @@ export function CirclesNew() {
   const [windowS, setWindowS] = useState(45);
   const [nick, setNick] = useState('');
   const [counts, setCounts] = useState<Record<string, Record<string, number>>>({});
+  /** Agenda comes from the selected context's config, the same source Lobby uses.
+   *  It used to be hardcoded, so a context that drops a step still advertised it. */
+  const [agenda, setAgenda] = useState<Array<{ id: string; kind: string; plannedS?: number }>>([]);
   const [result, setResult] = useState<{ circleId: string; joinCode: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -38,6 +41,21 @@ export function CirclesNew() {
       }).catch(() => undefined);
     }
   }, []);
+
+  useEffect(() => {
+    let dead = false;
+    api
+      .contextConfig(context)
+      .then((r) => {
+        if (!dead) setAgenda(r.data.agenda);
+      })
+      .catch(() => {
+        if (!dead) setAgenda([]);
+      });
+    return () => {
+      dead = true;
+    };
+  }, [context]);
 
   const create = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,8 +177,12 @@ export function CirclesNew() {
         <Reveal as="section" className="card agenda-preview" index={5}>
           <h2>{t('agenda_preview', lang)}</h2>
           <ol className="agenda">
-            {['goal', 'explain', 'challenge', 'teachback', 'recap'].map((s, i) => (
-              <li key={s}><span className="agenda-tick tnum">{i + 1}</span><span>{stepLabel(s, lang)}</span></li>
+            {/* Only steps this context actually runs: one source of truth with Lobby. */}
+            {agenda.map((s, i) => (
+              <li key={s.id}>
+                <span className="agenda-tick tnum">{i + 1}</span>
+                <span>{stepLabel(s.kind, lang)}</span>
+              </li>
             ))}
           </ol>
         </Reveal>

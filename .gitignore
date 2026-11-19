@@ -21,8 +21,12 @@ Thumbs.db
 # scratch / generated previews
 pg*.png
 page*.png
+page*.webm
 spec_book.txt
 main.log
+
+# Playwright recording debris (hash-named artifacts)
+demo/page@*.webm
 
 # local tooling cache
 .impeccable/

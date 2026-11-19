@@ -4,6 +4,7 @@ import { Type } from 'class-transformer';
 import { DnaAnswers, LearningService } from './learning.service';
 import { Public, Roles } from '../../security/roles.decorator';
 import { OptionalUser } from '../../security/current-user.decorator';
+import { LIMITS, RateLimit } from '../../security/rate-limit';
 
 class DnaAnswersDto implements DnaAnswers {
   @IsIn(['novice', 'beginner', 'intermediate'])
@@ -53,6 +54,7 @@ export class LearningController {
   }
 
   @Public()
+  @RateLimit(LIMITS.write)
   @Post('dna')
   complete(
     @Body() dto: CompleteDnaDto,

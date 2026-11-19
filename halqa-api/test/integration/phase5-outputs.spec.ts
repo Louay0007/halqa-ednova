@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getConnectionToken } from '@nestjs/mongoose';
 import { Connection } from 'mongoose';
 import request from 'supertest';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { startReplSet } from './support/mongo';
 import { AppModule } from '../../src/app.module';
 import { GlobalExceptionFilter } from '../../src/core/filters/global-exception.filter';
 import { requestIdMiddleware } from '../../src/core/interceptors/request-id.middleware';
@@ -12,12 +12,13 @@ import { WhisperService } from '../../src/modules/whisper/whisper.service';
 import { OfflineService } from '../../src/modules/offline/offline.service';
 import { GamificationService } from '../../src/modules/gamification/gamification.service';
 import { AuthService } from '../../src/modules/auth/auth.service';
+import { DataSubjectService } from '../../src/modules/auth/data-subject.service';
 import { ProviderAdapter } from '../../src/ai/adapter/provider.adapter';
 import { LlmCall, LlmCallDocument } from '../../src/persistence/schemas/ai.schema';
 import { getModelToken } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import type { LlmRequest } from '../../src/domain/ports/llm-port';
-import { newCircle, newLearner } from './support/auth';
+import { newCircle, newLearner, newStaff } from './support/auth';
 
 // Phase-5 exit gate — output slice works end-to-end:
 // solo (≤8 C / 0 L) · capsule (C draft + constraints) · quiz (bank, offline)
@@ -25,13 +26,14 @@ import { newCircle, newLearner } from './support/auth';
 // coach (card <100ms) · gamification (caps, no leaderboard)
 // dashboard (aggregates) · auth (HMAC) · /metrics (report numbers)
 describe('phase-5 outputs (integration)', () => {
-  let mongod: MongoMemoryServer;
+  let mongod: { uri: string; stop: () => Promise<unknown> };
   let app: INestApplication;
   let solo: SoloService;
   let whisper: WhisperService;
   let offline: OfflineService;
   let game: GamificationService;
   let auth: AuthService;
+  let dataSubject: DataSubjectService;
   let llmCalls: Model<LlmCallDocument>;
 
   const stub = {
@@ -67,8 +69,8 @@ describe('phase-5 outputs (integration)', () => {
     process.env.NODE_ENV = 'test';
     process.env.CHAOS_ENABLED = 'true';
     process.env.TOKEN_SECRET = 'phase5-test-secret';
-    mongod = await MongoMemoryServer.create();
-    process.env.MONGODB_URI = mongod.getUri('halqa-phase5');
+    mongod = await startReplSet('halqa-phase5');
+    process.env.MONGODB_URI = mongod.uri;
 
     const module: TestingModule = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(ProviderAdapter)
@@ -86,6 +88,7 @@ describe('phase-5 outputs (integration)', () => {
     offline = module.get(OfflineService);
     game = module.get(GamificationService);
     auth = module.get(AuthService);
+    dataSubject = module.get(DataSubjectService);
     llmCalls = module.get<Model<LlmCallDocument>>(getModelToken(LlmCall.name));
   }, 120000);
 
@@ -237,33 +240,74 @@ describe('phase-5 outputs (integration)', () => {
     expect(dna.body.learnerId).toBe(coach.learnerId);
     const card = await request(app.getHttpServer()).get(`/api/v1/passports/${dna.body.learnerId}/explain-card`).set(coach.headers).expect(200);
     expect(typeof card.body.card).toBe('string');
-    // Daily cap: 10 votes → capped at 15 xp-worth of grants... award returns per-grant xp.
+
+    // XP is deliberately not an HTTP endpoint any more: `POST /learners/:id/xp`
+    // let a client name its own signal and mint its own points (§3.6). `award()`
+    // is a server-side consequence now, so the daily cap is checked through it.
     let total = 0;
     for (let i = 0; i < 10; i += 1) {
-      const r = await request(app.getHttpServer())
-        .post(`/api/v1/learners/${dna.body.learnerId}/xp`)
-        .set(coach.headers)
-        .send({ sessionId: 'S-cap', circleId: 'C-1', signal: 'poll_vote' })
-        .expect(201);
-      total += r.body.xp as number;
+      const r = await game.award(dna.body.learnerId, 'S-cap', 'C-1', 'poll_vote', `cap-${i}`);
+      total += r.xp;
     }
-    expect(total).toBeLessThanOrEqual(15);
+    // 3 xp per vote against a 15/day cap, so ten votes yield exactly 15.
+    expect(total).toBe(15);
     await request(app.getHttpServer()).get('/api/v1/leaderboard').set(coach.headers).expect(404);
-    void game;
   });
 
   it('dashboard: aggregates only; offline pack stats; /metrics populated', async () => {
     const { circleId } = await setup();
-    const dash = await request(app.getHttpServer()).get(`/api/v1/dashboard?circleId=${circleId}`).expect(200);
+    // Both are staff surfaces (§3.4): the dashboard is per-session traffic and
+    // `/metrics` is a map of model spend, so a learner token is refused.
+    const admin = await newStaff(app, process.env.TOKEN_SECRET as string, 'admin');
+    const mentor = await newStaff(app, process.env.TOKEN_SECRET as string, 'mentor');
+
+    await request(app.getHttpServer()).get(`/api/v1/dashboard?circleId=${circleId}`).expect(401);
+    const dash = await request(app.getHttpServer()).get(`/api/v1/dashboard?circleId=${circleId}`).set(mentor.headers).expect(200);
     expect(dash.body.aggregatesOnly).toBe(true);
     expect(JSON.stringify(dash.body)).not.toMatch(/phone|email|photo|gender/);
-    const metrics = await request(app.getHttpServer()).get('/api/v1/metrics').expect(200);
+    await request(app.getHttpServer()).get('/api/v1/metrics').expect(401);
+    const metrics = await request(app.getHttpServer()).get('/api/v1/metrics').set(mentor.headers).expect(200);
+    // The Prometheus scrape path is separate from the JSON view and must render
+    // the series the alert rules in OPERATIONS.md are written against.
+    const prom = await request(app.getHttpServer()).get('/api/v1/prom/metrics').set(admin.headers).expect(200);
+    expect(prom.text).toContain('halqa_http_requests_total');
+    expect(prom.text).toContain('halqa_degradation_mode');
+    await request(app.getHttpServer()).get('/api/v1/prom/metrics').set(mentor.headers).expect(403);
     for (const k of ['callsByTier', 'lShare', 'p50', 'p95', 'cacheHitRate', 'peerFirstRate', 'fallbackCounts', 'quotaUsage', 'degradation', 'kb', 'offline']) {
       expect(metrics.body).toHaveProperty(k);
     }
     expect(metrics.body.kb.docs).toBeGreaterThanOrEqual(39);
     expect(metrics.body.offline.snippets).toBe(30);
     void offline;
+  });
+
+  // §3.10 acceptance: a learner can export everything stored about them and ask
+  // to be forgotten, and neither is reachable for anyone else's id.
+  it('data subject: export carries own data only; delete is soft and cancellable', async () => {
+    const mine = await newLearner(app, 'ExportNova');
+    const other = await newLearner(app, 'ExportPeer');
+
+    const exp = await request(app.getHttpServer()).get('/api/v1/me/export').set(mine.headers).expect(200);
+    expect(exp.body.learner.id).toBe(mine.learnerId);
+    expect(exp.body.learner.nickname).toBe('ExportNova');
+    // A complete export says what is deliberately absent, not just what exists.
+    expect(exp.body.notStored).toContain('real name');
+    // No credential is ever exported in reusable form.
+    expect(JSON.stringify(exp.body)).not.toMatch(/passphrase/i);
+    // Another learner's identity must not appear anywhere in my export.
+    expect(JSON.stringify(exp.body)).not.toContain(other.learnerId);
+    // Anonymous route: no token, no data.
+    await request(app.getHttpServer()).get('/api/v1/me/export').expect(401);
+
+    // Soft delete: access stops immediately because the epoch is bumped.
+    const del = await request(app.getHttpServer()).delete('/api/v1/me').set(mine.headers).expect(200);
+    expect(del.body.purgeAfter).toBeDefined();
+    await request(app.getHttpServer()).get('/api/v1/me').set(mine.headers).expect(401);
+    // The record itself is still there — that is what makes it reversible.
+    const row = await app.get<Model<unknown>>(getModelToken('Learner')).findOne({ _id: mine.learnerId }).lean().exec();
+    expect(row).not.toBeNull();
+    expect((row as { purgeAfter?: Date }).purgeAfter).toBeDefined();
+    void dataSubject;
   });
 
   it('contract: new routes return the uniform error shape on bad input', async () => {

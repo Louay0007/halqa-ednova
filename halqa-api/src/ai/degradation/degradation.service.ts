@@ -1,5 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EventBus } from '../../telemetry/event-bus';
+import { MetricsService } from '../../metrics/metrics.service';
+
+const MODE_VALUE: Record<DegradationMode, number> = { green: 0, orange: 1, red: 2, black: 3 };
 
 export type DegradationMode = 'green' | 'orange' | 'red' | 'black';
 
@@ -19,19 +22,32 @@ export class DegradationService {
   private forced: DegradationMode | null = null;
   private derived: DegradationMode = 'green';
 
+  constructor(private readonly metrics: MetricsService) {
+    // Publish the starting mode so a dashboard has a value before the first
+    // transition, rather than a gap that looks like "no data".
+    this.metrics.degradation.set(MODE_VALUE.green);
+  }
+
   getMode(): DegradationMode {
     return this.forced ?? this.derived;
+  }
+
+  /** Keep the gauge in step with whatever the mode actually is. */
+  private publish(): void {
+    this.metrics.degradation.set(MODE_VALUE[this.getMode()]);
   }
 
   /** Dev-only forcing (gated by CHAOS_ENABLED at the controller). */
   force(mode: DegradationMode): DegradationMode {
     this.forced = mode;
     this.logger.log(`degradation forced → ${mode}`);
+    this.publish();
     return this.getMode();
   }
 
   clearForce(): DegradationMode {
     this.forced = null;
+    this.publish();
     return this.getMode();
   }
 
@@ -53,6 +69,7 @@ export class DegradationService {
           : 'orange';
     const prev = this.derived;
     this.derived = next;
+    this.publish();
     if (prev !== next) {
       await args.bus.emit({
         sessionId: args.sessionId,

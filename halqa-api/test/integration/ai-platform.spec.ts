@@ -3,7 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getConnectionToken, getModelToken } from '@nestjs/mongoose';
 import { Connection, Model } from 'mongoose';
 import request from 'supertest';
-import { MongoMemoryServer } from 'mongodb-memory-server';
+import { startReplSet } from './support/mongo';
 import { AppModule } from '../../src/app.module';
 import { GlobalExceptionFilter } from '../../src/core/filters/global-exception.filter';
 import { requestIdMiddleware } from '../../src/core/interceptors/request-id.middleware';
@@ -16,6 +16,7 @@ import { RouterService } from '../../src/ai/router/router.service';
 import { LlmCall, LlmCallDocument, QuotaLedger, QuotaLedgerDocument } from '../../src/persistence/schemas/ai.schema';
 import { EventBus } from '../../src/telemetry/event-bus';
 import type { LlmPort } from '../../src/domain/ports/llm-port';
+import { newStaff } from './support/auth';
 
 // Phase 1 exit gate: AI spine works end-to-end against a stubbed provider.
 // - pulse costs exactly 1×C; equivalent re-ask served from cache (0 new calls)
@@ -24,7 +25,7 @@ import type { LlmPort } from '../../src/domain/ports/llm-port';
 // - concurrent bursts cannot overspend (atomic reserve)
 // - larger() is never touched by the routine pulse path
 describe('phase-1 ai spine (integration)', () => {
-  let mongod: MongoMemoryServer;
+  let mongod: { uri: string; stop: () => Promise<unknown> };
   let app: INestApplication;
   let governor: BudgetGovernor;
   let queue: AiQueue;
@@ -93,8 +94,8 @@ describe('phase-1 ai spine (integration)', () => {
     process.env.NODE_ENV = 'test';
     process.env.CHAOS_ENABLED = 'true';
     process.env.TOKEN_SECRET = 'phase1-test-secret';
-    mongod = await MongoMemoryServer.create();
-    process.env.MONGODB_URI = mongod.getUri('halqa-phase1');
+    mongod = await startReplSet('halqa-phase1');
+    process.env.MONGODB_URI = mongod.uri;
 
     const module: TestingModule = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(ProviderAdapter)
@@ -224,7 +225,11 @@ describe('phase-1 ai spine (integration)', () => {
   });
 
   it('chaos http: force + read mode (dev-only)', async () => {
-    await request(app.getHttpServer()).post('/api/v1/chaos').send({ mode: 'orange' }).expect(201);
+    // `/chaos` is admin-only as well as dev-only (§3.5): forcing the platform into
+    // BLACK must not be reachable by a learner even where the route is mounted.
+    await request(app.getHttpServer()).post('/api/v1/chaos').send({ mode: 'orange' }).expect(401);
+    const admin = await newStaff(app, process.env.TOKEN_SECRET as string, 'admin');
+    await request(app.getHttpServer()).post('/api/v1/chaos').set(admin.headers).send({ mode: 'orange' }).expect(201);
     const res = await request(app.getHttpServer()).get('/api/v1/degradation').expect(200);
     expect(res.body.mode).toBe('orange');
     degradation.clearForce();

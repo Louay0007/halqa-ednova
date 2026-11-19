@@ -17,7 +17,7 @@ interface MeData {
 export function PassportSheet({ onClose }: { onClose: () => void }) {
   const { lang, learnerId, login, logout } = useSession();
   const [data, setData] = useState<MeData | null>(null);
-  const [xp, setXp] = useState<{ total: number; badges: string[] } | null>(null);
+  const [xp, setXp] = useState<{ total: number; badges: string[]; streakDays: number } | null>(null);
   const [explain, setExplain] = useState<{ card: string; visible: boolean } | null>(null);
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
@@ -29,7 +29,7 @@ export function PassportSheet({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     api.me().then((r) => setData(r.data as MeData)).catch(() => undefined);
     if (learnerId) {
-      api.xp(learnerId).then((r) => setXp(r.data)).catch(() => undefined);
+      api.progress().then((r) => setXp(r.data)).catch(() => undefined);
       api.explainCard(learnerId).then((r) => setExplain(r.data)).catch(() => undefined);
     }
   }, [learnerId]);

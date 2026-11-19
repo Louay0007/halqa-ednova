@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { SeedModule } from './seed/seed.module';
 import { CoreModule } from './core/core.module';
 import { HealthModule } from './health/health.module';
+import { MetricsModule } from './metrics/metrics.module';
 import { PersistenceModule } from './persistence/persistence.module';
 import { SecurityModule } from './security/security.module';
 import { AiPlatformModule } from './ai/ai-platform.module';
@@ -38,6 +39,7 @@ import { AuthModule } from './modules/auth/auth.module';
     PersistenceModule,
     SecurityModule,
     HealthModule,
+    MetricsModule,
     TelemetryModule,
     SeedModule,
     AiPlatformModule,

@@ -1,5 +1,6 @@
 import { ForbiddenException, UnauthorizedException, type ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { HttpException } from '@nestjs/common';
 import { TokenGuard } from '../../src/security/token.guard';
 import { RateLimitGuard } from '../../src/security/rate-limit.guard';
 import { RATE_LIMIT_KEY, type RateLimitRule } from '../../src/security/rate-limit';
@@ -98,17 +99,47 @@ describe('RateLimitGuard', () => {
     for (let i = 0; i < 50; i += 1) expect(call(g)).toBe(true);
   });
 
-  it('allows the budget then refuses with 429', () => {
+  it('allows the budget then refuses with a structured 429', () => {
     const g = limiter({ limit: 2, windowS: 60 });
     expect(call(g)).toBe(true);
     expect(call(g)).toBe(true);
-    expect(() => call(g)).toThrow(/RATE_LIMITED/);
+    // The 429 body carries the code and a retry hint so a client can back off
+    // instead of retrying blind.
+    expect(() => call(g)).toThrow(HttpException);
+    const err = (() => {
+      try {
+        call(g);
+      } catch (e) {
+        return e as HttpException;
+      }
+      return null;
+    })();
+    expect(err?.getStatus()).toBe(429);
+    // The guard raises the bare code: `GlobalExceptionFilter` is what turns it
+    // into the localized envelope with `code`/`user_msg`/`retryable`. That
+    // end-to-end shape is asserted in the rate-limit integration spec, so here we
+    // only pin what the guard itself is responsible for.
+    expect(err?.getResponse()).toMatchObject({ message: 'RATE_LIMITED' });
   });
 
   it('budgets each caller separately', () => {
     const g = limiter({ limit: 1, windowS: 60 });
     expect(call(g, 'L-01')).toBe(true);
     expect(call(g, 'L-02')).toBe(true);
-    expect(() => call(g, 'L-01')).toThrow(/RATE_LIMITED/);
+    expect(() => call(g, 'L-01')).toThrow(HttpException);
+  });
+
+  it('keys by IP when the rule asks for it, ignoring the caller id', () => {
+    const g = limiter({ limit: 1, windowS: 60, scope: 'ip' });
+    // Same IP, different authenticated callers: one shared bucket, because the
+    // attack this defends against (join-code brute force) happens across accounts.
+    const hit = (sub: string) => {
+      const { ctx: c, req } = ctx();
+      req.auth = { sub, role: 'learner' };
+      (req as unknown as { ip: string }).ip = '203.0.113.9';
+      return g.canActivate(c);
+    };
+    expect(hit('L-01')).toBe(true);
+    expect(() => hit('L-02')).toThrow(HttpException);
   });
 });

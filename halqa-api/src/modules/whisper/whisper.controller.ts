@@ -2,6 +2,7 @@ import { Body, Controller, Param, Post } from '@nestjs/common';
 import { IsArray, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { WhisperService } from './whisper.service';
+import { LIMITS, RateLimit } from '../../security/rate-limit';
 import { Roles } from '../../security/roles.decorator';
 import { CurrentUser } from '../../security/current-user.decorator';
 import { MembershipService } from '../../security/membership.service';
@@ -57,6 +58,7 @@ export class WhisperController {
    * ids — but the caller must be in the circle, and so must every author they
    * name. The first step is always attributed to the caller.
    */
+  @RateLimit(LIMITS.ai)
   @Post()
   async run(@CurrentUser('sub') learnerId: string, @Body() dto: RunDto): Promise<unknown> {
     await this.members.assertMember(dto.circleId, learnerId);
@@ -65,6 +67,7 @@ export class WhisperController {
     return this.whisper.run(dto.sessionId, dto.circleId, dto.topic, steps);
   }
 
+  @RateLimit(LIMITS.ai)
   @Post(':cid/repair')
   async repair(
     @Param('cid') cid: string,

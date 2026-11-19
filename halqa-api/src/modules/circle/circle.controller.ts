@@ -3,8 +3,9 @@ import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import type { ContextMode, Language } from '../../common/types/api-error';
 import { CircleService } from './circle.service';
-import { OptionalUser } from '../../security/current-user.decorator';
-import { Public } from '../../security/roles.decorator';
+import { CurrentUser, OptionalUser } from '../../security/current-user.decorator';
+import { LIMITS, RateLimit } from '../../security/rate-limit';
+import { Public, Roles } from '../../security/roles.decorator';
 
 class CreateCircleDto {
   @IsString()
@@ -46,6 +47,7 @@ export class CircleController {
   constructor(private readonly circles: CircleService) {}
 
   @Public()
+  @RateLimit(LIMITS.createCircle)
   @Post()
   create(
     @Body() dto: CreateCircleDto,
@@ -60,6 +62,7 @@ export class CircleController {
   }
 
   @Public()
+  @RateLimit(LIMITS.write)
   @Post(':id/join')
   join(
     @Param('id') id: string,
@@ -70,18 +73,24 @@ export class CircleController {
   }
 
   @Public()
+  @RateLimit(LIMITS.code)
   @Get('by-code/:code')
   byCode(@Param('code') code: string): Promise<{ circleId: string; topic: string; members: number }> {
     return this.circles.byCode(code);
   }
 
-  @Public()
+  /**
+   * Members only. Public read used to leak the join code and the full roster to
+   * anyone who could name an id; the join screen uses `by-code` instead.
+   */
+  @Roles('learner', 'mentor', 'admin')
   @Get(':id')
-  get(@Param('id') id: string): Promise<unknown> {
-    return this.circles.get(id);
+  get(@Param('id') id: string, @CurrentUser('sub') viewerId: string): Promise<unknown> {
+    return this.circles.get(id, viewerId);
   }
 
-  @Public()
+  /** S-B-U health is a mentor/teacher view, not a peer one. */
+  @Roles('mentor', 'admin')
   @Get(':id/health')
   health(@Param('id') id: string): Promise<unknown> {
     return this.circles.health(id);

@@ -14,18 +14,61 @@ export interface DnaAnswers {
   C1: 'sure' | 'unsure' | 'lost'; // confidence
 }
 
+export interface DnaOption {
+  /** The enum value the API validates — never the human label. */
+  value: string;
+  /** What the learner reads. May differ from `value`. */
+  label: string;
+}
+
 export interface DnaItem {
   id: 'L1' | 'S1' | 'G1' | 'C1';
   prompt: string;
-  options: string[];
+  /** Options carry value + label. Previously S1 exposed display strings only
+   *  ("picture-desc (visual)") while `POST /dna` validated against
+   *  visual|analogy|steps, so the screen could never submit. */
+  options: DnaOption[];
 }
 
 /** The 4 micro-items (≤3 min total). Content is T0 data, not code. */
 export const DNA_ITEMS: DnaItem[] = [
-  { id: 'L1', prompt: 'Niveau en recherche dichotomique ? / مستواك في البحث الثنائي؟', options: ['novice', 'beginner', 'intermediate'] },
-  { id: 'S1', prompt: 'Qu’est-ce qui t’aide le plus ? / شنو يعاونك أكثر؟', options: ['picture-desc (visual)', 'daily-life analogy', 'numbered steps'] },
-  { id: 'G1', prompt: 'Langue / اللغة', options: ['ar', 'darija', 'fr', 'en'] },
-  { id: 'C1', prompt: 'Confiance / ثقتك', options: ['sure', 'unsure', 'lost'] },
+  {
+    id: 'L1',
+    prompt: 'Niveau en recherche dichotomique ? / مستواك في البحث الثنائي؟',
+    options: [
+      { value: 'novice', label: 'novice' },
+      { value: 'beginner', label: 'beginner' },
+      { value: 'intermediate', label: 'intermediate' },
+    ],
+  },
+  {
+    id: 'S1',
+    prompt: 'Qu’est-ce qui t’aide le plus ? / شنو يعاونك أكثر؟',
+    options: [
+      { value: 'visual', label: 'picture-desc (visual)' },
+      { value: 'analogy', label: 'daily-life analogy' },
+      { value: 'steps', label: 'numbered steps' },
+    ],
+  },
+  {
+    id: 'G1',
+    prompt: 'Langue / اللغة',
+    options: [
+      { value: 'ar', label: 'العربية' },
+      { value: 'darija', label: 'دارجة' },
+      { value: 'fr', label: 'français' },
+      { value: 'en', label: 'English' },
+    ],
+  },
+  {
+    id: 'C1',
+    prompt: 'Confiance / ثقتك',
+    options: [
+      { value: 'sure', label: 'sure' },
+      { value: 'unsure', label: 'unsure' },
+      { value: 'lost', label: 'lost' },
+    ],
+  },
 ];
 
 const HINT_EAGERNESS: Record<DnaAnswers['C1'], number> = { sure: 0.3, unsure: 0.6, lost: 0.9 };

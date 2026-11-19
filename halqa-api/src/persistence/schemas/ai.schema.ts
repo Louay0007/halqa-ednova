@@ -63,6 +63,9 @@ export class LlmCall {
 export type LlmCallDocument = LlmCall & Document;
 export const LlmCallSchema = SchemaFactory.createForClass(LlmCall);
 LlmCallSchema.index({ ts: -1 });
+// Retention (§4.7): prompt metadata is kept longer than telemetry because cost
+// reporting and the eval trend read from it, but not forever.
+LlmCallSchema.index({ ts: 1 }, { expireAfterSeconds: 180 * 24 * 60 * 60 });
 LlmCallSchema.index({ step: 1, ts: -1 });
 LlmCallSchema.index({ tier: 1, ts: -1 });
 LlmCallSchema.index({ sessionId: 1 });

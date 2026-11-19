@@ -1,0 +1,58 @@
+# Production-shaped stack.
+#
+# Differences that matter versus docker-compose.yml: NODE_ENV is production (so
+# autoIndex is off and CORS is enforced), the app container is read-only with a
+# tmpfs for scratch space, resource limits are explicit, and chaos is disabled.
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    command: ["--replSet", "rs0", "--bind_ip_all", "--wiredTigerCacheSizeGB", "1"]
+    volumes:
+      - halqa-mongo:/data/db
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet --eval 'try { rs.status().ok } catch (e) { rs.initiate({_id:\"rs0\",members:[{_id:0,host:\"localhost:27017\"}]}).ok }'",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+
+  api:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      MONGODB_URI: mongodb://mongo:27017/halqa?replicaSet=rs0
+      # Set CORS_ORIGINS to the real origin; an empty value rejects browsers.
+      CORS_ORIGINS: ${CORS_ORIGINS:?set CORS_ORIGINS to the web origin}
+      TOKEN_SECRET: ${TOKEN_SECRET:?set TOKEN_SECRET (and TOKEN_SECRET_PREVIOUS during rotation)}
+      TOKEN_SECRET_PREVIOUS: ${TOKEN_SECRET_PREVIOUS:-}
+      PROVIDER_API_KEY: ${PROVIDER_API_KEY:?set PROVIDER_API_KEY}
+      CHAOS_ENABLED: "false"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1g
+    # Long enough for an in-flight AI route to finish on SIGTERM (§7.2).
+    stop_grace_period: 30s
+volumes:
+  halqa-mongo:

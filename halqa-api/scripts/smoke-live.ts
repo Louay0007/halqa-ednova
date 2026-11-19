@@ -149,6 +149,11 @@ async function main(): Promise<void> {
       const r = await api('get', '/dna/items').expect(200);
       const ids = r.body.items.map((i: { id: string }) => i.id);
       if (JSON.stringify(ids) !== JSON.stringify(['L1', 'S1', 'G1', 'C1'])) throw new Error(`items=${ids}`);
+      // Options must be submit-ready: {value,label}, not display strings.
+      const bad = (r.body.items as Array<{ id: string; options: unknown[] }>).filter((i) =>
+        i.options.some((o) => typeof o !== 'object' || !(o as { value?: string }).value),
+      );
+      if (bad.length) throw new Error(`options not {value,label} for ${bad.map((b) => b.id).join(',')}`);
     });
     let askerId = '';
     await check('dna completion writes passport (darija, lost)', async () => {

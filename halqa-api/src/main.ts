@@ -27,8 +27,35 @@ async function bootstrap(): Promise<void> {
   });
   const cfg = app.get<AppConfig>(APP_CONFIG);
 
+  // Deploys must drain rather than drop: in-flight requests finish, module
+  // `onModuleDestroy` hooks run (closing Mongo, clearing peer-window timers),
+  // and only then does the process exit (§7.2).
+  app.enableShutdownHooks();
+
   app.use(requestIdMiddleware);
-  app.use(helmet());
+  // Helmet's defaults are reasonable but leave script-src unrestricted, which is
+  // the directive that matters against XSS — and the token lives in
+  // sessionStorage, so XSS is a session-theft path (§3.9).
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        useDefaults: false,
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", 'data:'],
+          connectSrc: ["'self'", ...cfg.corsOrigins],
+          objectSrc: ["'none'"],
+          frameAncestors: ["'none'"],
+          baseUri: ["'none'"],
+          formAction: ["'self'"],
+        },
+      },
+      crossOriginResourcePolicy: { policy: 'same-site' },
+      referrerPolicy: { policy: 'no-referrer' },
+    }),
+  );
   app.use(compression());
   app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(

@@ -2,7 +2,8 @@ import { Body, Controller, Get, Inject, Post } from '@nestjs/common';
 import { APP_CONFIG } from '../core/config/config.module';
 import type { AppConfig } from '../core/config/app-config';
 import { DegradationService, DegradationMode } from '../ai/degradation/degradation.service';
-import { Public } from './roles.decorator';
+import { Public, Roles } from './roles.decorator';
+import { LIMITS, RateLimit } from './rate-limit';
 
 export type { DegradationMode };
 
@@ -21,8 +22,15 @@ export class DegradationController {
   }
 }
 
-/** Dev-only. NOT registered in production (see security.module.ts). */
-@Public()
+/**
+ * Dev-only: NOT registered in production (see security.module.ts).
+ *
+ * Kept behind `chaosEnabled` and, defence in depth, an admin role: forcing the
+ * platform into BLACK must never be reachable by a learner even in a staging
+ * build where the controller is mounted.
+ */
+@Roles('admin')
+@RateLimit(LIMITS.write)
 @Controller()
 export class ChaosController {
   constructor(

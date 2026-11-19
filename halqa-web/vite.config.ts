@@ -1,11 +1,31 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
-import { defineConfig } from 'vite';
+import { defineConfig, loadEnv } from 'vite';
+
+/**
+ * A production bundle must know where the API lives. The client used to fall
+ * back to `http://localhost:3000`, which turns a missing env var into a bundle
+ * that points at the learner's own machine — every request then fails as an
+ * opaque network error. Fail the build instead of the runtime.
+ */
+function requireApiBase(isBuild: boolean, apiBase: string | undefined): void {
+  if (!isBuild || apiBase) return;
+  throw new Error(
+    'VITE_API_BASE is required to build for production.\n' +
+      'Set it in the build environment, e.g. VITE_API_BASE=https://api.example.com/api/v1',
+  );
+}
 
 // https://vite.dev/config/
-export default defineConfig({
-  plugins: [
+export default defineConfig(({ command, mode }) => {
+  // Read the same .env files Vite would, so a local `npm run build` behaves like
+  // CI and only a genuinely missing value fails.
+  const env = loadEnv(mode, process.cwd(), 'VITE_');
+  requireApiBase(command === 'build', env.VITE_API_BASE);
+
+  return {
+    plugins: [
     // Tailwind is scoped to the landing page only (see src/styles/tailwind.css).
     tailwindcss(),
     react(),
@@ -51,6 +71,7 @@ export default defineConfig({
           },
         ],
       },
-    }),
-  ],
+      }),
+    ],
+  };
 });

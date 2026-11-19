@@ -2,8 +2,10 @@ import { Suspense, lazy, type ReactElement } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { SessionProvider, useSession } from './lib/session';
 import { t } from './lib/i18n';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { Shell } from './shell/Shell';
 import { Landing } from './routes/Landing';
+import { NotFound } from './routes/NotFound';
 // Order matters: Tailwind is layered, so unlayered app CSS always outranks it.
 import './styles/tailwind.css';
 import './styles/tokens.css';
@@ -46,30 +48,52 @@ function RouteFallback() {
   return <div className="skel" style={{ height: 120 }} role="status" aria-label={t('loading', lang)} />;
 }
 
+/**
+ * Wraps the routed subtree so a render or lazy-chunk failure shows a recovery
+ * card instead of blanking the app. Keyed by pathname so navigating away clears
+ * the previous route's error rather than pinning it to the screen.
+ */
+function RouteBoundary({ children }: { children: ReactElement }) {
+  const { lang } = useSession();
+  const { pathname } = useLocation();
+  return (
+    <ErrorBoundary lang={lang} boundaryId={pathname}>
+      {children}
+    </ErrorBoundary>
+  );
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <SessionProvider>
         <Shell>
-          <Suspense fallback={<RouteFallback />}>
-            <Routes>
-              <Route path="/" element={<Landing />} />
-              <Route path="/enter" element={<Enter />} />
-              <Route path="/dna" element={<RequireAuth>{<Dna />}</RequireAuth>} />
-              <Route path="/solo" element={<RequireAuth>{<Solo />}</RequireAuth>} />
-              <Route path="/circles/new" element={<RequireAuth>{<CirclesNew />}</RequireAuth>} />
-              <Route path="/circles/join" element={<RequireAuth>{<CirclesJoin />}</RequireAuth>} />
-              <Route path="/c/:circleId" element={<RequireAuth>{<Lobby />}</RequireAuth>} />
-              <Route path="/c/:circleId/s/:sessionId" element={<RequireAuth>{<SessionRoom />}</RequireAuth>} />
-              <Route path="/c/:circleId/s/:sessionId/debrief" element={<RequireAuth>{<Debrief />}</RequireAuth>} />
-              <Route path="/board" element={<Board />} />
-              <Route path="/mentor" element={<RequireAuth>{<Mentor />}</RequireAuth>} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/lab" element={<Lab />} />
-              <Route path="/me" element={<RequireAuth>{<Me />}</RequireAuth>} />
-              <Route path="*" element={<Landing />} />
-            </Routes>
-          </Suspense>
+          <RouteBoundary>
+            <Suspense fallback={<RouteFallback />}>
+              <Routes>
+                <Route path="/" element={<Landing />} />
+                <Route path="/enter" element={<Enter />} />
+                <Route path="/dna" element={<RequireAuth>{<Dna />}</RequireAuth>} />
+                <Route path="/solo" element={<RequireAuth>{<Solo />}</RequireAuth>} />
+                <Route path="/circles/new" element={<RequireAuth>{<CirclesNew />}</RequireAuth>} />
+                <Route path="/circles/join" element={<RequireAuth>{<CirclesJoin />}</RequireAuth>} />
+                <Route path="/c/:circleId" element={<RequireAuth>{<Lobby />}</RequireAuth>} />
+                <Route path="/c/:circleId/s/:sessionId" element={<RequireAuth>{<SessionRoom />}</RequireAuth>} />
+                <Route path="/c/:circleId/s/:sessionId/debrief" element={<RequireAuth>{<Debrief />}</RequireAuth>} />
+                {/* These three read mentor/admin surfaces. The API is default-deny for
+                    them too (§3.4); the router should not render an admin screen to an
+                    anonymous visitor just because it used to. */}
+                <Route path="/board" element={<RequireAuth>{<Board />}</RequireAuth>} />
+                <Route path="/mentor" element={<RequireAuth>{<Mentor />}</RequireAuth>} />
+                <Route path="/dashboard" element={<RequireAuth>{<Dashboard />}</RequireAuth>} />
+                {/* /lab is a demo/chaos surface: a build flag, not a role, because the
+                    bundle itself must not ship the chaos console to the public. */}
+                {import.meta.env.DEV && <Route path="/lab" element={<Lab />} />}
+                <Route path="/me" element={<RequireAuth>{<Me />}</RequireAuth>} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </Suspense>
+          </RouteBoundary>
         </Shell>
       </SessionProvider>
     </BrowserRouter>

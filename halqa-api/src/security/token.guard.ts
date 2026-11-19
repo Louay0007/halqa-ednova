@@ -41,7 +41,10 @@ export class TokenGuard implements CanActivate {
     const req = context.switchToHttp().getRequest<{ headers: Record<string, unknown>; auth?: unknown }>();
     const header = String(req.headers['authorization'] ?? '');
     const token = header.startsWith('Bearer ') ? header.slice(7) : '';
-    const body = token ? verifyToken(token, this.cfg.TOKEN_SECRET) : null;
+    // Accept the current secret first, then the previous one, so a rotation is a
+    // rolling deploy rather than a mass logout.
+    const secrets = [this.cfg.TOKEN_SECRET, this.cfg.TOKEN_SECRET_PREVIOUS].filter(Boolean);
+    const body = token ? verifyToken(token, secrets) : null;
 
     if (!body) {
       if (isPublic) return true;

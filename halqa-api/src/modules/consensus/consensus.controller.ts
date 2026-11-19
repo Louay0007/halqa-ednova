@@ -1,6 +1,7 @@
 import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { IsIn, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { ConsensusService } from './consensus.service';
+import { LIMITS, RateLimit } from '../../security/rate-limit';
 import { Roles } from '../../security/roles.decorator';
 import { CurrentUser } from '../../security/current-user.decorator';
 
@@ -36,6 +37,7 @@ class VoteDto {
 export class ConsensusController {
   constructor(private readonly consensus: ConsensusService) {}
 
+  @RateLimit(LIMITS.write)
   @Post()
   async create(@Body() dto: CreatePollDto): Promise<{ pid: string }> {
     const ctx = await this.consensus.resolveContext({ sessionId: dto.sessionId, questionId: dto.questionId });
@@ -50,6 +52,7 @@ export class ConsensusController {
     return { pid: poll._id };
   }
 
+  @RateLimit(LIMITS.write)
   @Post(':pid/vote')
   vote(
     @Param('pid') pid: string,
@@ -59,6 +62,7 @@ export class ConsensusController {
     return this.consensus.vote(pid, learnerId, dto.choice);
   }
 
+  @RateLimit(LIMITS.write)
   @Post(':pid/close')
   close(@Param('pid') pid: string): Promise<{ tally: Record<string, number>; winner: string }> {
     return this.consensus.close(pid);

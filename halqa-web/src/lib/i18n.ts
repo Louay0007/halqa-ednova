@@ -131,6 +131,13 @@ export const STRINGS: Record<string, Record<Lang, string>> = {
   enter_pw_long: { en: '{n} characters maximum.', fr: '{n} caractères maximum.', ar: '{n} حرفاً كحدّ أقصى.', darija: '{n} حرف كأقصى حد.' },
   enter_handle_bad: { en: 'Use 3–20 letters, numbers, - or _', fr: '3 à 20 lettres, chiffres, - ou _', ar: 'استعمل 3–20 حرفاً أو رقماً أو - أو _', darija: 'استعمل 3–20 حرف ولا رقم ولا - ولا _' },
   enter_no_email: { en: 'No email. No phone.', fr: 'Pas d’email. Pas de téléphone.', ar: 'لا بريد. لا هاتف.', darija: 'لا ايميل. لا تيليفون.' },
+  // Consent copy (§8.3): must be visible on /enter, not buried in a policy page.
+  enter_consent: {
+    en: 'We store a nickname, an avatar icon, your language and what you answer — nothing that identifies you. You can export or delete it all from your profile.',
+    fr: 'Nous gardons un pseudo, une icône d’avatar, votre langue et vos réponses — rien qui vous identifie. Vous pouvez tout exporter ou supprimer depuis votre profil.',
+    ar: 'نحفظ اسماً مستعاراً وأيقونة وصفتك وإجاباتك — لا شيء يعرّف بهويتك. يمكنك تصدير كل ذلك أو حذفه من ملفك.',
+    darija: 'كنحفظو سمية مستعارة وأيقونة ولغتك وجواباتك — والو اللي كيعرّف بيك. تقدر تصدّر ولا تحيد كلشي من الملف ديالك.',
+  },
   enter_failed: { en: 'Could not continue — try again.', fr: 'Impossible de continuer — réessayez.', ar: 'تعذّر المتابعة — حاول مجدداً.', darija: 'ما قدرناش نكملو — عاود حاول.' },
   enter_tabs_label: { en: 'Create an account, sign in, or try as a guest', fr: 'Créer un compte, se connecter, ou essayer en invité', ar: 'أنشئ حساباً، سجّل الدخول، أو جرّب كضيف', darija: 'أصنع حساب، دخل، ولا جرّب كضيف' },
   enter_ctx_study: { en: 'Study', fr: 'Étude', ar: 'دراسة', darija: 'دراسة' },
@@ -541,6 +548,45 @@ export const STRINGS: Record<string, Record<Lang, string>> = {
     fr: 'Anonyme · données synthétiques uniquement · l’IA aide les enseignants, elle ne les remplace jamais · IEEE SB / WIE · Aucune voix laissée de côté.',
     ar: 'مجهول الهوية · بيانات اصطناعية فقط · الذكاء الاصطناعي يساند الأساتذة ولا ينيب عنهم · IEEE SB / WIE',
     darija: 'بلا هوية · بيانات اصطناعية غير · الذكاء الاصطناعي كيعاون الأساتذة وما كيعوّضهمش · IEEE SB / WIE',
+  },
+  error_title: {
+    en: 'This screen hit a snag',
+    fr: 'Cet écran a rencontré un problème',
+    ar: 'هذه الشاشة واجهت مشكلة',
+    darija: 'هاد الشاشة صادفت مشكل',
+  },
+  error_body: {
+    en: 'The circle is still running. Try reloading this screen.',
+    fr: 'Le cercle continue. Essayez de recharger cet écran.',
+    ar: 'الحلقة مستمرة. أعد تحميل هذه الشاشة.',
+    darija: 'الحلقة مازالت خدّامة. عاود حمّل هاد الشاشة.',
+  },
+  error_stale_build: {
+    // A deploy replaced the lazy chunk this tab had not loaded yet. Only a full
+    // reload fixes it, so say so plainly instead of offering a pointless retry.
+    en: 'HALQA was updated. Reload to keep going.',
+    fr: 'HALQA a été mise à jour. Rechargez pour continuer.',
+    ar: 'تم تحديث HALQA. أعد التحميل للمتابعة.',
+    darija: 'HALQA تحدّثت. عاود حمّل باش تكمّل.',
+  },
+  not_found_title: {
+    en: 'No such screen',
+    fr: 'Cet écran n’existe pas',
+    ar: 'هذه الشاشة غير موجودة',
+    darija: 'هاد الشاشة ماكانتش',
+  },
+  not_found_body: {
+    en: 'The link may be old, or the circle may have closed.',
+    fr: 'Le lien est peut-être ancien, ou le cercle a fermé.',
+    ar: 'قد يكون الرابط قديماً أو أُغلقت الحلقة.',
+    darija: 'يمكن الرابط قديم، ولا الحلقة تسدّت.',
+  },
+  back_home: { en: 'Back to start', fr: 'Retour au début', ar: 'العودة للبداية', darija: 'ارجع للبداية' },
+  cannot_reach: {
+    en: 'Can’t reach HALQA right now',
+    fr: 'HALQA est injoignable pour le moment',
+    ar: 'تعذّر الوصول إلى HALQA الآن',
+    darija: 'ما نجمش نوصل لـHALQA توا',
   },
 };
 

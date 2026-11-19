@@ -37,10 +37,16 @@ export class MembershipService {
     }
   }
 
-  /** Resolve a session's circle, then check membership there. */
-  async assertSessionMember(sessionId: string, learnerId: string): Promise<void> {
+  /**
+   * Resolve a session's circle, then confirm the caller belongs to it.
+   *
+   * Returns the circle id so a caller that also needs it for a follow-up query
+   * does not have to resolve the session twice.
+   */
+  async assertSessionMember(sessionId: string, learnerId: string): Promise<{ circleId: string }> {
     const session = await this.sessions.findOne({ _id: sessionId }).select('circleId').lean().exec();
     if (!session) throw Err.missing(`SESSION_NOT_FOUND:${sessionId}`);
     await this.assertMember(session.circleId, learnerId);
+    return { circleId: session.circleId };
   }
 }

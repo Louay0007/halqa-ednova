@@ -16,6 +16,9 @@ const EnvSchema = z.object({
     .default('false')
     .transform((v) => v === 'true'),
   TOKEN_SECRET: z.string().min(1, 'TOKEN_SECRET is required'),
+  /** The previous secret, accepted during a rotation window so rotating does not
+   *  sign every learner out at once (§3.9). Drop it one release later. */
+  TOKEN_SECRET_PREVIOUS: z.string().default(''),
   CORS_ORIGINS: z.string().default(''),
 });
 

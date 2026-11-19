@@ -2,7 +2,18 @@
    All 35+ backend routes. fetch only, no query lib: ETag/304 + asker-only
    semantics stay explicit per screen. Token in sessionStorage, never local. */
 
-const BASE = (import.meta.env.VITE_API_BASE as string | undefined) ?? 'http://localhost:3000/api/v1';
+/**
+ * The API base is required in a production bundle. Falling back to localhost
+ * there is worse than failing to build: every request would point at the
+ * learner's own machine and surface as an opaque network error. The build-time
+ * guard lives in vite.config.ts; this is the runtime backstop for anyone who
+ * imports the module outside Vite (tests, scripts).
+ */
+const RAW_BASE = import.meta.env.VITE_API_BASE as string | undefined;
+if (import.meta.env.PROD && !RAW_BASE) {
+  throw new Error('VITE_API_BASE is required for a production build (see .env.example).');
+}
+const BASE = RAW_BASE ?? 'http://localhost:3000/api/v1';
 
 export type Lang = 'ar' | 'darija' | 'fr' | 'en';
 export type ContextMode = 'class' | 'study' | 'community' | 'workshop' | 'program' | 'solo';
@@ -57,34 +68,96 @@ let clockSkewMs = 0;
 const skewSeen = () => clockSkewMs !== 0;
 export const clockSkew = () => clockSkewMs;
 
-async function req<T>(path: string, init?: RequestInit & { etag?: string }): Promise<{ data: T; etag: string | null; notModified: boolean }> {
+/** Non-AI routes answer in milliseconds; AI routes are provider-bound and the
+ *  quota governor degrades them server-side, so they get a longer leash. */
+const TIMEOUT_MS = 10_000;
+const AI_TIMEOUT_MS = 30_000;
+const AI_PATH = /^\/(coach|hints|capsule|whisper|solo|questions\/[^/]+\/(peer-answer|hint)|quiz)/;
+const timeoutFor = (path: string) => (AI_PATH.test(path) ? AI_TIMEOUT_MS : TIMEOUT_MS);
+
+/** Idempotent GETs are safe to repeat; writes never are. */
+const RETRYABLE_STATUS = new Set([502, 503, 504]);
+const isNetworkError = (e: unknown) => e instanceof TypeError;
+
+export interface ReqOptions extends RequestInit {
+  etag?: string;
+  /** Caller-owned cancellation (route unmount, poller superseded). */
+  signal?: AbortSignal;
+  /** Override the retry budget; GETs default to 2 retries, writes to 0. */
+  retries?: number;
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function req<T>(path: string, init?: ReqOptions): Promise<{ data: T; etag: string | null; notModified: boolean }> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   const token = tokenStore.get();
   if (token) headers.Authorization = `Bearer ${token}`;
   if (init?.etag) headers['If-None-Match'] = init.etag;
-  const res = await fetch(`${BASE}${path}`, { ...init, headers });
-  // The server never sends `now` (it would churn ETags), so the countdown needs the
-  // offset from this header instead — once is enough for a session.
-  const serverDate = res.headers.get('Date');
-  if (!skewSeen() && serverDate) {
-    const ms = Date.parse(serverDate);
-    if (!Number.isNaN(ms)) clockSkewMs = Date.now() - ms;
+
+  const method = (init?.method ?? 'GET').toUpperCase();
+  const budget = init?.retries ?? (method === 'GET' ? 2 : 0);
+
+  for (let attempt = 0; ; attempt++) {
+    // A per-attempt timeout that also honours the caller's signal: aborting
+    // either one cancels the fetch, and a caller abort must not be retried.
+    const timeout = AbortSignal.timeout(timeoutFor(path));
+    const signal = init?.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
+
+    let res: Response;
+    try {
+      res = await fetch(`${BASE}${path}`, { ...init, headers, signal });
+    } catch (e) {
+      // Caller cancelled (navigated away): propagate quietly, never retry.
+      if (init?.signal?.aborted) throw e;
+      if (attempt < budget && isNetworkError(e)) {
+        await sleep(250 * 2 ** attempt + Math.random() * 100);
+        continue;
+      }
+      throw new ApiTimeout(path, timeout.aborted);
+    }
+
+    if (attempt < budget && RETRYABLE_STATUS.has(res.status)) {
+      await sleep(250 * 2 ** attempt + Math.random() * 100);
+      continue;
+    }
+
+    // The server never sends `now` (it would churn ETags), so the countdown needs
+    // the offset from this header instead — once is enough for a session.
+    const serverDate = res.headers.get('Date');
+    if (!skewSeen() && serverDate) {
+      const ms = Date.parse(serverDate);
+      if (!Number.isNaN(ms)) clockSkewMs = Date.now() - ms;
+    }
+    const etag = res.headers.get('ETag');
+    if (res.status === 304) return { data: undefined as T, etag, notModified: true };
+    const body = (await res.json().catch(() => ({}))) as T & ApiError;
+    if (res.status === 401 && token) {
+      tokenStore.clear();
+      onUnauthorized();
+    }
+    if (!res.ok) throw new ApiFailure(res.status, body as ApiError);
+    return { data: body as T, etag, notModified: false };
   }
-  const etag = res.headers.get('ETag');
-  if (res.status === 304) return { data: undefined as T, etag, notModified: true };
-  const body = (await res.json().catch(() => ({}))) as T & ApiError;
-  if (res.status === 401 && token) {
-    tokenStore.clear();
-    onUnauthorized();
-  }
-  if (!res.ok) throw new ApiFailure(res.status, body as ApiError);
-  return { data: body as T, etag, notModified: false };
 }
 
-const get = <T>(p: string, etag?: string) => req<T>(p, { method: 'GET', etag }).then((r) => r);
-const post = <T>(p: string, body?: unknown) => req<T>(p, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) }).then((r) => r.data);
-const patch = <T>(p: string, body: unknown) =>
-  req<T>(p, { method: 'PATCH', body: JSON.stringify(body) }).then((r) => r.data);
+/** A timeout or unfetchable network error. Distinguishable from `ApiFailure`
+ *  (the server answered with an error) so the UI can say "can't reach HALQA"
+ *  instead of rendering a server message that never arrived. */
+export class ApiTimeout extends Error {
+  readonly timedOut: boolean;
+  constructor(path: string, timedOut: boolean) {
+    super(timedOut ? `Request to ${path} timed out` : `Request to ${path} failed to reach the network`);
+    this.name = 'ApiTimeout';
+    this.timedOut = timedOut;
+  }
+}
+
+const get = <T>(p: string, etag?: string, signal?: AbortSignal) => req<T>(p, { method: 'GET', etag, signal }).then((r) => r);
+const post = <T>(p: string, body?: unknown, signal?: AbortSignal) =>
+  req<T>(p, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body), signal }).then((r) => r.data);
+const patch = <T>(p: string, body: unknown, signal?: AbortSignal) =>
+  req<T>(p, { method: 'PATCH', body: JSON.stringify(body), signal }).then((r) => r.data);
 
 /* platform */
 export const api = {
@@ -142,8 +215,9 @@ export const api = {
       bandwidth: string;
     }>(`/contexts/${mode}/config`),
   circleByCode: (code: string) => get<{ circleId: string; topic: string; members: number }>(`/circles/by-code/${encodeURIComponent(code.trim().toUpperCase())}`),
-  circleGet: (circleId: string) => get<{ _id: string; topic: string; context: ContextMode; members: Array<{ learnerId: string; role: string; nickname?: string }>; joinCode: string; windowS: number }>(`/circles/${circleId}`),
-  circleHealth: (circleId: string) => get<Health>(`/circles/${circleId}/health`),
+  circleGet: (circleId: string, signal?: AbortSignal) =>
+    get<{ _id: string; topic: string; context: ContextMode; members: Array<{ learnerId: string; role: string; nickname?: string }>; joinCode: string; windowS: number }>(`/circles/${circleId}`, undefined, signal),
+  circleHealth: (circleId: string, signal?: AbortSignal) => get<Health>(`/circles/${circleId}/health`, undefined, signal),
   sessionStart: (circleId: string) => post<{ sessionId: string }>(`/circles/${circleId}/sessions`),
   sessionEnd: (sessionId: string) => post<{ endedAt: string; health: unknown; credits: unknown; usage: unknown }>(`/sessions/${sessionId}/end`),
   /* No client for `GET /sessions/:id/credits`: its `dominant` field is a
@@ -161,10 +235,21 @@ export const api = {
     post<{ suggestion: string }>('/coach/rephrase', input),
 
   /* questions (CF-AS) */
-  questionList: (sessionId: string) => get<{ qids: string[] }>(`/questions?sessionId=${encodeURIComponent(sessionId)}`),
+  questionList: (sessionId: string, signal?: AbortSignal) =>
+    get<{ qids: string[] }>(`/questions?sessionId=${encodeURIComponent(sessionId)}`, undefined, signal),
   questionCreate: (input: { sessionId: string; askerId: string; text: string; lang?: Lang; anonymous?: boolean }) =>
     post<{ qid: string; state: string; windowS: number; windowEndsAt?: string }>('/questions', input),
-  questionState: (qid: string, asker?: string, etag?: string) => get<QuestionState>(`/questions/${qid}/state${asker ? `?asker=${asker}` : ''}`, etag),
+  /** Shared poller view — has no asker-only field, so every peer gets one ETag. */
+  questionState: (qid: string, etag?: string, signal?: AbortSignal) =>
+    get<QuestionState>(`/questions/${qid}/state`, etag, signal),
+  /** Asker-only extras. 403s for anyone who did not ask the question. */
+  questionPrivate: (qid: string) =>
+    get<{
+      stages: Array<{ stage: string; startedAt?: string; doneAt?: string }>;
+      quickTakeReady: boolean;
+      deepDiveReady: boolean;
+      deepDive?: { text: string; cites: string[] };
+    }>(`/questions/${qid}/private`),
   peerAnswer: (qid: string, authorId: string, text: string) => post<{ aid: string; creditsAwarded: number }>(`/questions/${qid}/peer-answer`, { authorId, text }),
   meToo: (qid: string, learnerId: string) => post<{ ok: boolean }>(`/questions/${qid}/me-too`, { learnerId }),
   skip: (qid: string, askerId: string) => post<{ answer: string; tierUsed: string; cached: boolean; cites: string[] }>(`/questions/${qid}/skip`, { askerId }),
@@ -176,7 +261,11 @@ export const api = {
 
   /* outputs */
   capsuleBuild: (sessionId: string) => post<Capsule>(`/sessions/${sessionId}/capsule`),
-  quizBattle: (circleId: string, sessionId: string, level?: string) => post<{ bid: string; items: Array<{ qid: string; stem: string; choices: string[] }> }>('/quiz/battle', { circleId, sessionId, level }),
+  quizBattle: (circleId: string, sessionId: string, level?: string) =>
+    post<{ bid: string; items: Array<{ qid: string; stem: string; choices: Array<{ key: string; text: string }> }> }>(
+      '/quiz/battle',
+      { circleId, sessionId, level },
+    ),
   quizAnswer: (bid: string, input: { sessionId: string; circleId: string; learnerId: string; qid: string; choice: string }) =>
     post<{ correct: boolean; explain: string; xp: number }>(`/quiz/battle/${bid}/answer`, input),
   whisper: (input: { sessionId: string; circleId: string; topic: string; steps: Array<{ authorId: string; text: string }> }) =>
@@ -204,7 +293,9 @@ export const api = {
     );
   },
   dashboard: (circleId?: string) => get<{ sessions: Array<{ sessionId: string; health: { S: number; B: number; U: number; needsHuman: boolean } | null; talkShare: Array<{ learnerId: string; total: number }>; stuck: boolean }>; styleMix: Record<string, number>; aggregatesOnly: boolean }>(`/dashboard${circleId ? `?circleId=${circleId}` : ''}`),
-  xp: (learnerId: string) => get<{ total: number; badges: string[] }>(`/learners/${learnerId}/xp`),
+  /** Own progress only — the API no longer exposes another learner's XP (§3.5). */
+  progress: () =>
+    get<{ xp: number; total: number; badges: string[]; streakDays: number }>('/learners/me/progress'),
 };
 
 export interface Passport {

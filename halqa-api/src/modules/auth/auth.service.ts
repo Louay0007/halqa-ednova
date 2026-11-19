@@ -6,7 +6,7 @@ import { APP_CONFIG } from '../../core/config/config.module';
 import type { AppConfig } from '../../core/config/app-config';
 import { AVATAR_KEYS } from '../../domain/ids';
 import { HANDLE_RE, PASSPHRASE_MAX, PASSPHRASE_MIN, hashPassphrase, normaliseHandle, verifyPassphrase } from '../../security/credentials';
-import { signToken } from '../../security/tokens';
+import { ACCESS_TTL_S, signToken } from '../../security/tokens';
 import { TokenEpochService } from '../../security/token-epoch.service';
 import { Learner, LearnerDocument } from '../../persistence/schemas/learner.schema';
 
@@ -156,6 +156,23 @@ export class AuthService {
     // epoch so changing a passphrase does not also eject the learner who changed it.
     this.epochs.forget(learnerId);
     return { token: signToken({ sub: learnerId, role: 'learner', ep: rotated?.tokenEpoch ?? 0 }, this.cfg.TOKEN_SECRET) };
+  }
+
+  /**
+   * Re-mint an access token for an already-authenticated learner.
+   *
+   * The access TTL is 2 h, which is shorter than a full school day, so without
+   * this every learner is logged out mid-session (§3.9). No credential is
+   * required because the caller already holds a valid token and the epoch gate
+   * has already run; a signout still wins, because it bumps the epoch.
+   */
+  async refresh(learnerId: string): Promise<{ token: string; expiresInS: number }> {
+    const doc = await this.learners.findOne({ _id: learnerId }).select('tokenEpoch').lean().exec();
+    if (!doc) throw Err.missing(`LEARNER_NOT_FOUND:${learnerId}`);
+    return {
+      token: signToken({ sub: learnerId, role: 'learner', ep: doc.tokenEpoch ?? 0 }, this.cfg.TOKEN_SECRET),
+      expiresInS: ACCESS_TTL_S,
+    };
   }
 
   /** Bump the epoch: every token issued before this call stops working immediately. */

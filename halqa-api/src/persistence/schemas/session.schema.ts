@@ -28,6 +28,17 @@ export class Session {
   };
   @Prop({ type: SessionHealth, default: () => ({}) }) health!: SessionHealth;
   @Prop({ type: Object, default: {} }) healthInputs!: Record<string, unknown>;
+  /**
+   * Denormalised from the circle at creation. The capsule needs a language and
+   * used to hardcode English (§5.2), so it reads this instead of inferring.
+   */
+  @Prop({ type: String, enum: ['en', 'fr', 'ar', 'darija'], default: 'en' }) lang!: string;
+  /** Solo sessions: the learner's chosen hat. Explicitly chosen, so it must be
+   *  stored rather than derived from turn index (§4.4). */
+  @Prop({ type: String }) soloHat?: string;
+  /** Solo sessions: turn counter. Derivable from `solo_turn` events, but stored
+   *  to avoid a count query on every turn. */
+  @Prop({ type: Number, default: 0 }) soloTurn?: number;
   @Prop({ type: Date, default: () => new Date() }) startedAt!: Date;
   @Prop({ type: Date }) endedAt?: Date;
 }

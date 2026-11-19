@@ -1,5 +1,6 @@
 import { Controller, Get, Param, Post } from '@nestjs/common';
 import { SessionService } from './session.service';
+import { LIMITS, RateLimit } from '../../security/rate-limit';
 import { Roles } from '../../security/roles.decorator';
 import { CurrentUser } from '../../security/current-user.decorator';
 import { MembershipService } from '../../security/membership.service';
@@ -12,6 +13,7 @@ export class CircleSessionController {
     private readonly members: MembershipService,
   ) {}
 
+  @RateLimit(LIMITS.write)
   @Post()
   async start(@Param('circleId') circleId: string, @CurrentUser('sub') learnerId: string): Promise<{ sessionId: string }> {
     await this.members.assertMember(circleId, learnerId);
@@ -34,6 +36,7 @@ export class SessionController {
     return this.sessions.get(id);
   }
 
+  @RateLimit(LIMITS.write)
   @Post(':id/end')
   async end(@Param('id') id: string, @CurrentUser('sub') learnerId: string): Promise<unknown> {
     await this.members.assertSessionMember(id, learnerId);

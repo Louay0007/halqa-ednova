@@ -1,6 +1,7 @@
 import { Body, Controller, Param, Post } from '@nestjs/common';
 import { IsIn, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { QuizService } from './quiz.service';
+import { LIMITS, RateLimit } from '../../security/rate-limit';
 import { Roles } from '../../security/roles.decorator';
 import { CurrentUser } from '../../security/current-user.decorator';
 
@@ -40,11 +41,13 @@ class AnswerDto {
 export class QuizController {
   constructor(private readonly quiz: QuizService) {}
 
+  @RateLimit(LIMITS.ai)
   @Post('battle')
   battle(@Body() dto: BattleDto): { bid: string; items: unknown[] } {
     return this.quiz.battle(dto.circleId, dto.sessionId, dto.level);
   }
 
+  @RateLimit(LIMITS.write)
   @Post('battle/:bid/answer')
   answer(
     @Param('bid') bid: string,

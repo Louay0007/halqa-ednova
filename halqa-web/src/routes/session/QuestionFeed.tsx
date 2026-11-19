@@ -1,5 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { ApiFailure, api, type Lang, type QuestionState } from '../../lib/api';
+
+/** Asker-only payload from GET /questions/:qid/private. */
+type PrivateView = {
+  stages: Array<{ stage: string; startedAt?: string; doneAt?: string }>;
+  quickTakeReady: boolean;
+  deepDiveReady: boolean;
+  deepDive?: { text: string; cites: string[] };
+};
 import { useSession } from '../../lib/session';
 import { stageLabel, stateLabel, t, tierLabel } from '../../lib/i18n';
 import { useSectionReveal } from '../../lib/motion';
@@ -92,6 +100,7 @@ export function StaleChip({ since }: { since: number }) {
 export function QuestionCard({ qid }: { qid: string }) {
   const { lang, learnerId } = useSession();
   const [view, setView] = useState<QuestionState | null>(null);
+  const [priv, setPriv] = useState<PrivateView | null>(null);
   const [fails, setFails] = useState(0);
   const [okAt, setOkAt] = useState<number | null>(null);
   const [failedAt, setFailedAt] = useState(0);
@@ -102,7 +111,7 @@ export function QuestionCard({ qid }: { qid: string }) {
     const tick = async () => {
       if (document.hidden || dead) return;
       try {
-        const r = await api.questionState(qid, learnerId, etagRef.current);
+        const r = await api.questionState(qid, etagRef.current);
         if (!dead) {
           setFails(0);
           setOkAt(Date.now());
@@ -127,6 +136,34 @@ export function QuestionCard({ qid }: { qid: string }) {
     };
   }, [qid, learnerId]);
 
+  /**
+   * Asker-only extras live on their own route now, so the shared poller carries
+   * nothing viewer-dependent. Poll them only for questions this device asked —
+   * the server still enforces asker-only with a 403, this just avoids the noise.
+   */
+  const mine = isMine(qid);
+  useEffect(() => {
+    if (!mine) return;
+    let dead = false;
+    const tick = async () => {
+      if (document.hidden || dead) return;
+      try {
+        const r = await api.questionPrivate(qid);
+        if (!dead) setPriv(r.data);
+      } catch {
+        // Not an asker (e.g. created on another device): drop the private view
+        // and let the card render its peer variant.
+        if (!dead) setPriv(null);
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1500);
+    return () => {
+      dead = true;
+      clearInterval(id);
+    };
+  }, [qid, mine]);
+
   if (!view)
     return (
       <div className="card qcard" aria-busy="true">
@@ -136,7 +173,7 @@ export function QuestionCard({ qid }: { qid: string }) {
       </div>
     );
 
-  const isAsker = view.stages !== undefined;
+  const isAsker = mine && priv !== null;
   // State modifier is hyphenated (q-nova-thinking), not the enum's underscore:
   // `q-nova_thinking` is a class no stylesheet will ever be written against.
   return (
@@ -150,8 +187,8 @@ export function QuestionCard({ qid }: { qid: string }) {
       </header>
       {view.text && <p className="qtext" translate="no">{view.text}</p>}
       {view.state === 'OPEN' && <OpenBody qid={qid} view={view} />}
-      {view.state === 'NOVA_THINKING' && (isAsker ? <ThinkingSteps stages={view.stages ?? []} /> : <PeerThinking />)}
-      {view.state === 'RESOLVED' && <ResolvedBody qid={qid} view={view} />}
+      {view.state === 'NOVA_THINKING' && (isAsker ? <ThinkingSteps stages={priv?.stages ?? []} /> : <PeerThinking />)}
+      {view.state === 'RESOLVED' && <ResolvedBody qid={qid} view={view} priv={priv} />}
     </article>
   );
 }
@@ -252,7 +289,7 @@ export function PeerThinking() {
   );
 }
 
-export function ResolvedBody({ qid, view }: { qid: string; view: QuestionState }) {
+export function ResolvedBody({ qid, view, priv }: { qid: string; view: QuestionState; priv?: PrivateView | null }) {
   const { lang, learnerId } = useSession();
   const [taken, setTaken] = useState(0);
   const [hints, setHints] = useState<Array<{ level: number; text: string }>>([]);
@@ -347,11 +384,11 @@ export function ResolvedBody({ qid, view }: { qid: string; view: QuestionState }
         </>
       )}
       {view.resolution === 'poll' && view.pollId && <PollBox pid={view.pollId} />}
-      {view.deepDiveReady && view.deepDive && (
+      {priv?.deepDiveReady && priv.deepDive && (
         <aside className="deepdive">
           <strong>✨</strong>
-          <p translate="no">{view.deepDive.text}</p>
-          <CiteChips cites={view.deepDive.cites} />
+          <p translate="no">{priv.deepDive.text}</p>
+          <CiteChips cites={priv.deepDive.cites} />
         </aside>
       )}
     </div>
