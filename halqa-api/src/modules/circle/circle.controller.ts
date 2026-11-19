@@ -1,5 +1,6 @@
 import { Err } from '../../common/http-errors';
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Param, Post, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import type { ContextMode, Language } from '../../common/types/api-error';
 import { CircleService } from './circle.service';
@@ -89,11 +90,33 @@ export class CircleController {
     return this.circles.get(id, viewerId);
   }
 
-  /** S-B-U health is a mentor/teacher view, not a peer one. */
-  @Roles('mentor', 'admin')
+  /**
+   * S-B-U health: aggregates for any member, per-learner credits for staff.
+   *
+   * The role gate used to be `mentor`/`admin` only, but the learner UI polls this
+   * every 5 s for the header rings, so learners received a 403 the client silently
+   * swallowed — the rings never rendered and nothing looked broken. A member is now
+   * admitted and gets the aggregate view; `health()` decides what else to include.
+   */
+  @Roles('learner', 'mentor', 'admin')
   @Get(':id/health')
-  health(@Param('id') id: string): Promise<unknown> {
-    return this.circles.health(id);
+  async health(
+    @Param('id') id: string,
+    @CurrentUser() user: { sub: string; role: string },
+    @Headers('if-none-match') inm: string | undefined,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<unknown> {
+    const staff = user.role === 'mentor' || user.role === 'admin';
+    const { body, etag } = await this.circles.health(id, { learnerId: user.sub, staff });
+    res.set('ETag', etag);
+    res.set('Cache-Control', 'no-cache');
+    // Polled every 5 s per learner; the aggregates only change when an event lands,
+    // so nearly every poll should be a bodyless 304.
+    if (inm === etag) {
+      res.status(304);
+      return undefined;
+    }
+    return body;
   }
 }
 

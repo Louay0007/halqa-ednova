@@ -87,14 +87,15 @@ export function SessionRoom() {
       .catch(() => undefined);
     const tick = () => {
       if (document.hidden) return;
+      // Credits come from the session, not circle health: `/circles/:id/health`
+      // only carries the per-learner array for staff, and the session payload
+      // already includes it for any member. Reading it here previously meant
+      // fetching the same array twice per tick and depending on a staff route.
       api.circleHealth(circleId).then((r) => {
-        if (!dead) {
-          setHealth(r.data);
-          setCredits(r.data.credits);
-        }
+        if (!dead) setHealth(r.data);
       }).catch(() => undefined);
       api.sessionGet(sessionId).then((r) => {
-        if (!dead)
+        if (!dead) {
           setAgenda(
             (r.data.agenda?.steps ?? []).map((s) => ({
               label: stepLabel(s.kind, lang),
@@ -102,6 +103,8 @@ export function SessionRoom() {
               done: s.done,
             })),
           );
+          if (r.data.credits) setCredits(r.data.credits);
+        }
       }).catch(() => undefined);
     };
     tick();

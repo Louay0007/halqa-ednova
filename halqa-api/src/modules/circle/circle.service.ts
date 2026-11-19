@@ -1,3 +1,19 @@
+import { createHash } from 'node:crypto';
+
+/**
+ * The circle-health payload. `credits` is present only for staff — per-learner
+ * participation data is about named children, so its absence for peers is a
+ * deliberate shape difference, not an oversight.
+ */
+export interface HealthView {
+  sessionId: string;
+  S: number;
+  B: number;
+  U: number;
+  tiers: { S: string; B: string; U: string };
+  needsHuman: boolean;
+  credits?: Array<{ learnerId: string; total: number }>;
+}
 import { Err } from '../../common/http-errors';
 import { screenPii } from '../../domain/pii';
 import { Inject, Injectable, Logger } from '@nestjs/common';
@@ -148,29 +164,51 @@ export class CircleService {
     return { circleId: circle._id, topic: circle.topic, members: circle.members.length };
   }
 
-  /** Circle health from the latest session (mentor/teacher view). */
-  async health(circleId: string): Promise<{
-    sessionId: string;
-    S: number;
-    B: number;
-    U: number;
-    tiers: { S: string; B: string; U: string };
-    credits: Array<{ learnerId: string; total: number }>;
-    needsHuman: boolean;
-  }> {
+  /**
+   * Circle health from the latest session.
+   *
+   * Two audiences, one route, deliberately different payloads:
+   *  - a **peer** gets the aggregates (S, B, U, tiers, needsHuman), which is what
+   *    the header rings draw. They poll it every 5 s.
+   *  - **staff** additionally get the per-learner `credits` array, which is
+   *    participation data about named children — a teacher needs it, a classmate
+   *    does not, and `equity.service` treats `dominant` as non-public for the same
+   *    reason.
+   *
+   * This route used to be staff-only while the learner UI polled it anyway, so
+   * every learner got a 403 that the client swallowed: the rings simply never
+   * rendered and the failure was invisible. Members now get the aggregate view.
+   *
+   * The ETag covers the response the caller receives, so the two audiences never
+   * share a validator — a peer's 304 cannot confirm staff-only fields.
+   */
+  async health(
+    circleId: string,
+    viewer: { learnerId: string; staff: boolean },
+  ): Promise<{ body: HealthView; etag: string }> {
+    // Staff may read any circle here (the mentor dashboard does); a learner must be
+    // a member. Enforced in the service so a future controller cannot forget it.
+    if (!viewer.staff) await this.members.assertMember(circleId, viewer.learnerId);
     const session = await this.sessions.findOne({ circleId }).sort({ startedAt: -1 }).exec();
     if (!session) throw Err.missing(`NO_SESSION:${circleId}`);
     const view = await this.sbu.recompute(session._id);
-    const credits = await this.equity.totals(session._id);
-    return {
+
+    const body: HealthView = {
       sessionId: session._id,
       S: view.S,
       B: view.B,
       U: view.U,
       tiers: view.tiers,
-      credits: credits.map((c) => ({ learnerId: c.learnerId, total: c.total })),
       needsHuman: view.needsHuman,
     };
+    if (viewer.staff) {
+      const credits = await this.equity.totals(session._id);
+      body.credits = credits.map((c) => ({ learnerId: c.learnerId, total: c.total }));
+    }
+    // Hashed over `body`, not the session: the whole point is that the two
+    // audiences differ, so a shared input would hand one the other's validator.
+    const etag = `"${createHash('sha1').update(JSON.stringify(body)).digest('hex')}"`;
+    return { body, etag };
   }
 
   /** A token must carry the learner's live epoch, or a revoked token would be re-issued. */

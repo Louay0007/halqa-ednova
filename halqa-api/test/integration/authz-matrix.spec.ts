@@ -100,6 +100,37 @@ describe('authz matrix — learner vs learner (the one that matters)', () => {
     expect(JSON.stringify(mine.body)).not.toContain(host.learnerId);
   });
 
+  it('a peer can poll circle health, and gets aggregates but not per-learner credits', async () => {
+    // This was broken: the route was mentor/admin-only while the learner UI polls
+    // it every 5 s for the header rings, so every learner got a 403 the client
+    // swallowed — the rings silently never rendered.
+    const { circleId, peer } = await newCircle(app, { topic: 'fractions' });
+    await request(app.getHttpServer()).post(`/api/v1/circles/${circleId}/sessions`).set(peer.headers).expect(201);
+
+    const res = await get(`/api/v1/circles/${circleId}/health`, peer).expect(200);
+    expect(typeof res.body.S).toBe('number');
+    expect(typeof res.body.B).toBe('number');
+    expect(typeof res.body.U).toBe('number');
+    // Named children's participation data is staff-only (§3.4).
+    expect(res.body.credits).toBeUndefined();
+    // §9.2: the polled payload stays inside the 1 KB budget at class size.
+    expect(JSON.stringify(res.body).length).toBeLessThan(1024);
+
+    // §9.1: a repeat poll is a bodyless 304, so the 5 s loop costs headers only.
+    await get(`/api/v1/circles/${circleId}/health`, peer)
+      .set({ 'if-none-match': String(res.headers.etag) })
+      .expect(304);
+  });
+
+  it('staff polling circle health do get the per-learner credits', async () => {
+    const { circleId, peer } = await newCircle(app, { topic: 'binary_search' });
+    await request(app.getHttpServer()).post(`/api/v1/circles/${circleId}/sessions`).set(peer.headers).expect(201);
+    const mentor = await newStaff(app, secret, 'mentor');
+
+    const res = await get(`/api/v1/circles/${circleId}/health`, mentor).expect(200);
+    expect(Array.isArray(res.body.credits)).toBe(true);
+  });
+
   it("the asker's private view is not reachable by a peer", async () => {
     const { sessionId, host, peer } = await newCircle(app, { topic: 'binary_search' });
     const created = await request(app.getHttpServer())

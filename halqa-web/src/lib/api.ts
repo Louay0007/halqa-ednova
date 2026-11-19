@@ -314,7 +314,8 @@ export interface Health {
   B: number;
   U: number;
   tiers: { S: string; B: string; U: string };
-  credits: Array<{ learnerId: string; total: number }>;
+  /** Staff only: per-learner participation data is not shown to peers. */
+  credits?: Array<{ learnerId: string; total: number }>;
   needsHuman: boolean;
 }
 

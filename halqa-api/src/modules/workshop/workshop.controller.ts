@@ -49,8 +49,9 @@ export class WorkshopController {
     const rows = [];
     for (const c of docs) {
       try {
-        const h = await this.circles.health(c._id);
-        rows.push({ id: c._id, topic: c.topic, ...h });
+        // The board is a public wall display: aggregates only, no per-learner data.
+        const { body } = await this.circles.health(c._id, { learnerId: '', staff: false });
+        rows.push({ id: c._id, topic: c.topic, ...body });
       } catch {
         rows.push({ id: c._id, topic: c.topic, noSession: true });
       }
