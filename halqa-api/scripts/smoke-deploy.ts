@@ -79,6 +79,19 @@ const checks: Check[] = [
     },
   },
   {
+    name: 'the CSP header is actually sent (not just configured)',
+    run: async () => {
+      const res = await fetch(`${API}/healthz`, { signal: AbortSignal.timeout(TIMEOUT_MS) });
+      const csp = res.headers.get('content-security-policy') ?? '';
+      // The unit test proves the policy object; only a live response proves helmet
+      // is wired to the server that is serving traffic. The token is in
+      // sessionStorage, so a missing script-src is session theft, not cosmetics.
+      if (!csp.includes("script-src 'self'")) throw new Error(`CSP missing script-src 'self': ${csp || '(absent)'}`);
+      if (!csp.includes("frame-ancestors 'none'")) throw new Error('CSP missing frame-ancestors none');
+      if (res.headers.get('x-content-type-options') !== 'nosniff') throw new Error('X-Content-Type-Options missing');
+    },
+  },
+  {
     name: 'metrics are staff-only',
     run: async () => {
       const r = await get(`${API}/prom/metrics`);

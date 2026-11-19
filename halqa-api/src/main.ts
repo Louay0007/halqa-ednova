@@ -8,6 +8,7 @@ import { AppModule } from './app.module';
 import { APP_CONFIG } from './core/config/config.module';
 import type { AppConfig } from './core/config/app-config';
 import { requestIdMiddleware } from './core/interceptors/request-id.middleware';
+import { helmetOptions } from './core/security/helmet-options';
 import { JsonLogger } from './core/logger/json.logger';
 
 async function bootstrap(): Promise<void> {
@@ -33,29 +34,9 @@ async function bootstrap(): Promise<void> {
   app.enableShutdownHooks();
 
   app.use(requestIdMiddleware);
-  // Helmet's defaults are reasonable but leave script-src unrestricted, which is
-  // the directive that matters against XSS — and the token lives in
-  // sessionStorage, so XSS is a session-theft path (§3.9).
-  app.use(
-    helmet({
-      contentSecurityPolicy: {
-        useDefaults: false,
-        directives: {
-          defaultSrc: ["'self'"],
-          scriptSrc: ["'self'"],
-          styleSrc: ["'self'", "'unsafe-inline'"],
-          imgSrc: ["'self'", 'data:'],
-          connectSrc: ["'self'", ...cfg.corsOrigins],
-          objectSrc: ["'none'"],
-          frameAncestors: ["'none'"],
-          baseUri: ["'none'"],
-          formAction: ["'self'"],
-        },
-      },
-      crossOriginResourcePolicy: { policy: 'same-site' },
-      referrerPolicy: { policy: 'no-referrer' },
-    }),
-  );
+  // Strict headers, defined in `core/security/helmet-options.ts` so the policy is
+  // testable rather than inline (see its unit test).
+  app.use(helmet(helmetOptions(cfg.corsOrigins)));
   app.use(compression());
   app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(
