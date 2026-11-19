@@ -20,4 +20,23 @@ describe('pii screen', () => {
     expect(containsPii('a@b.co')).toBe(true);
     expect(containsPii('binary search halves a sorted array')).toBe(false);
   });
+
+  // §3.10: a nickname is user-typed text at a write boundary, and it is shown to
+  // the whole circle — an email typed into it is published, not merely stored.
+  it('redacts a nickname someone typed an email into', () => {
+    const { clean } = screenPii('rim.07@school.edu');
+    expect(clean).not.toContain('@');
+    expect(clean).toContain('[email]');
+  });
+
+  it('redacts a phone number typed as a nickname', () => {
+    const { clean } = screenPii('+216 55 123 456');
+    expect(clean).toContain('[phone]');
+  });
+
+  it('leaves a normal nickname alone, including Arabic and darija', () => {
+    for (const nick of ['Rim-07', 'ياسين', 'سلمى-02', 'Prof. Amine']) {
+      expect(screenPii(nick).clean).toBe(nick);
+    }
+  });
 });

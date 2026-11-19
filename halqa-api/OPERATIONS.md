@@ -100,6 +100,21 @@ Export and erasure are self-service: `GET /api/v1/me/export` returns everything
 stored about the caller, `DELETE /api/v1/me` starts the grace window and revokes
 access immediately, `POST /api/v1/me/restore` cancels it.
 
+## Performance targets (§9)
+
+| Measure | Target | How to check |
+|---|---|---|
+| `GET /questions/:qid/state` p95 | < 50 ms | `halqa_http_request_duration_seconds{route="/questions/:qid/state"}` |
+| Poller 304 rate | > 90% | `halqa_http_requests_total{status="304"}` / total for the route |
+| Polled payload | < 1 KB | asserted in `cfas-slice.spec.ts` and `requests.spec.ts` |
+| Circle daily model calls | < `CIRCLE_DAILY_CALLS` (400) | `halqa_circle_daily_calls` |
+
+The poller is the load that matters: 200 learners on 1.5 s/4 s/5 s intervals is
+the steady state, and the design depends on ETags so almost every request is a
+304 with no body. If the 304 rate falls, the ETag input has become
+viewer-dependent — check that nothing viewer-specific crept into the state
+payload, because that silently turns a cache into a per-learner query.
+
 ## Model calls
 
 C (compact) and L (larger) routing is documented in the plan. Every call records

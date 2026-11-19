@@ -1,4 +1,5 @@
 import { Err } from '../../common/http-errors';
+import { screenPii } from '../../domain/pii';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -89,15 +90,20 @@ export class CircleService {
     }
 
     if (!nickname) throw Err.bad('NICKNAME_EMPTY');
+    // Scrubbed before the uniqueness check and before it is shown to the circle:
+    // this nickname is displayed to every member, so an email typed here would be
+    // published rather than merely stored (§3.10).
+    const safeNick = screenPii(nickname).clean.slice(0, 24).trim();
+    if (!safeNick) throw Err.bad('NICKNAME_EMPTY');
     const memberIds = circle.members.map((m) => m.learnerId);
     const existing = await this.learners.find({ _id: { $in: memberIds } }).lean().exec();
-    if (existing.some((l) => l.nickname.toLowerCase() === nickname.toLowerCase())) {
+    if (existing.some((l) => l.nickname.toLowerCase() === safeNick.toLowerCase())) {
       throw Err.conflict('NICKNAME_TAKEN');
     }
     const donor = passportFrom ? await this.learners.findOne({ _id: passportFrom }).lean().exec() : null;
     const learner = actorId
-      ? await this.adoptActor(actorId, nickname, circle.context as ContextMode)
-      : await this.makeLearner(nickname, circle.context as ContextMode, donor?.passport as LearnerDocument['passport'] | undefined);
+      ? await this.adoptActor(actorId, safeNick, circle.context as ContextMode)
+      : await this.makeLearner(safeNick, circle.context as ContextMode, donor?.passport as LearnerDocument['passport'] | undefined);
     circle.members.push({ learnerId: learner._id, role: 'peer', joinedAt: new Date() });
     await circle.save();
     const token = await this.mintToken(learner);

@@ -1,4 +1,5 @@
 import { Err } from '../../common/http-errors';
+import { screenPii } from '../../domain/pii';
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -38,7 +39,11 @@ export class AuthService {
   ) {}
 
   async session(nickname: string, avatarKey: string, context: string): Promise<{ token: string; learner: LearnerView }> {
-    const clean = nickname.slice(0, 24).trim();
+    // A nickname is user-typed text and this is a write boundary, so it goes
+    // through the same screen as asker text (§3.10). A nickname is displayed to
+    // the whole circle, so an email typed into it would be published, not just
+    // stored — which is exactly the case the screen exists for.
+    const clean = screenPii(nickname).clean.slice(0, 24).trim() || 'Learner';
     if (!clean) throw Err.bad('NICKNAME_EMPTY');
     const avatar = AVATAR_KEYS.includes(avatarKey as never) ? avatarKey : AVATAR_KEYS[clean.length % AVATAR_KEYS.length];
     const doc = await this.allocate(async (candidate) =>
