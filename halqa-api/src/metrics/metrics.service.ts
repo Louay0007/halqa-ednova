@@ -61,6 +61,13 @@ export class MetricsService {
     registers: [this.registry],
   });
 
+  readonly circleDailyCalls = new Gauge({
+    name: 'halqa_circle_daily_calls',
+    help: 'Model calls spent today by circle, against its ceiling',
+    labelNames: ['circleId'] as const,
+    registers: [this.registry],
+  });
+
   readonly cacheHits = new Counter({
     name: 'halqa_cache_events_total',
     help: 'Semantic cache outcomes',

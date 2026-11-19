@@ -10,6 +10,8 @@ import {
   CacheEntrySchema,
   LlmCall,
   LlmCallSchema,
+  CircleDailySpend,
+  CircleDailySpendSchema,
   QuotaLedger,
   QuotaLedgerSchema,
 } from './schemas/ai.schema';
@@ -58,6 +60,7 @@ export const SCHEMA_REGISTRY = [
   { name: Artifact.name, schema: ArtifactSchema },
   { name: CacheEntry.name, schema: CacheEntrySchema },
   { name: QuotaLedger.name, schema: QuotaLedgerSchema },
+  { name: CircleDailySpend.name, schema: CircleDailySpendSchema },
   { name: LlmCall.name, schema: LlmCallSchema },
   { name: TelemetryEvent.name, schema: TelemetryEventSchema },
   { name: MentorNote.name, schema: MentorNoteSchema },

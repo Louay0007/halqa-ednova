@@ -55,7 +55,7 @@ export class WhisperService {
     let tier: 'C' | 'T0' = 'T0';
 
     // 1×C bounded compare, escalated only on low confidence — here: always try once.
-    if (await this.governor.reserve('C', sessionId)) {
+    if (await this.governor.reserve('C', sessionId, circleId)) {
       try {
         const res = await this.llm.compact({
           step: 'whisper_compare',

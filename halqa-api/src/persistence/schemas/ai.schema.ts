@@ -42,9 +42,42 @@ export class QuotaLedger {
   @Prop({ type: Number, default: 0 }) reservedC!: number;
   @Prop({ type: Number, default: 0 }) reservedL!: number;
   @Prop({ type: Date }) exhaustedAt?: Date;
+  /**
+   * The circle this session belongs to, recorded on first use so `release()` can
+   * give the day back without every call site re-passing it.
+   */
+  @Prop({ type: String }) circleId?: string;
 }
 export type QuotaLedgerDocument = QuotaLedger & Document<string>;
 export const QuotaLedgerSchema = SchemaFactory.createForClass(QuotaLedger);
+
+/**
+ * Per-circle, per-day model-call counter (§9.3).
+ *
+ * `_id` is `${circleId}:${YYYY-MM-DD}` rather than an ObjectId so the daily
+ * increment is a single upsert on a known key and the day boundary is explicit:
+ * there is no window arithmetic to get wrong and no document to roll over.
+ *
+ * Rows live 400 days so a term's spend is auditable afterwards; that TTL is a
+ * retention decision, not a cache eviction.
+ */
+@Schema({ collection: 'circle_daily_spend' })
+export class CircleDailySpend {
+  @Prop({ type: String }) _id!: string; // `${circleId}:${day}`
+  @Prop({ type: String, required: true }) circleId!: string;
+  @Prop({ type: String, required: true }) day!: string; // YYYY-MM-DD (UTC)
+  @Prop({ type: Number, default: 0 }) calls!: number;
+  /**
+   * TTL anchor. MongoDB only expires documents when the indexed field is a Date:
+   * a TTL index on the `day` string would build successfully and never delete
+   * anything, which is the quiet way retention silently stops working.
+   */
+  @Prop({ type: Date, required: true, default: () => new Date() }) createdAt!: Date;
+}
+export type CircleDailySpendDocument = CircleDailySpend & Document<string>;
+export const CircleDailySpendSchema = SchemaFactory.createForClass(CircleDailySpend);
+CircleDailySpendSchema.index({ circleId: 1, day: -1 });
+CircleDailySpendSchema.index({ createdAt: 1 }, { expireAfterSeconds: 400 * 24 * 60 * 60 });
 
 @Schema({ collection: 'llm_calls' })
 export class LlmCall {

@@ -68,7 +68,7 @@ export class CoachService {
 
   /** Explainer-tapped rephrase (1×C, ≤80 tokens). */
   async rephrase(sessionId: string, circleId: string, text: string, style: string, lang: string): Promise<{ suggestion: string }> {
-    if (!(await this.governor.reserve('C', sessionId))) {
+    if (!(await this.governor.reserve('C', sessionId, circleId))) {
       return { suggestion: text };
     }
     try {

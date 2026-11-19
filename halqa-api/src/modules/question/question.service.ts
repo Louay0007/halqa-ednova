@@ -154,11 +154,15 @@ export class QuestionService {
 
     // 3. Deep Dive queued ONLY on escalation.
     if (outcome.escalate) {
-      const queued = this.router.queueLarger(q.sessionId, {
-        step: 'deep_dive',
-        prompt: `Deep dive (≤150 words, ${lang}) for: """${clean.slice(0, 400)}"""\nUse claims from: ${outcome.cites.join(', ')}`,
-        maxTokens: 300,
-      });
+      const queued = this.router.queueLarger(
+        q.sessionId,
+        {
+          step: 'deep_dive',
+          prompt: `Deep dive (≤150 words, ${lang}) for: """${clean.slice(0, 400)}"""\nUse claims from: ${outcome.cites.join(', ')}`,
+          maxTokens: 300,
+        },
+        q.circleId,
+      );
       void queued.result
         .then(async (res) => {
           const r = res as { text: string };
@@ -180,7 +184,7 @@ export class QuestionService {
       await q.save();
       return;
     }
-    const reserved = await this.governor.reserve('C', q.sessionId);
+    const reserved = await this.governor.reserve('C', q.sessionId, q.circleId);
     if (!reserved) {
       q.quickTake = { failed: true, reason: 'quota-out' };
       await q.save();

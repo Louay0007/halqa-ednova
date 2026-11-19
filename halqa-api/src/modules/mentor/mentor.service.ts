@@ -70,7 +70,7 @@ export class MentorService {
     try {
       const view = await this.sbu.recompute(sessionId);
       const facts = `S=${view.S.toFixed(2)} B=${view.B.toFixed(2)} U=${view.U.toFixed(2)} needsHuman=${view.needsHuman}`;
-      if (await this.governor.reserve('C', sessionId)) {
+      if (await this.governor.reserve('C', sessionId, circleId)) {
         try {
           const res = await this.llm.compact({
             step: 'mentor_brief',

@@ -27,6 +27,7 @@
     "migrate:indexes": "ts-node -T scripts/migrate-indexes.ts",
     "reconcile:xp": "ts-node -T scripts/reconcile-xp.ts",
     "purge:learners": "ts-node -T scripts/purge-learners.ts",
+    "migrate": "ts-node -T scripts/migrate.ts",
     "mongo:roles": "mongosh \"$ADMIN_URI\" --file scripts/mongo-roles.js",
     "backup": "bash scripts/backup.sh"
   },

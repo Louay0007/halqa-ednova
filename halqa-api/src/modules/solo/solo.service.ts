@@ -87,7 +87,7 @@ export class SoloService {
 
     // C rephrase only (≤60 tokens), capped at 8/session by the governor.
     let novaTurn = HAT_PROBES[hat][n % HAT_PROBES[hat].length];
-    const reserved = await this.governor.reserve('C', sessionId);
+    const reserved = await this.governor.reserve('C', sessionId, session.circleId);
     if (reserved) {
       try {
         const res = await this.llm.compact({

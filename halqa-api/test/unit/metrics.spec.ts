@@ -18,6 +18,7 @@ describe('Prometheus metrics', () => {
       'halqa_settle_lag_seconds',
       'halqa_degradation_mode',
       'halqa_quota_remaining',
+      'halqa_circle_daily_calls',
     ]) {
       expect(body).toContain(name);
     }

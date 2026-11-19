@@ -62,7 +62,7 @@ export class AuditorService {
     }
 
     // 1×C bounded classify.
-    const reserved = await this.governor.reserve('C', q.sessionId);
+    const reserved = await this.governor.reserve('C', q.sessionId, q.circleId);
     if (!reserved) {
       // Quota out → resilient poll-first path, no model spent.
       return this.doubtful(q, peers[0].text, 'quota-out', 'quota');

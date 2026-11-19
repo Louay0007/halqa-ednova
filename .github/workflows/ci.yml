@@ -86,6 +86,17 @@ jobs:
         env:
           VITE_API_BASE: https://api.ci.invalid/api/v1
 
+      # §6.7: routing, 404, route gating and offline reload, against the production
+      # build. Playwright's `webServer` boots `vite preview` on that build itself,
+      # so no detached server is needed here. The flows that do need a live API
+      # skip by design — they run against staging, where there is a seeded backend
+      # to actually touch, and a green run against an unreachable API would read
+      # as coverage it does not have.
+      - name: E2E (no-backend checks)
+        run: npx playwright install --with-deps chromium && npm run e2e
+        env:
+          VITE_API_BASE: https://api.ci.invalid/api/v1
+
   # A clean clone used to fail to compile because routes/session/ was untracked.
   # This job exists to make that class of mistake impossible to merge again.
   clean-clone:

@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Playwright artifacts (traces, videos, screenshots from failed runs)
+test-results
+playwright-report
+blob-report

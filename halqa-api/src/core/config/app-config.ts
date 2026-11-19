@@ -10,6 +10,14 @@ const EnvSchema = z.object({
   LARGER_MODEL: z.string().default(''),
   QUOTA_C: z.coerce.number().int().min(1).default(20),
   QUOTA_L: z.coerce.number().int().min(0).default(5),
+  /**
+   * Per-circle daily model-call ceiling (§9.3). The per-session quota bounds one
+   * conversation; this bounds a class, because a single circle can open many
+   * sessions in a day and the per-session cap then multiplies instead of limiting.
+   * Ten squads of four against the session caps is already ~200 calls a day, so
+   * the default sits above normal classroom use and below a runaway loop.
+   */
+  CIRCLE_DAILY_CALLS: z.coerce.number().int().min(1).default(400),
   WINDOW_S: z.coerce.number().int().min(30).max(90).default(45),
   CHAOS_ENABLED: z
     .string()

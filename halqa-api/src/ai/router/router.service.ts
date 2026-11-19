@@ -162,14 +162,21 @@ export class RouterService {
     }
 
     // 3. Budget guard — deny path is explicit (fallback + meter + banner).
-    const reserved = await this.governor.reserve('C', sessionId);
+    const reserved = await this.governor.reserve('C', sessionId, input.circleId);
     if (!reserved) {
       await this.bus.emit({ sessionId, circleId, actor: 'system', type: 'quota_event', payload: { exhausted: true, tier: 'C' } });
       await this.degradation.evaluate({ bus: this.bus, sessionId, circleId, lAvailable: true, quotaExhausted: true, serviceDown: false });
       return { pulse: emptyPulse(input.lang), escalate: false, servedFromCache: false, quotaExhausted: true, confidence: 0, cites };
     }
 
-    // 4. The single C call.
+    // 4. The single C call. The day is counted before the provider is reached, so
+    //    a runaway loop is stopped by the circle ceiling rather than by the bill.
+    if (!(await this.governor.countCircleCall(input.circleId))) {
+      await this.governor.release('C', sessionId);
+      await this.bus.emit({ sessionId, circleId, actor: 'system', type: 'quota_event', payload: { exhausted: true, tier: 'C', scope: 'circle_day' } });
+      await this.degradation.evaluate({ bus: this.bus, sessionId, circleId, lAvailable: true, quotaExhausted: true, serviceDown: false });
+      return { pulse: emptyPulse(input.lang), escalate: false, servedFromCache: false, quotaExhausted: true, confidence: 0, cites };
+    }
     const req: LlmRequest = { step: 'group_pulse', prompt: this.buildPrompt(clean, input), maxTokens: 200 };
     let raw: string;
     try {
@@ -177,6 +184,7 @@ export class RouterService {
       raw = res.text;
     } catch (e) {
       await this.governor.release('C', sessionId);
+      await this.governor.uncountCircleCall(input.circleId);
       // A failing provider used to be invisible: the caller fell back quietly while
       // /degradation still reported green. Throttling is capacity trouble (ORANGE),
       // a transport/5xx outage is service-down (BLACK) — the banner must show it.
@@ -209,16 +217,27 @@ export class RouterService {
 
   /** L-path entry: goes through the FIFO queue (position + ETA) and a governor
    *  reservation. Callers retry once guided, then C fallback, then offline pack. */
-  queueLarger(sessionId: string, req: Parameters<ProviderAdapter['larger']>[0]): { result: Promise<unknown>; position: number; etaMs: number } {
+  queueLarger(
+    sessionId: string,
+    req: Parameters<ProviderAdapter['larger']>[0],
+    circleId?: string,
+  ): { result: Promise<unknown>; position: number; etaMs: number } {
     return this.queue.enqueue(req.step, 'L', async () => {
-      const ok = await this.governor.reserve('L', sessionId);
+      const ok = await this.governor.reserve('L', sessionId, circleId);
       if (!ok) throw new Error('L_QUOTA_EXHAUSTED');
+      // L calls count against the circle's day too: they are the expensive ones, so
+      // excluding them from the ceiling would let the cap be evaded by escalating.
+      if (!(await this.governor.countCircleCall(circleId))) {
+        await this.governor.release('L', sessionId);
+        throw new Error('CIRCLE_DAILY_CAP');
+      }
       try {
         const out = await this.adapter.larger(req);
         await this.governor.commit('L', sessionId);
         return out;
       } catch (e) {
         await this.governor.release('L', sessionId);
+        await this.governor.uncountCircleCall(circleId);
         throw e;
       }
     });
