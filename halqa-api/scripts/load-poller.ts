@@ -19,6 +19,8 @@
  * their own 1.5 s interval, all against the same small set of questions. That
  * means contention on the same documents, which is the real condition.
  */
+
+export {}; // module scope: keeps every script's top-level names its own
 const BASE = (process.env.BASE_URL ?? '').replace(/\/$/, '');
 const TOKEN = process.env.BASE_TOKEN ?? '';
 const SESSION = process.env.SESSION_ID ?? '';

@@ -17,6 +17,8 @@
  * Deliberately unauthenticated plus one authenticated path: the anonymous surface
  * is what a learner hits first, and it must work before anyone signs in.
  */
+
+export {}; // module scope: keeps every script's top-level names its own
 const BASE = (process.env.BASE_URL ?? '').replace(/\/$/, '');
 const API = `${BASE}/api/v1`;
 const TIMEOUT_MS = Number(process.env.SMOKE_TIMEOUT_MS ?? 10_000);
