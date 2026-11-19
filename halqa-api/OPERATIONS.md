@@ -9,7 +9,9 @@ The API runs as a least-privilege user that cannot drop collections, so a restor
 needs the migration user. Load the roles once per environment:
 
 ```bash
-ADMIN_URI='mongodb://admin:PASS@host:27017/admin' \
+# The URI is assembled from env vars rather than written with a password in it,
+# so this page never contains a credential and the secrets scan stays clean.
+export ADMIN_URI="mongodb://admin:${MONGO_ADMIN_PWD}@${MONGO_HOST}/admin"
 HALQA_API_PWD=... HALQA_BACKUP_PWD=... HALQA_MIGRATE_PWD=... \
   npm run mongo:roles
 ```
@@ -17,15 +19,16 @@ HALQA_API_PWD=... HALQA_BACKUP_PWD=... HALQA_MIGRATE_PWD=... \
 Nightly dump (read-only credential, 14-day retention):
 
 ```bash
-MONGODB_URI='mongodb://halqa_backup:PASS@host:27017/halqa?replicaSet=rs0' \
-  BACKUP_DIR=/var/backups/halqa npm run backup
+# halqa_backup is read-only, so a leaked backup credential cannot corrupt data.
+export MONGODB_URI="mongodb://halqa_backup:${HALQA_BACKUP_PWD}@${MONGO_HOST}/halqa?replicaSet=rs0"
+BACKUP_DIR=/var/backups/halqa npm run backup
 ```
 
 Restore:
 
 ```bash
 mongorestore --gzip --archive=/var/backups/halqa/halqa-<stamp>.archive.gz --drop \
-  --uri='mongodb://halqa_migrate:PASS@host:27017/halqa?replicaSet=rs0'
+  --uri="mongodb://halqa_migrate:${HALQA_MIGRATE_PWD}@${MONGO_HOST}/halqa?replicaSet=rs0"
 npm run migrate:indexes   # dumps do not carry indexes built since the dump
 npm run reconcile:xp      # verify the ledger still matches the read model
 ```

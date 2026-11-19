@@ -59,7 +59,11 @@ try {
   const hits = out
     .split('\n')
     .filter(Boolean)
-    .filter((l) => !l.includes('.env.example') && !l.includes('scan-secrets'));
+    .filter((l) => !l.includes('.env.example') && !l.includes('scan-secrets'))
+    // A shell-interpolated password is the form the runbook *should* use, and
+    // flagging it pushes people towards pasting a literal secret instead. Only a
+    // literal credential is a leak.
+    .filter((l) => !/[$][{]?[A-Z_]+[}]?/.test(l.split('@')[0]));
   if (hits.length > 0) {
     console.error(`[secrets-scan] FAIL credentialed mongo URI:\n${hits.join('\n')}`);
     failed = true;

@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
 # Dump the database to a timestamped archive, using the read-only backup user.
 #
-#   MONGODB_URI='mongodb://halqa_backup:PASS@host:27017/halqa?replicaSet=rs0' \
+#   export MONGODB_URI="mongodb://halqa_backup:$PWD_VAR@$HOST/halqa?replicaSet=rs0"
 #   BACKUP_DIR=/var/backups/halqa ./scripts/backup.sh
+#
+# No credential appears in this file: the URI is assembled by the caller, so the
+# secrets scan can stay strict without an allowlist for documentation.
 #
 # `--oplog` is not used because this runs against a replica set whose oplog would
 # only be useful for a point-in-time restore we do not implement; `--gzip` keeps
 # the archive small enough that a classroom-scale dump is a few hundred KB.
 #
 # Restoring:
-#   mongorestore --gzip --archive="$ARCHIVE" --drop \
-#     --uri='mongodb://halqa_migrate:PASS@host:27017/halqa?replicaSet=rs0'
+#   mongorestore --gzip --archive="$ARCHIVE" --drop --uri="$MIGRATE_URI"
 #
 # Retention is 14 days. Anything longer is a policy decision with a privacy
 # consequence (§8): the dump contains learner nicknames and session history, so
