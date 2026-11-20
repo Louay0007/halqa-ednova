@@ -20,6 +20,26 @@ describe('plainText', () => {
     expect(plainText('mrattba (bs-en-01، bs-fr-01) واخا.')).toBe('mrattba واخا.');
   });
 
+  it('drops an id the model wired in with an arrow', () => {
+    // Live deep dive, the arrow form — the third shape after `[…]` and `(…)`.
+    expect(plainText('هاد الشرط → bs-en-01 ضروري.')).toBe('هاد الشرط ضروري.');
+    expect(plainText('المقارنة bs-fr-01 → bs-en-03 → كتبدأ.')).toBe('المقارنة كتبدأ.');
+    expect(plainText('الخطوة التانية -> bs-en-03 ثم').replace(/\s+/g, ' ')).toBe('الخطوة التانية ثم');
+  });
+
+  it('drops a bare id left with no bracket or arrow', () => {
+    expect(plainText('كيستعمل bs-en-01 هنا')).toBe('كيستعمل هنا');
+  });
+
+  it('keeps a hyphenated term that only looks like an id', () => {
+    // One hyphen is not the id shape; `O(n log n)` and `base-2` are the content.
+    expect(plainText('اكتب base-2 في الجواب')).toBe('اكتب base-2 في الجواب');
+  });
+
+  it('drops a horizontal rule the model writes as a separator', () => {
+    expect(plainText('جواب\n---\nزيد')).toBe('جواب\nزيد');
+  });
+
   it('keeps a bracket that is not a citation', () => {
     // The example chunks are full of these, and they are the content.
     expect(plainText('7 في [1,3,5,7,9] هو 7')).toBe('7 في [1,3,5,7,9] هو 7');

@@ -39,19 +39,42 @@ function stripCitations(text: string): string {
   });
 }
 
-/** A bare id the model wrote without any bracket: `… أشار إلى bs-en-01 ثم`. */
-const BARE_ID = /(?:^|\s)([a-z][a-z0-9]*(?:-[a-z0-9]+){1,3})(?=\s|[.,;:!?؟،]|$)/gi;
+/** An id with at least two hyphens — `bs-en-01`, `frac-en-ex1`. "base-2" is not one. */
+const isBareId = (part: string): boolean =>
+  /\d/.test(part) && /^[a-z][a-z0-9]*(?:-[a-z0-9]+){2,3}$/i.test(part);
+
+/**
+ * The third form the model writes: the id joined to the sentence by an arrow —
+ * `… إلى هنا → bs-en-01`, `bs-fr-01 → bs-en-03 →`. The arrow is matched with the
+ * id so neither is left behind.
+ */
+function stripArrows(text: string): string {
+  return text
+    .replace(/(?:^|\s)(?:→|⟶|->)\s*([a-z][a-z0-9]*(?:-[a-z0-9]+){1,3})(?=\s|[.,;:!?؟،]|$)/gi,
+      (whole, id: string) => (isChunkId(id) ? ' ' : whole))
+    .replace(/(?:^|\s)([a-z][a-z0-9]*(?:-[a-z0-9]+){1,3})\s*(?:→|⟶|->)/gi,
+      (whole, id: string) => (isChunkId(id) ? ' ' : whole));
+}
+
+/** A bare id the model dropped into the sentence with no bracket and no arrow. */
+const BARE_ID = /(?:^|\s)([a-z][a-z0-9]*(?:-[a-z0-9]+){2,3})(?=\s|[.,;:!?؟،]|$)/gi;
 
 export function plainText(text: string | undefined | null): string {
   if (!text) return '';
-  return stripCitations(
-    text
-      .replace(/\*\*|__|`/g, '')
-      .replace(/^\s{0,3}#{1,6}\s+/gm, '')
-      .replace(/^\s*(?:[-*•]\s*|[-–—_]{3,}\s*$)/gm, '')
-      .replace(/^\s*\d+[.)]\s+/gm, ''),
+  return stripArrows(
+    stripCitations(
+      text
+        .replace(/\*\*|__|`/g, '')
+        .replace(/^\s{0,3}#{1,6}\s+/gm, '')
+        // The rule has to be tested before the bullet marker, or `---` is read
+        // as one bullet dash and two characters of prose survive. Its own line
+        // ending goes with it, so a separator does not become a blank line.
+        .replace(/^[ \t]{0,3}(?:[-–—_*][ \t]*){3,}\n?/gm, '')
+        .replace(/^\s*[-*•]\s+/gm, '')
+        .replace(/^\s*\d+[.)]\s+/gm, ''),
+    ),
   )
-    .replace(BARE_ID, (whole, id: string) => (isChunkId(id) ? ' ' : whole))
+    .replace(BARE_ID, (whole, id: string) => (isBareId(id) ? ' ' : whole))
     // Removing an id mid-sentence leaves a doubled space, and leaves a space in
     // front of the punctuation that followed it.
     .replace(/[ \t]{2,}/g, ' ')
