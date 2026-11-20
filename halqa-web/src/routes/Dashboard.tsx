@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ApiFailure, api } from '../lib/api';
 import { useSession } from '../lib/session';
 import { ErrorNote, SbuRings } from '../components/ui';
@@ -21,6 +22,9 @@ export function Dashboard() {
   const [data, setData] = useState<DashData | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  /** Separates "the server refused this account" from "the request failed".
+   *  Only the second is worth a Retry button. */
+  const [forbidden, setForbidden] = useState(false);
   /** learnerId → nickname, from the circle we are already a member of. The
    *  dashboard endpoint only returns ids, and ids are not something a mentor
    *  should have to read. */
@@ -34,7 +38,11 @@ export function Dashboard() {
       api
         .dashboard(circleId || undefined)
         .then((r) => setData(r.data as DashData))
-        .catch((e: ApiFailure) => setErr(e.body?.user_msg?.[lang] ?? t('load_failed', lang)))
+        .catch((e: ApiFailure) => {
+          // 403 is @Roles('mentor','admin') and cannot change on retry.
+          if (e.status === 403) setForbidden(true);
+          else setErr(e.body?.user_msg?.[lang] ?? t('load_failed', lang));
+        })
         .finally(() => setLoading(false)),
     [circleId, lang],
   );
@@ -45,6 +53,7 @@ export function Dashboard() {
 
   const retry = () => {
     setErr(null);
+    setForbidden(false);
     setLoading(true);
     void load();
   };
@@ -69,6 +78,20 @@ export function Dashboard() {
   const who = (id: string) => names[id] ?? id;
 
   if (loading && !data) return <div className="page"><div className="skel" style={{ height: 140 }} /></div>;
+
+  if (forbidden) {
+    return (
+      <div className="page dashboard">
+        <Reveal as="header" className="duo-head" index={0}>
+          <h1>{t('dash_forbidden_title', lang)}</h1>
+          <p className="muted">{t('dash_forbidden_body', lang)}</p>
+        </Reveal>
+        <Link className="btn" style={{ minHeight: 44 }} to="/me">
+          {t('go_to_me', lang)}
+        </Link>
+      </div>
+    );
+  }
 
   if (err && !data) {
     return (

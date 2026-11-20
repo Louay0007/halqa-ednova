@@ -78,13 +78,26 @@ export function Mentor() {
       <Reveal as="section" className="card choice-group" index={1}>
         <label htmlFor="mcircle">{t('code_label', lang)}</label>
         <div className="row">
-          <input id="mcircle" value={rawCode} onChange={(e) => setRawCode(e.target.value)} placeholder="C-…" translate="no" />
+          {/* The placeholder sat in a field narrower than itself, so it rendered
+              as "C-…" — a code that looks truncated before you type anything.
+              And a disabled Join said nothing about the one thing blocking it. */}
+          <input
+            id="mcircle"
+            value={rawCode}
+            onChange={(e) => setRawCode(e.target.value)}
+            placeholder={t('mentor_code_placeholder', lang)}
+            autoCapitalize="characters"
+            autoComplete="off"
+            spellCheck={false}
+            translate="no"
+          />
           {!joined && (
             <button type="button" className="btn btn-small" style={{ minHeight: 44 }} onClick={join} disabled={!rawCode.trim() || !learnerId}>
               {t('mentor_join', lang)}
             </button>
           )}
         </div>
+        {!joined && !learnerId && <p className="hint">{t('mentor_code_needs_account', lang)}</p>}
       </Reveal>
 
       {joined && (

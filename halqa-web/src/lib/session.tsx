@@ -1,7 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { Lang, Metrics } from '../lib/api';
+import type { DegradationMode, Lang } from '../lib/api';
 import { api, setUnauthorizedHandler, tokenStore } from '../lib/api';
 import { RTL } from '../lib/i18n';
+
+export interface SessionStatus {
+  degradation: DegradationMode;
+  quota: { cUsed: number; lUsed: number; cCap: number; lCap: number } | null;
+}
 
 interface SessionCtx {
   lang: Lang;
@@ -17,7 +22,8 @@ interface SessionCtx {
   setJoinCode: (code: string) => void;
   sessionId: string;
   setSessionId: (id: string) => void;
-  metrics: Metrics | null;
+  /** Degradation mode and this session's quota — what a learner may see. */
+  status: SessionStatus | null;
   authed: boolean;
   login: (token: string, learnerId: string) => void;
   logout: () => void;
@@ -37,7 +43,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [circleId, setCircleIdState] = useState(() => sessionStorage.getItem('halqa.circle') ?? '');
   const [joinCode, setJoinCodeState] = useState(() => sessionStorage.getItem('halqa.joincode') ?? '');
   const [sessionId, setSessionIdState] = useState(() => sessionStorage.getItem('halqa.session') ?? '');
-  const [metrics, setMetrics] = useState<Metrics | null>(null);
+  const [status, setStatus] = useState<SessionStatus | null>(null);
   const [authed, setAuthed] = useState(() => tokenStore.get().length > 0);
 
   const setLang = useCallback((l: Lang) => {
@@ -96,14 +102,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     document.documentElement.dir = RTL.includes(lang) ? 'rtl' : 'ltr';
   }, [lang]);
 
+  /*
+   * The banner and the quota meter used to poll `GET /metrics`, which is
+   * `@Roles('mentor','admin')`. A learner therefore 403'd on every tick: the
+   * degradation banner could never leave green, and the budget card never
+   * rendered because the quota list was always empty. This polls the
+   * learner-scoped route instead, which is the same two fields.
+   */
   useEffect(() => {
-    if (!tokenStore.get()) return;
+    if (!tokenStore.get() || !sessionId) return;
     let dead = false;
     const tick = () => {
       api
-        .metrics(sessionId || undefined)
+        .sessionStatus(sessionId)
         .then((r) => {
-          if (!dead) setMetrics(r.data);
+          if (!dead) setStatus(r.data);
         })
         .catch(() => undefined);
     };
@@ -121,8 +134,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [sessionId]);
 
   const value = useMemo(
-    () => ({ lang, setLang, learnerId, setLearnerId, circleId, setCircleId, joinCode, setJoinCode, sessionId, setSessionId, metrics, authed, login, logout }),
-    [lang, setLang, learnerId, setLearnerId, circleId, setCircleId, joinCode, setJoinCode, sessionId, setSessionId, metrics, authed, login, logout],
+    () => ({ lang, setLang, learnerId, setLearnerId, circleId, setCircleId, joinCode, setJoinCode, sessionId, setSessionId, status, authed, login, logout }),
+    [lang, setLang, learnerId, setLearnerId, circleId, setCircleId, joinCode, setJoinCode, sessionId, setSessionId, status, authed, login, logout],
   );
 
   return (

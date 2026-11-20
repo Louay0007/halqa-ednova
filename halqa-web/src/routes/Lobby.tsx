@@ -32,24 +32,32 @@ export function Lobby() {
     setCircleId(circleId);
     api
       .circleGet(circleId)
-      .then(async (r) => {
+      .then((r) => {
         setCircle(r.data);
         // Keeps the header chip/QR shareable after a page reload, not only right
         // after create/join.
         setJoinCode(r.data.joinCode);
-        const next: Record<string, string> = {};
-        for (const m of r.data.members) {
-          try {
-            const c = await api.explainCard(m.learnerId);
-            if (c.data.visible) next[m.learnerId] = c.data.card;
-          } catch {
-            /* opt-in: hidden cards stay hidden */
-          }
-        }
-        setCards(next);
       })
       .catch((e: ApiFailure) => setErr(e.body?.user_msg?.[lang] ?? '—'));
   }, [circleId, lang, setCircleId, setJoinCode]);
+
+  // Roster cards in one call. Hidden cards stay hidden — `visible` is the
+  // backend's opt-in check, so the client never decides who is exposing one.
+  useEffect(() => {
+    if (!circle) return;
+    let dead = false;
+    api
+      .circleExplainCards(circleId)
+      .then((r) => {
+        if (dead) return;
+        const shown = Object.entries(r.data).filter(([, c]) => c.visible && c.card);
+        setCards(Object.fromEntries(shown.map(([id, c]) => [id, c.card])));
+      })
+      .catch(() => undefined);
+    return () => {
+      dead = true;
+    };
+  }, [circle, circleId]);
 
   // The circle's own context decides its agenda; read it from the circle we
   // just loaded so the preview matches the session about to start.
@@ -123,11 +131,11 @@ export function Lobby() {
             return (
               <li key={m.learnerId} className={`card member roster-member${host ? ' roster-host' : ''}`}>
                 <span className="member-glyph" aria-hidden="true" translate="no">{iconFor(m.avatarKey)}</span>
-                <strong translate="no">{m.nickname ?? m.learnerId}</strong>
+                <strong dir="auto" translate="no">{m.nickname ?? m.learnerId}</strong>
                 {host && <span className="host-crown" title={t('host', lang)} aria-label={t('host', lang)}>♛</span>}
                 <span className="muted">{roleLabel(m.role, lang)}</span>
                 {cards[m.learnerId] && (
-                  <blockquote className="explain-card roster-explain" translate="no">{cards[m.learnerId]}</blockquote>
+                  <blockquote className="explain-card roster-explain" dir="auto" translate="no">{cards[m.learnerId]}</blockquote>
                 )}
               </li>
             );

@@ -256,12 +256,37 @@ legend { font-weight: 700; color: var(--navy); padding: 0; margin-bottom: 0.4rem
 
 /* Session room */
 .room-grid { display: grid; gap: 1rem; }
+/* Below 1024px the room is one column and the DOM order stacked the whole
+   agenda rail above the feed, so a learner opening the circle saw the plan and
+   the roster before a single question. The feed is the page's job, so it comes
+   first; the rails follow it. */
+@media (max-width: 1023px) {
+  .room-grid > .feed { order: -1; }
+  .room-grid > .rail { order: 0; }
+}
 @media (min-width: 1024px) {
   .room-grid { grid-template-columns: 0.85fr 1.5fr 0.85fr; align-items: start; }
 }.rail { display: flex; flex-direction: column; gap: 1rem; }
 .feed { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
-.composer textarea { min-height: 3.2rem; resize: vertical; }
+/* The composer stacks label → textarea → meta → actions. Its fields were never
+   given `display: block` / full width, so the inline textarea sat beside its own
+   label and the two overlapped on every screen size. */
+.composer { display: flex; flex-direction: column; gap: 0.6rem; }
+.composer > label { font-weight: 700; }
+.composer textarea {
+  display: block;
+  width: 100%;
+  min-height: 3.2rem;
+  resize: vertical;
+  font: inherit;
+  color: var(--ink);
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  background: #fff;
+}
 .composer-meta { display: flex; gap: 0.6rem; flex-wrap: wrap; min-height: 1em; }
+.composer-meta:empty { display: none; }
 .composer .hint.ok { color: var(--green); font-weight: 700; }
 .check { display: inline-flex; gap: 0.4rem; align-items: center; min-height: 44px; }
 .check input { width: 1.2rem; height: 1.2rem; }
@@ -280,6 +305,20 @@ legend { font-weight: 700; color: var(--navy); padding: 0; margin-bottom: 0.4rem
 .qstate { font-size: var(--text-small); color: var(--muted); font-weight: 800; }
 .peers-first { font-weight: 700; color: var(--navy); }
 .verified { color: var(--green); font-weight: 700; }
+/* Peer answer row: input and submit share one line, and the submit is labelled
+   with an icon next to a word rather than a lone ✓ floating under the field. */
+.peer-composer { display: flex; flex-direction: row; align-items: stretch; gap: 0.5rem; }
+.peer-composer input {
+  flex: 1 1 auto;
+  min-width: 0;
+  font: inherit;
+  color: var(--ink);
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  background: #fff;
+}
+.peer-composer button[type='submit'] { flex: 0 0 auto; }
 .peerfirst { background: color-mix(in srgb, var(--green) 15%, #fff); border-radius: var(--radius-pill); padding: 0.1rem 0.5rem; font-size: var(--text-small); }
 .needs-human { color: #b25a1b; font-weight: 700; }
 .card.needs-human { border-color: var(--plum); animation: human-pulse 2s ease-in-out infinite; }
@@ -347,7 +386,11 @@ legend { font-weight: 700; color: var(--navy); padding: 0; margin-bottom: 0.4rem
 .step:active { transform: scale(0.93); }
 .step-on { border-color: var(--aqua); }
 .poll { border-top: 2px solid var(--line); padding-top: 0.6rem; }
-.deepdive { border-inline-start: 4px solid var(--gold); padding-inline-start: 0.6rem; }
+.deepdive { border-inline-start: 4px solid var(--gold); padding-inline-start: 0.6rem; display: grid; gap: 0.45rem; }
+/* A deep dive is several paragraphs; with the page's default paragraph margin
+   each one opened a gap wide enough to read as a new card. */
+.deepdive p { margin: 0; }
+.deepdive p:first-of-type { font-weight: 700; }
 .credits { list-style: none; padding: 0; display: grid; gap: 0.4rem; margin: 0; }
 .credits li { display: grid; grid-template-columns: auto 1fr auto; gap: 0.5rem; align-items: center; }
 .credits .bar { height: 0.5rem; background: var(--line); border-radius: var(--radius-pill); overflow: hidden; }
@@ -720,7 +763,8 @@ body.dyslexia { letter-spacing: 0.04em; word-spacing: 0.08em; line-height: 1.8; 
 .capsule-visual { display: flex; gap: 0.6rem; align-items: flex-start; padding: 0.6rem 0.8rem; border: 1px dashed var(--line); border-radius: 10px; background: color-mix(in srgb, var(--aqua) 5%, var(--card)); }
 .capsule-visual span { color: var(--aqua-ink); font-size: 1.4rem; }
 .capsule-visual p { margin: 0; }
-.capsule-next { color: var(--navy); }
+.capsule-next { color: var(--navy); display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: baseline; }
+.capsule-next > span { flex: 1 1 12rem; min-width: 0; }
 .quiz-result { font-weight: 700; color: var(--muted); }
 .quiz-correct { color: var(--green); }
 .whisper-repair { margin-top: 0.75rem; }
@@ -738,6 +782,20 @@ body.dyslexia { letter-spacing: 0.04em; word-spacing: 0.08em; line-height: 1.8; 
 .chip { display: inline-block; padding: 0.1rem 0.5rem; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--aqua) 10%, var(--card)); border: 1px solid var(--line); font-size: var(--text-micro); font-weight: 700; }
 .empty-board { grid-column: 1 / -1; }
 .observer { color: var(--plum); font-weight: 700; background: color-mix(in srgb, var(--plum) 10%, var(--card)); border-radius: 8px; padding: 0.5rem 0.7rem; }
+/* The code field had no width of its own, so it sized to the browser default
+   and clipped its own placeholder. It holds a 6-character code — give it room
+   for that plus the placeholder, and let the join button sit beside it. */
+.mentor .choice-group > .row > input {
+  flex: 1 1 12rem;
+  min-width: 0;
+  min-height: 44px;
+  font: inherit;
+  color: var(--ink);
+  border: 2px solid var(--line);
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  background: #fff;
+}
 .mentor-brief { border-inline-start: 4px solid var(--plum); }
 .mentor-notes { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.4rem; }
 .mentor-note { padding: 0.5rem 0.7rem; background: color-mix(in srgb, var(--plum) 8%, var(--card)); border-radius: 8px; }
@@ -771,9 +829,11 @@ body.dyslexia { letter-spacing: 0.04em; word-spacing: 0.08em; line-height: 1.8; 
 .lshare-target { position: absolute; inset-block: 0; inset-inline-start: 25%; width: 2px; background: var(--gold); }
 .lshare-marker { position: absolute; inset-inline-start: calc(25% + 4px); top: 2px; font-size: var(--text-micro); font-weight: 800; color: var(--navy); }
 .meters { display: grid; gap: 0.5rem; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); margin: 0; }
-.meters div { border: 1px solid var(--line); border-radius: 10px; padding: 0.5rem 0.7rem; }
+.meters div { border: 1px solid var(--line); border-radius: 10px; padding: 0.5rem 0.7rem; min-width: 0; }
 .meters dt { color: var(--muted); font-size: var(--text-micro); }
-.meters dd { margin: 0.15rem 0 0; font-weight: 800; color: var(--navy); }
+/* A key:value list of fallback counts has no spaces to break on, so the tile's
+   value ran out of its own cell and over the next one. */
+.meters dd { margin: 0.15rem 0 0; font-weight: 800; color: var(--navy); overflow-wrap: anywhere; }
 .mode-pill { border-radius: var(--radius-pill); padding: 0.1rem 0.6rem; font-size: var(--text-small); font-weight: 900; }
 .mode-green { background: color-mix(in srgb, var(--green) 20%, var(--card)); color: var(--green); }
 .mode-orange { background: color-mix(in srgb, var(--amber) 25%, var(--card)); color: #8a530c; }
@@ -883,12 +943,6 @@ body.dyslexia { letter-spacing: 0.04em; word-spacing: 0.08em; line-height: 1.8; 
   gap: 1rem;
   min-width: 0;
 }
-.peer-composer {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
 /* --- Board + matcher --------------------------------------------------- */
 .board,
 .matcher {
@@ -921,6 +975,44 @@ body.dyslexia { letter-spacing: 0.04em; word-spacing: 0.08em; line-height: 1.8; 
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--muted);
+}
+/* On a phone the three columns do not fit: the step names wrapped mid-word and
+   the "why" column was cut off at the card edge, with only a horizontal scroll
+   to reach it. Each row becomes a labelled stack instead — the header cells go
+   away and every cell carries its own label from `data-label`. */
+@media (max-width: 639px) {
+  .route-table .rtable,
+  .route-table .rtable tbody,
+  .route-table .rtable tr,
+  .route-table .rtable td {
+    display: block;
+  }
+  .route-table .rtable thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+  .route-table .rtable tr {
+    padding: 0.55rem 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .route-table .rtable td {
+    display: grid;
+    grid-template-columns: 4.5rem 1fr;
+    gap: 0.5rem;
+    padding: 0.15rem 0;
+    border-bottom: 0;
+  }
+  .route-table .rtable td::before {
+    content: attr(data-label);
+    font-size: var(--text-micro);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    padding-top: 0.15rem;
+  }
 }
 
 /* --- Solo -------------------------------------------------------------- */

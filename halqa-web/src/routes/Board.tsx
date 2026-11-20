@@ -71,7 +71,7 @@ export function Board() {
             <div className="match-chips">
               {g.learnerIds.map((l) => <span key={l} className="chip" translate="no">{l}</span>)}
             </div>
-            <p className="muted" translate="no">{g.rationale}</p>
+            <p className="muted" dir="auto" translate="no">{g.rationale}</p>
           </div>
         ))}
         {err && <ErrorNote code="MATCH" msg={err} retryable={false} />}
@@ -83,7 +83,10 @@ export function Board() {
             {/* The topic is the circle's name to a human; the id is a reference,
                 so it moves to a muted line under it instead of being the <h2>. */}
             <h2>{topicLabel(c.topic, lang)}</h2>
-            <p className="hint tnum" translate="no">{c.id}</p>
+            <p className="hint">
+              <span className="muted">{t('circle_ref', lang)}</span>{' '}
+              <span className="tnum" translate="no">{c.id}</span>
+            </p>
             {c.noSession ? (
               <span className="muted">{t('no_session', lang)}</span>
             ) : (

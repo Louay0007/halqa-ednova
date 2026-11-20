@@ -21,7 +21,7 @@ import { CreditBar, RingsLegend } from './session/Shared';
 
 export function SessionRoom() {
   const { circleId = '', sessionId = '' } = useParams();
-  const { lang, learnerId, setCircleId, setSessionId, metrics } = useSession();
+  const { lang, learnerId, setCircleId, setSessionId, status } = useSession();
   const [health, setHealth] = useState<Health | null>(null);
   const [credits, setCredits] = useState<Array<{ learnerId: string; total: number }>>([]);
   const [questions, setQuestions] = useState<string[]>([]);
@@ -115,7 +115,7 @@ export function SessionRoom() {
     };
   }, [circleId, sessionId, lang]);
 
-  const usage = metrics?.quotaUsage.find((u) => u.sessionId === sessionId);
+  const usage = status?.quota ?? undefined;
 
   return (
     <div className="page room">
@@ -174,7 +174,7 @@ export function SessionRoom() {
             </Reveal>
           )}
           <Reveal as="section" className="card" index={1}>
-            <h2>{t('members', lang)}</h2>
+            <h2>{t('credits', lang)}</h2>
             <CreditBar credits={credits} names={names} />
           </Reveal>
           {usage && (

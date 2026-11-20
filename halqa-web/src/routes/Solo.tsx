@@ -16,7 +16,7 @@ const HATS = [
 const MAX_TURNS = 8;
 
 export function Solo() {
-  const { lang, learnerId, metrics } = useSession();
+  const { lang, learnerId, status } = useSession();
   const [sid, setSid] = useState('');
   const [hat, setHat] = useState('NOVA_NOVICE');
   const [thread, setThread] = useState<Array<{ who: string; text: string }>>([]);
@@ -58,7 +58,7 @@ export function Solo() {
     }
   };
 
-  const usage = metrics?.quotaUsage.find((u) => u.sessionId === sid);
+  const usage = status?.quota ?? undefined;
   const turnsDone = Math.round(progress * MAX_TURNS);
 
   return (

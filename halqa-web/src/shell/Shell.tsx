@@ -25,7 +25,7 @@ function NightField() {
 const UNGATED = ['/', '/enter'];
 
 export function Shell({ children }: { children: React.ReactNode }) {
-  const { lang, setLang, learnerId, circleId, joinCode, sessionId, metrics } = useSession();
+  const { lang, setLang, learnerId, circleId, joinCode, sessionId, status } = useSession();
   /** Health keyed by circle id: switching circles (or leaving one) reads as
    *  "no health yet" without a synchronous setState inside the poller effect. */
   const [healthFor, setHealthFor] = useState<{ circleId: string; data: Health } | null>(null);
@@ -56,8 +56,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
   }, [loc.pathname]);
 
   // Circle health — 5s poller, paused while hidden (spec §3.1 header rings).
+  // Gated on the session: a circle with no session yet has no S/B/U to report,
+  // and the endpoint answers 404 `NO_SESSION` — so opening a circle that had
+  // not started logged an error every 5 s and the rings never appeared.
   useEffect(() => {
-    if (!circleId) return;
+    if (!circleId || !sessionId) return;
     let dead = false;
     const tick = () => {
       if (document.hidden) return;
@@ -74,12 +77,12 @@ export function Shell({ children }: { children: React.ReactNode }) {
       dead = true;
       clearInterval(id);
     };
-  }, [circleId]);
+  }, [circleId, sessionId]);
 
   const health = healthFor && healthFor.circleId === circleId ? healthFor.data : null;
-  const mode = metrics?.degradation ?? 'green';
+  const mode = status?.degradation ?? 'green';
   const banner = degradationCopy(mode, lang);
-  const usage = sessionId ? metrics?.quotaUsage.find((u) => u.sessionId === sessionId) : undefined;
+  const usage = status?.quota ?? undefined;
   const params = new URLSearchParams(loc.search);
   const lab = params.has('lab');
   // Board/Lab are workshop surfaces (spec §3.1) — hidden from plain learners.

@@ -11,6 +11,7 @@ type PrivateView = {
 import { useSession } from '../../lib/session';
 import { stageLabel, stateLabel, t, tierLabel } from '../../lib/i18n';
 import { useSectionReveal } from '../../lib/motion';
+import { plainParagraphs, plainText } from '../../lib/plain-text';
 import { CiteChips, CountdownRing, ErrorNote, HatChip } from '../../components/ui';
 
 /** R7 center feed — the CF-AS state machine: composer, countdown, peer window,
@@ -185,7 +186,7 @@ export function QuestionCard({ qid }: { qid: string }) {
         <HatChip hat={view.state === 'RESOLVED' ? 'Tutor' : 'Facilitator'} />
         {view.state === 'OPEN' && view.windowEndsAt && <CountdownRing endsAt={view.windowEndsAt} />}
       </header>
-      {view.text && <p className="qtext" translate="no">{view.text}</p>}
+      {view.text && <p className="qtext" dir="auto" translate="no">{view.text}</p>}
       {view.state === 'OPEN' && <OpenBody qid={qid} view={view} />}
       {view.state === 'NOVA_THINKING' && (isAsker ? <ThinkingSteps stages={priv?.stages ?? []} /> : <PeerThinking />)}
       {view.state === 'RESOLVED' && <ResolvedBody qid={qid} view={view} priv={priv} />}
@@ -232,7 +233,7 @@ export function OpenBody({ qid, view }: { qid: string; view: QuestionState }) {
         </label>
         <input id={`peer-${qid}`} value={peerText} onChange={(e) => setPeerText(e.target.value)} placeholder={t('i_can_help', lang)} />
         <button type="submit" className="btn btn-small" style={{ minHeight: 44 }} disabled={peerText.trim().length === 0}>
-          ✓
+          {t('send_answer', lang)}
         </button>
       </form>
       <span className="muted tnum" aria-live="polite">
@@ -322,7 +323,7 @@ export function ResolvedBody({ qid, view, priv }: { qid: string; view: QuestionS
     <div className="stack">
       {view.resolution === 'peers_verified' && (
         <>
-          <p className="answer-text" translate="no">{answer?.text}</p>
+          <p className="answer-text" dir="auto" translate="no">{plainText(answer?.text)}</p>
           <p className="verified">
             ✓ {t('verified', lang)} {view.peerFirst && <span className="tier-chip">{t('peer_first_rate', lang)}</span>}
           </p>
@@ -331,7 +332,7 @@ export function ResolvedBody({ qid, view, priv }: { qid: string; view: QuestionS
       )}
       {view.resolution === 'hint_path' && (
         <>
-          {answer?.text && <p className="answer-text" translate="no">{answer.text}</p>}
+          {answer?.text && <p className="answer-text" dir="auto" translate="no">{plainText(answer.text)}</p>}
           <div className="ladder" role="group" aria-label={t('hint_ladder', lang)}>
             {[1, 2, 3, 4].map((l) => {
               const locked = l === 4 && taken < 3;
@@ -357,7 +358,7 @@ export function ResolvedBody({ qid, view, priv }: { qid: string; view: QuestionS
           </div>
           {hints.map((h) => (
             <p key={h.level} className="hint-block">
-              <strong className="tnum">H{h.level}</strong> <span translate="no">{h.text}</span>
+              <strong className="tnum">H{h.level}</strong> <span dir="auto" translate="no">{plainText(h.text)}</span>
             </p>
           ))}
           {hintErr && <ErrorNote code="HINT" msg={hintErr} retryable={false} />}
@@ -366,8 +367,8 @@ export function ResolvedBody({ qid, view, priv }: { qid: string; view: QuestionS
       )}
       {view.resolution === 'skip_direct' && (
         <>
-          <p className="answer-text" translate="no">
-            {isTruncated && !full ? `${answer?.text.slice(0, 600)}…` : answer?.text}
+          <p className="answer-text" dir="auto" translate="no">
+            {isTruncated && !full ? `${plainText(answer?.text).slice(0, 600)}…` : plainText(answer?.text)}
           </p>
           {isTruncated && (
             <button type="button" className="linkish" style={{ minHeight: 44 }} onClick={() => setFull((f) => !f)}>
@@ -387,7 +388,9 @@ export function ResolvedBody({ qid, view, priv }: { qid: string; view: QuestionS
       {priv?.deepDiveReady && priv.deepDive && (
         <aside className="deepdive">
           <strong>✨</strong>
-          <p translate="no">{priv.deepDive.text}</p>
+          {plainParagraphs(priv.deepDive.text).map((p, i) => (
+            <p key={i} dir="auto" translate="no">{p}</p>
+          ))}
           <CiteChips cites={priv.deepDive.cites} />
         </aside>
       )}
@@ -450,7 +453,7 @@ export function PollBox({ pid }: { pid: string }) {
       )}
       {winner && (
         <p className="poll-winner">
-          {t('winner', lang)}: <strong translate="no">{winner}</strong>
+          {t('winner', lang)}: <strong dir="auto" translate="no">{winner}</strong>
         </p>
       )}
     </div>

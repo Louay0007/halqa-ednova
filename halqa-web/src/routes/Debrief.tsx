@@ -1,10 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ApiFailure, api, type Capsule } from '../lib/api';
 import { useSession } from '../lib/session';
 import { ErrorNote, HatChip, SbuRings } from '../components/ui';
 import { Reveal } from '../lib/motion';
 import { t } from '../lib/i18n';
+import { plainText } from '../lib/plain-text';
+
+/** KB chunk ids look like `bs-darija-03`: a short slug pair and a number. */
+const LOOKS_LIKE_ID = /^[a-z]{2,4}-[a-z]{2,8}-\d{1,3}$/i;
 
 interface EndSummary {
   endedAt?: string;
@@ -32,21 +36,28 @@ export function Debrief() {
   const [topic, setTopic] = useState('binary_search');
   const [summary, setSummary] = useState<EndSummary | null>(null);
 
+  /** The capsule is a model call and can fail on its own, so it needs its own
+   *  retry. The old "Réessayer" only cleared the message, leaving an empty card
+   *  and no way to ask again. */
+  const buildCapsule = useCallback(() => {
+    setBuilding(true);
+    setErr(null);
+    return api
+      .capsuleBuild(sessionId)
+      .then((r) => setCapsule(r as unknown as Capsule))
+      .catch((e: ApiFailure) => setErr(e.body?.user_msg?.[lang] ?? '—'))
+      .finally(() => setBuilding(false));
+  }, [sessionId, lang]);
+
   useEffect(() => {
     api.circleGet(circleId).then((r) => r.data?.topic && setTopic(r.data.topic)).catch(() => undefined);
     api
       .sessionEnd(sessionId) // idempotent server-side
       .then((r) => setSummary(r as unknown as EndSummary))
       .catch(() => undefined)
-      .finally(() =>
-        api
-          .capsuleBuild(sessionId)
-          .then((r) => setCapsule(r as unknown as Capsule))
-          .catch((e: ApiFailure) => setErr(e.body?.user_msg?.[lang] ?? '—'))
-          .finally(() => setBuilding(false)),
-      );
+      .finally(() => void buildCapsule());
     if (learnerId) api.progress().then((r) => setXp(r.data)).catch(() => undefined);
-  }, [sessionId, circleId, lang, learnerId]);
+  }, [sessionId, circleId, lang, learnerId, buildCapsule]);
 
   const startBattle = async () => {
     setErr(null);
@@ -111,12 +122,14 @@ export function Debrief() {
         <h1>{t('debrief_title', lang)}</h1>
         <p className="muted">{t('debrief_sub', lang)}</p>
       </Reveal>
-      {err && <ErrorNote code="DEBRIEF" msg={err} retryable onRetry={() => setErr(null)} />}
+      {err && <ErrorNote code="DEBRIEF" msg={err} retryable onRetry={() => void buildCapsule()} />}
 
       <Reveal as="section" className="card capsule-card" index={1} aria-busy={building}>
         <header className="row">
           <HatChip hat="Facilitator" />
-          <span className="muted tnum">{capsule ? `${capsule.tier} · +${capsule.xp_earned} XP` : '…'}</span>
+          {/* A bare "…" is what a failed build left behind — a tier that never
+              arrived, reading as a value. Only name it when there is one. */}
+          {capsule && <span className="muted tnum">{`${capsule.tier} · +${capsule.xp_earned} XP`}</span>}
         </header>
         <h2>{t('capsule', lang)}</h2>
         {building ? (
@@ -127,26 +140,43 @@ export function Debrief() {
           </>
         ) : capsule ? (
           <>
+            {/* `dir="auto"` per item: the page is LTR even when the capsule is
+                Arabic, so without it a bullet containing `[1,3,5,7,9]` laid the
+                bracket out LTR inside RTL prose and mirrored the run. */}
             <ol className="capsule-bullets">
-              {capsule.bullets.map((b, i) => <li key={i} translate="no">{b}</li>)}
+              {capsule.bullets.map((b, i) => <li key={i} dir="auto" translate="no">{plainText(b)}</li>)}
             </ol>
             <div className="capsule-visual">
               <span aria-hidden="true">▧</span>
-              <p translate="no">{capsule.visual_desc}</p>
+              <p dir="auto" translate="no">{capsule.visual_desc}</p>
             </div>
-            <p className="capsule-next"><strong>{t('next_step', lang)}:</strong> <span translate="no">{capsule.next_step}</span></p>
-            {capsule.mini_quiz?.length > 0 && (
-              <>
-                <h3 className="capsule-quiz-title">{t('mini_quiz', lang)}</h3>
-                <ol className="capsule-quiz">
-                  {capsule.mini_quiz.map((q, i) => (
-                    <li key={i} translate="no">{q}</li>
-                  ))}
-                </ol>
-              </>
-            )}
+            {/* The value can be RTL while the label is LTR; without isolation the
+                mixed run reorders and the colon lands inside the Arabic text. */}
+            <p className="capsule-next">
+              <strong>{t('next_step', lang)}</strong>
+              <span dir="auto" translate="no">{capsule.next_step}</span>
+            </p>
+            {/* Capsules built before the service shipped probe text hold chunk
+                ids (`bs-darija-03`), which mean nothing to a learner — those
+                are dropped rather than printed. */}
+            {(() => {
+              const probes = (capsule.mini_quiz ?? []).filter((q) => !LOOKS_LIKE_ID.test(q));
+              if (probes.length === 0) return null;
+              return (
+                <>
+                  <h3 className="capsule-quiz-title">{t('mini_quiz', lang)}</h3>
+                  <ol className="capsule-quiz">
+                    {probes.map((q, i) => (
+                      <li key={i} dir="auto" translate="no">{plainText(q)}</li>
+                    ))}
+                  </ol>
+                </>
+              );
+            })()}
           </>
-        ) : null}
+        ) : (
+          <p className="muted">{t('capsule_empty', lang)}</p>
+        )}
       </Reveal>
 
       <Reveal as="section" className="card" index={2}>
@@ -158,7 +188,7 @@ export function Debrief() {
             const ans = answers[it.qid];
             return (
               <div key={it.qid} className="quiz-item">
-                <p translate="no">{it.stem}</p>
+                <p dir="auto" translate="no">{it.stem}</p>
                 <div className="row">
                   {it.choices.map((c) => (
                     <button
@@ -178,7 +208,7 @@ export function Debrief() {
                 </div>
                 {ans && (
                   <p className={`quiz-result${ans.correct ? ' quiz-correct' : ''}`}>
-                    {ans.correct ? t('battle_win', lang) : t('battle_retry', lang)} · <span translate="no">{ans.explain}</span>
+                    {ans.correct ? t('battle_win', lang) : t('battle_retry', lang)} · <span dir="auto" translate="no">{ans.explain}</span>
                   </p>
                 )}
               </div>

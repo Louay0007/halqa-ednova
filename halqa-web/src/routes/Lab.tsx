@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, type DegradationMode, type Metrics } from '../lib/api';
+import { api, type ApiFailure, type DegradationMode, type Metrics } from '../lib/api';
 import { useSession } from '../lib/session';
 import { Reveal } from '../lib/motion';
 import { t } from '../lib/i18n';
@@ -27,9 +27,15 @@ export function Lab() {
   const [mode, setMode] = useState<DegradationMode>('green');
   const [events, setEvents] = useState<Array<{ ts: string; actor: string; type: string; payload?: Record<string, unknown> }>>([]);
   const [replaying, setReplaying] = useState(false);
+  const [forbidden, setForbidden] = useState(false);
 
   const load = useCallback(() => {
-    api.metrics(sessionId || undefined).then((r) => setM(r.data)).catch(() => undefined);
+    // `/metrics` is mentor/admin only. Lab is reachable by a plain learner, and
+    // the poll used to 403 for them on every tick with nothing said about it.
+    api
+      .metrics(sessionId || undefined)
+      .then((r) => { setM(r.data); setForbidden(false); })
+      .catch((e: ApiFailure) => { if (e.status === 403) setForbidden(true); });
     api.degradation().then((r) => setMode(r.data.mode)).catch(() => undefined);
     if (sessionId) api.events(sessionId, 60).then((r) => setEvents(r.data)).catch(() => undefined);
   }, [sessionId]);
@@ -76,12 +82,12 @@ export function Lab() {
             <tbody>
               {STEPS.map((s) => (
                 <tr key={s.step}>
-                  <td translate="no">{s.step}</td>
+                  <td translate="no" data-label={t('step', lang)}>{s.step}</td>
                   {/* `tier-${s.tier[0]}` produced tier-c / tier-l / tier-1 / tier-t,
                       none of which any stylesheet defines — a class that only
                       ever matched nothing. The chip is styled by .tier-chip. */}
-                  <td><span className="tier-chip" translate="no">{s.tier}</span></td>
-                  <td>{t(s.why, lang)}</td>
+                  <td data-label={t('tier', lang)}><span className="tier-chip" translate="no">{s.tier}</span></td>
+                  <td data-label={t('why', lang)}>{t(s.why, lang)}</td>
                 </tr>
               ))}
             </tbody>
@@ -89,7 +95,12 @@ export function Lab() {
         </div>
       </Reveal>
 
-      <Reveal as="section" className="card lshare" index={2}>
+      {/* The two cards below are `/metrics` data. A learner sees the route table
+          and the chaos console — the parts that explain the system — instead of
+          two permanent skeletons for numbers they are not allowed to read. */}
+      {forbidden && <p className="muted">{t('lab_metrics_forbidden', lang)}</p>}
+
+      {!forbidden && <Reveal as="section" className="card lshare" index={2}>
         <h2>{t('l_share', lang)}</h2>
         <div className="lshare-big tnum">{m ? `${(m.lShare * 100).toFixed(1)}%` : '…'}</div>
         <div className="lshare-bar" role="meter" aria-valuenow={m ? Math.round(m.lShare * 100) : 0} aria-valuemin={0} aria-valuemax={100} aria-label={t('l_share', lang)}>
@@ -98,9 +109,9 @@ export function Lab() {
           <span className="lshare-marker tnum" aria-hidden="true">25%</span>
         </div>
         <p className="hint">{t('l_share_target', lang)}</p>
-      </Reveal>
+      </Reveal>}
 
-      <Reveal as="section" className="card" index={3}>
+      {!forbidden && <Reveal as="section" className="card" index={3}>
         <h2>{t('live_meters', lang)}</h2>
         {m ? (
           <dl className="meters tnum">
@@ -116,7 +127,7 @@ export function Lab() {
         ) : (
           <div className="skel" style={{ height: 90 }} />
         )}
-      </Reveal>
+      </Reveal>}
 
       <Reveal as="section" className="card chaos" index={4}>
         <h2>{t('chaos_console', lang)} · <span className={`mode-pill mode-${mode}`} translate="no">{mode.toUpperCase()}</span></h2>

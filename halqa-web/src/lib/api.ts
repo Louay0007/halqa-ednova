@@ -72,7 +72,11 @@ export const clockSkew = () => clockSkewMs;
  *  quota governor degrades them server-side, so they get a longer leash. */
 const TIMEOUT_MS = 10_000;
 const AI_TIMEOUT_MS = 30_000;
-const AI_PATH = /^\/(coach|hints|capsule|whisper|solo|questions\/[^/]+\/(peer-answer|hint)|quiz)/;
+// `POST /sessions/:id/capsule` is the C draft plus the one L polish call, so it
+// belongs on the long leash: at the short one it timed out mid-polish often
+// enough that the debrief showed an error while the capsule had in fact built.
+const AI_PATH =
+  /^\/(coach|hints|capsule|whisper|solo|questions\/[^/]+\/(peer-answer|hint)|quiz|sessions\/[^/]+\/capsule)/;
 const timeoutFor = (path: string) => (AI_PATH.test(path) ? AI_TIMEOUT_MS : TIMEOUT_MS);
 
 /** Idempotent GETs are safe to repeat; writes never are. */
@@ -169,6 +173,8 @@ export const api = {
       `/kb/chunks${topic ? `?topic=${topic}${lang ? `&lang=${lang}` : ''}` : ''}`,
     ),
   metrics: (sessionId?: string) => get<Metrics>(`/metrics${sessionId ? `?sessionId=${sessionId}` : ''}`),
+  /** What a learner's screens may poll: `/metrics` is mentor/admin only. */
+  sessionStatus: (sessionId: string) => get<SessionStatus>(`/sessions/${sessionId}/status`),
   degradation: () => get<{ mode: DegradationMode }>('/degradation'),
   chaos: (mode: DegradationMode) => post<{ mode: DegradationMode }>('/chaos', { mode }),
   events: (sessionId: string, limit = 200) => get<Array<{ ts: string; actor: string; type: string; payload: Record<string, unknown> }>>(`/telemetry/sessions/${sessionId}/events?limit=${limit}`),
@@ -218,6 +224,10 @@ export const api = {
   circleGet: (circleId: string, signal?: AbortSignal) =>
     get<{ _id: string; topic: string; context: ContextMode; members: Array<{ learnerId: string; role: string; nickname?: string }>; joinCode: string; windowS: number }>(`/circles/${circleId}`, undefined, signal),
   circleHealth: (circleId: string, signal?: AbortSignal) => get<Health>(`/circles/${circleId}/health`, undefined, signal),
+  /** The whole roster's opt-in cards in one call — one per member was N round
+   *  trips, and the members without a passport each answered 404. */
+  circleExplainCards: (circleId: string, signal?: AbortSignal) =>
+    get<Record<string, { card: string; visible: boolean }>>(`/circles/${circleId}/explain-cards`, undefined, signal),
   sessionStart: (circleId: string) => post<{ sessionId: string }>(`/circles/${circleId}/sessions`),
   sessionEnd: (sessionId: string) => post<{ endedAt: string; health: unknown; credits: unknown; usage: unknown }>(`/sessions/${sessionId}/end`),
   /* No client for `GET /sessions/:id/credits`: its `dominant` field is a
@@ -357,4 +367,10 @@ export interface Metrics {
   degradation: DegradationMode;
   kb: { docs: number };
   offline: { snippets: number };
+}
+
+/** The learner-scoped subset of `Metrics` behind `GET /sessions/:id/status`. */
+export interface SessionStatus {
+  degradation: DegradationMode;
+  quota: { cUsed: number; lUsed: number; cCap: number; lCap: number } | null;
 }

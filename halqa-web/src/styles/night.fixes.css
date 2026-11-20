@@ -263,8 +263,7 @@
 
 /* `.rail` and `.room` were undefined, so the session room's three columns had
    no glass and sat directly on the backdrop photograph. */
-.shell.is-app .rail > .card,
-.shell.is-app .peer-composer {
+.shell.is-app .rail > .card {
   background: var(--glass);
   border: 0;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
