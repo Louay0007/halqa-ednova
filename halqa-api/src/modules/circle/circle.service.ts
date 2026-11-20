@@ -32,6 +32,7 @@ import { Session, SessionDocument } from '../../persistence/schemas/session.sche
 import { EquityService } from '../equity/equity.service';
 import { SbuService } from '../sbu/sbu.service';
 import { MembershipService } from '../../security/membership.service';
+import { CoachService, type ExplainCard } from '../coach/coach.service';
 
 /**
  * CircleService (3.1) — circles, join codes, roles, context configs,
@@ -50,6 +51,7 @@ export class CircleService {
     private readonly sbu: SbuService,
     private readonly epochs: TokenEpochService,
     private readonly members: MembershipService,
+    private readonly coach: CoachService,
   ) {}
 
   async create(input: {
@@ -151,6 +153,14 @@ export class CircleService {
       members: circle.members.map((m) => ({ ...m, nickname: byId.get(m.learnerId) ?? '?' })),
       ...(isHost ? { joinCode: circle.joinCode } : {}),
     };
+  }
+
+  /** Opt-in explain-cards for a whole roster, member-scoped. */
+  async explainCards(circleId: string, viewerId: string): Promise<Record<string, ExplainCard>> {
+    await this.members.assertMember(circleId, viewerId);
+    const circle = await this.circles.findOne({ _id: circleId }).lean().exec();
+    if (!circle) throw Err.missing(`CIRCLE_NOT_FOUND:${circleId}`);
+    return this.coach.cards(circle.members.map((m) => m.learnerId));
   }
 
   configFor(mode: ContextMode): ContextConfig {

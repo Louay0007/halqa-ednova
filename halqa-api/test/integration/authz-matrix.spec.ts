@@ -87,6 +87,18 @@ describe('authz matrix — learner vs learner (the one that matters)', () => {
     // yet" and would hide the leak from the caller.
     await get(`/api/v1/questions?sessionId=${sessionId}`, outsider).expect(403);
     await get(`/api/v1/circles/${circleId}`, outsider).expect(403);
+    // The roster cards name each member's learning style. Same boundary as the
+    // roster itself: members only, and refused rather than filtered.
+    await get(`/api/v1/circles/${circleId}/explain-cards`, outsider).expect(403);
+  });
+
+  it('explain-cards only carries the members who opted in', async () => {
+    const { circleId, peer } = await newCircle(app, { topic: 'fractions' });
+    const res = await get(`/api/v1/circles/${circleId}/explain-cards`, peer).expect(200);
+    // A member with no passport yet is a silent "hidden", not a 404 per member.
+    const cards = Object.values(res.body as Record<string, { card: string; visible: boolean }>);
+    expect(cards.length).toBeGreaterThan(0);
+    expect(cards.every((c) => c.visible === false)).toBe(true);
   });
 
   it('a peer can read the session but only their own export', async () => {

@@ -1,11 +1,15 @@
-import { Err } from '../../common/http-errors';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { LLM_PORT, LlmPort } from '../../domain/ports/llm-port';
 import { BudgetGovernor } from '../../ai/governor/budget.governor';
-import { Learner, LearnerDocument } from '../../persistence/schemas/learner.schema';
+import { Learner, LearnerDocument, Passport } from '../../persistence/schemas/learner.schema';
 import { EventBus } from '../../telemetry/event-bus';
+
+export interface ExplainCard {
+  card: string;
+  visible: boolean;
+}
 
 const STYLE_CARDS: Record<string, Record<string, string>> = {
   visual: {
@@ -44,12 +48,32 @@ export class CoachService {
     private readonly bus: EventBus,
   ) {}
 
-  async card(learnerId: string): Promise<{ card: string; visible: boolean }> {
+  async card(learnerId: string): Promise<ExplainCard> {
     const doc = await this.learners.findOne({ _id: learnerId }).lean().exec();
-    if (!doc?.passport) throw Err.missing(`DNA_NO_PASSPORT:${learnerId}`);
-    const weights = doc.passport.styleWeights as Record<string, number>;
+    return this.toCard(doc);
+  }
+
+  /**
+   * Every member's card in one query. The circle roster asked per member, which
+   * was a serial round trip each and a 404 in the console for anyone still
+   * without a passport.
+   */
+  async cards(learnerIds: string[]): Promise<Record<string, ExplainCard>> {
+    if (learnerIds.length === 0) return {};
+    const docs = await this.learners.find({ _id: { $in: learnerIds } }).lean().exec();
+    const byId = new Map(docs.map((d) => [d._id, d]));
+    return Object.fromEntries(learnerIds.map((id) => [id, this.toCard(byId.get(id))]));
+  }
+
+  /**
+   * A learner with no passport yet is not an error: there is simply nothing to
+   * render, and the card is an opt-in extra on the roster.
+   */
+  private toCard(doc: { passport?: Passport } | null | undefined): ExplainCard {
+    if (!doc?.passport) return { card: '', visible: false };
+    const weights = doc.passport.styleWeights as unknown as Record<string, number>;
     const top = (Object.entries(weights).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'visual') as string;
-    const lang = (doc.passport.lang as string) ?? 'en';
+    const lang = doc.passport.lang ?? 'en';
     const table = STYLE_CARDS[top] ?? STYLE_CARDS.visual;
     return { card: table[lang] ?? table.en, visible: (doc.passport.explainCardVisible as boolean) ?? false };
   }

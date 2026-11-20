@@ -91,6 +91,20 @@ export class CircleController {
   }
 
   /**
+   * The roster's opt-in explain-cards, in one call.
+   *
+   * The lobby used to ask `/passports/:id/explain-card` once per member, serially,
+   * and each member without a passport yet answered 404 — so opening a circle was
+   * N round trips and a column of console errors. Cards are scoped to the circle:
+   * you can read the cards of the people you are in a circle with, nobody else.
+   */
+  @Roles('learner', 'mentor', 'admin')
+  @Get(':id/explain-cards')
+  explainCards(@Param('id') id: string, @CurrentUser('sub') viewerId: string): Promise<unknown> {
+    return this.circles.explainCards(id, viewerId);
+  }
+
+  /**
    * S-B-U health: aggregates for any member, per-learner credits for staff.
    *
    * The role gate used to be `mentor`/`admin` only, but the learner UI polls this
