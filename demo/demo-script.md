@@ -27,11 +27,19 @@
 
 ## Repro
 
-Recorded headlessly with Playwright (cursor overlay + subtitles injected):
+Recorded headlessly with Playwright (cursor overlay + subtitles injected, 1280×720):
 
 ```bash
-node record.cjs   # host context records video; peer context runs off-camera
+cd demo
+npm i                    # playwright + chromium (one time)
+node record.cjs          # host context records video; peer runs off-camera
+HEADED=1 node record.cjs # watch it run
 ```
+
+The runner fails fast with a named step (and a still in `demo/shots/`) if the API
+or web app is down. It refuses to finish a shot on a resolved answer that has
+neither citations, a `peers_verified` resolution, nor a visible degraded label —
+so a silent no-cite answer can never reach the video.
 
 Environment: `halqa-api` (:3000) with a live OpenAI-compatible provider
 (`COMPACT_MODEL`/`LARGER_MODEL` in `halqa-api/.env`), `halqa-web` (:5173),

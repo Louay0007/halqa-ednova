@@ -1,0 +1,7 @@
+{
+  "name": "halqa-demo",
+  "private": true,
+  "description": "Phase 1 demo recorder — drives the live app, records 1280x720 video",
+  "scripts": { "record": "node record.cjs" },
+  "devDependencies": { "playwright": "^1.55.0" }
+}

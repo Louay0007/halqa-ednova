@@ -1,0 +1,35 @@
+const { chromium } = require('playwright');
+const BASE = 'http://localhost:5173';
+(async () => {
+  const b = await chromium.launch();
+  const ctx = await b.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
+  const p = await ctx.newPage();
+  const seen = [];
+  p.on('response', async (r) => {
+    if (!/capsule|sessions\/.*\/end/.test(r.url())) return;
+    const body = await r.text().catch(() => '');
+    seen.push(`${r.status()} ${r.request().method()} ${r.url().replace(BASE, '')} → ${body.slice(0, 300)}`);
+  });
+  await p.goto(`${BASE}/enter?next=/dna`, { waitUntil: 'networkidle' });
+  await p.locator('.enter-tab').nth(2).click();
+  await p.waitForSelector('#nick');
+  await p.fill('#nick', 'Repro2');
+  const a = p.waitForResponse((r) => r.url().includes('/auth'), { timeout: 20000 });
+  await p.locator('.enter-submit').click(); await a;
+  await p.waitForFunction(() => location.pathname === '/dna', null, { timeout: 20000 });
+  await p.goto(`${BASE}/circles/new`, { waitUntil: 'networkidle' });
+  await p.locator('input[name="topic"][value="binary_search"]').check({ force: true }).catch(() => {});
+  await p.fill('#host', 'Repro2');
+  await p.locator('form button[type="submit"]').click();
+  await p.waitForSelector('.code-big', { timeout: 20000 });
+  const circleId = await p.evaluate(() => sessionStorage.getItem('halqa.circle'));
+  await p.goto(`${BASE}/c/${circleId}`, { waitUntil: 'networkidle' });
+  await p.locator('button.btn:not(.btn-ghost)').first().click();
+  await p.waitForFunction(() => /^\/c\/[^/]+\/s\//.test(location.pathname), null, { timeout: 25000 });
+  const sp = new URL(p.url()).pathname;
+  await p.goto(`${BASE}${sp}/debrief`, { waitUntil: 'networkidle' });
+  await p.waitForTimeout(6000);
+  console.log(seen.join('\n'));
+  await p.screenshot({ path: __dirname + '/shots/audit/repro-debrief.png', fullPage: true });
+  await b.close();
+})();
