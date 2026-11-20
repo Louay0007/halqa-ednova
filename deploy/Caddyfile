@@ -1,0 +1,68 @@
+# HALQA edge — one origin serves the SPA and proxies the API.
+#
+# Same-origin is deliberate: the client's VITE_API_BASE points at
+# https://<domain>/api/v1, so the browser never makes a cross-origin request.
+# That removes the CORS surface entirely and keeps `connect-src` self-only in
+# the API's CSP.
+#
+# {$HALQA_DOMAIN} is injected by compose. TLS is issued automatically (HTTP-01)
+# because the name resolves straight at this box — no Cloudflare proxy in front,
+# which is what the gateway's own DESIGN.md concluded for the same reason.
+
+{
+	# No admin API listener: nothing needs to reconfigure Caddy at runtime, and
+	# an unauthenticated :2019 on a shared box is an unnecessary door.
+	admin off
+	# `email` with an empty value is a parse error, so it is omitted entirely and
+	# ACME falls back to an anonymous account (fine for HTTP-01).
+	# email {$ACME_EMAIL}
+	# Structured logs to stdout so `docker logs` is the only place to look.
+	log {
+		output stdout
+		format json
+	}
+	servers {
+		trusted_proxies static private_ranges
+	}
+}
+
+{$HALQA_DOMAIN} {
+	encode zstd gzip
+
+	# Security headers for the static surface. The API sets its own via helmet;
+	# these cover the HTML/JS the browser loads before any API call.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	# API: strip nothing, the NestJS app already has a global /api/v1 prefix.
+	handle /api/* {
+		reverse_proxy api:3000
+	}
+
+	# The service worker must never be served stale, or an old worker keeps
+	# controlling the client after a deploy.
+	@sw path /sw.js /workbox-*.js /manifest.webmanifest
+	header @sw Cache-Control "no-cache, must-revalidate"
+
+	# Hashed build assets are immutable.
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	# SPA: every other path is a client route, so unknown paths get index.html
+	# rather than a 404 (deep links such as /session must survive a reload).
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

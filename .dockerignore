@@ -1,0 +1,22 @@
+# Build context is the repo root (the web image needs halqa-web/ and deploy/).
+# Without this, a 790 MB tree including node_modules goes to the daemon.
+**/node_modules
+**/dist
+**/.git
+**/.env
+**/.env.*
+**/*.log
+**/test-results
+**/playwright-report
+**/coverage
+demo
+presentation
+report
+*.pdf
+*.webm
+**/.DS_Store
+halqa-api/eval
+halqa-api/test
+halqa-web/e2e
+halqa-web/test
+halqa-web/scripts

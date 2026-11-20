@@ -1,0 +1,147 @@
+# HALQA production stack — isolated compose project.
+#
+# Deliberately self-contained: its own project name, its own network, container-
+# to-container traffic only. The only host ports it takes are 80/443, and it
+# publishes none of the data-plane ports (Mongo, API) to the host, so a stray
+# `docker ps` on this box cannot reach HALQA's database.
+#
+# Coexistence rule: every command must be scoped with `-p halqa` or run from this
+# directory. Never `docker compose down` at the host level — the Zaino gateway is
+# a different project on a different VPS, but this box may host others later.
+
+name: halqa
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    command:
+      - --replSet
+      - rs0
+      - --bind_ip_all
+      # Internal replica-set auth. Required: mongod refuses to start with
+      # --auth + --replSet unless a keyFile is present.
+      - --keyFile
+      - /etc/mongo-keyfile
+      - --auth
+      # Sized for a shared box: the default 50%-of-RAM cache would reserve ~5 GB.
+      - --wiredTigerCacheSizeGB
+      - "0.5"
+    environment:
+      # Auth on. The port is never published, but a database that requires a
+      # password is one fewer thing to get right if the network is ever changed.
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:?set MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:?set MONGO_INITDB_ROOT_PASSWORD}
+    volumes:
+      - halqa-mongo:/data/db
+      # Relative to the *project* directory (deploy/), so this must be ../secrets.
+      # A wrong path here silently becomes an empty directory and mongod then
+      # fails with "permissions too open" — which looks like a chmod problem.
+      - ../secrets/mongodb-keyfile:/etc/mongo-keyfile:ro
+    networks:
+      - halqa-internal
+    # No published port: reachable only from the api container.
+    # Initialise with the SERVICE NAME, not localhost. A replica set advertises
+    # its members, and clients then reconnect to whatever host is in the config:
+    # `localhost` is only valid inside this container, so the api would resolve
+    # it to itself and time out at server selection.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "mongosh --quiet -u \"$$MONGO_INITDB_ROOT_USERNAME\" -p \"$$MONGO_INITDB_ROOT_PASSWORD\" --authenticationDatabase admin --eval 'try { rs.status().ok } catch (e) { rs.initiate({_id:\"rs0\",members:[{_id:0,host:\"mongo:27017\"}]}).ok }'"
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 1536m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  api:
+    build:
+      context: ../halqa-api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    env_file:
+      - ../.env
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+    # No published port: Caddy is the only ingress.
+    expose:
+      - "3000"
+    # Must be explicit: without this key compose attaches the service to the
+    # implicit `default` network, where `mongo` does not resolve.
+    networks:
+      - halqa-internal
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/v1/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    # Long enough for an in-flight AI route to finish on SIGTERM (§7.2).
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1024m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  edge:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+      args:
+        # Same-origin: the browser talks to /api on the page's own host, so no
+        # cross-origin preflight and no CORS surface in the client.
+        VITE_API_BASE: ${HALQA_ORIGIN:?set HALQA_ORIGIN}/api/v1
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      HALQA_DOMAIN: ${HALQA_DOMAIN:?set HALQA_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    volumes:
+      - halqa-caddy-data:/data
+      - halqa-caddy-config:/config
+    networks:
+      - halqa-internal
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  halqa-mongo:
+  halqa-caddy-data:
+  halqa-caddy-config:
+
+networks:
+  halqa-internal:
+    driver: bridge
