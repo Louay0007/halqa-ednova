@@ -102,7 +102,10 @@ export class ProviderAdapter implements LlmPort {
       fetch(`${base}/v1/chat/completions`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, messages, max_tokens: budget }),
+        // `stream:false` is explicit because some OpenAI-compatible gateways
+        // default to SSE and then answer with `data: [DONE]`-terminated frames
+        // that `res.json()` cannot parse.
+        body: JSON.stringify({ model, messages, max_tokens: budget, stream: false }),
         signal: deadline(),
       });
     let res: Response;

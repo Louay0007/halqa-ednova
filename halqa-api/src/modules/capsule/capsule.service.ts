@@ -32,25 +32,25 @@ export interface Capsule {
  */
 const COPY = {
   en: {
-    revisit: (q: string, cite: string) => `Revisit: ${q} — check ${cite}`,
+    revisit: (q: string) => `Revisit: ${q}`,
     reviewGeneric: 'Review the cited chunk and re-explain it to a peer.',
     nextStep: (what: string) => `Re-explain ${what} in your own style, then invite a friend.`,
     visualGeneric: (t: string) => `Concept map of ${t}: the key idea at the centre, its parts around it.`,
   },
   fr: {
-    revisit: (q: string, cite: string) => `À revoir : ${q} — vérifie ${cite}`,
+    revisit: (q: string) => `À revoir : ${q}`,
     reviewGeneric: 'Relis le passage cité et réexplique-le à un pair.',
     nextStep: (what: string) => `Réexplique ${what} avec tes mots, puis invite un ami.`,
     visualGeneric: (t: string) => `Carte du concept ${t} : l’idée clé au centre, ses parties autour.`,
   },
   ar: {
-    revisit: (q: string, cite: string) => `راجع: ${q} — تحقّق من ${cite}`,
+    revisit: (q: string) => `راجع: ${q}`,
     reviewGeneric: 'أعد قراءة المقطع المُستشهد به واشرحه لزميل.',
     nextStep: (what: string) => `أعد شرح ${what} بأسلوبك ثم ادعُ صديقاً.`,
     visualGeneric: (t: string) => `خريطة مفهوم ${t}: الفكرة الأساسية في الوسط وحولها عناصرها.`,
   },
   darija: {
-    revisit: (q: string, cite: string) => `عاود: ${q} — شوف ${cite}`,
+    revisit: (q: string) => `عاود: ${q}`,
     reviewGeneric: 'عاود قرا المقطع وفسّرو لصاحبك.',
     nextStep: (what: string) => `عاود فسّر ${what} بطريقتك، ومن بعد عيّط لصاحبك.`,
     visualGeneric: (t: string) => `خريطة ${t}: الفكرة المهمة فالوسط وحوالينها الأجزاء.`,
@@ -80,6 +80,9 @@ const VISUALS: Record<string, Partial<Record<Lang4, string>>> = {
     darija: 'شرائح البيتزا: وحدة كاملة مقسّمة لأجزاء متساوية، والمقام كيعدّ الأجزاء.',
   },
 };
+
+/** KB topic slugs are snake_case ids; a learner reads them as a phrase. */
+const humanTopic = (topic: string): string => topic.replace(/_/g, ' ');
 
 function firstSentence(text: string): string {
   const cut = text.search(/[.!?؟]/);
@@ -123,7 +126,7 @@ export class CapsuleService {
     const topic = await this.topicFor(session, cites);
 
     // C draft (bounded): 3 bullets from resolved questions + cites.
-    const draft = this.draftFromSession(qs.map((q) => q.text), cites, topic, lang);
+    const draft = this.draftFromSession(qs.map((q) => q.text), topic, lang);
 
     // L polish only if quota allows — the one luxury call.
     let tier: 'C' | 'L' | 'T0' = 'C';
@@ -135,10 +138,12 @@ export class CapsuleService {
           // Ask for the learner's own language: polishing an English draft into
           // French is not a polish, it is a translation with worse fidelity.
           prompt: `Polish these revision bullets in ${langName(lang)} (keep ≤15 words each, keep meaning, keep the technical terms): ${JSON.stringify(draft.bullets)}`,
-          maxTokens: 200,
+          // Three bullets of ~15 words each, JSON-quoted, is close to 200 tokens
+          // on its own — the cap was cutting the array off before the last one.
+          maxTokens: 320,
         });
         await this.governor.commit('L', sessionId);
-        capsule = { ...draft, bullets: this.clampBullets(this.splitLines(res.text, 3), lang) };
+        capsule = { ...draft, bullets: this.clampBullets(this.splitLines(res.text, 3, lang, draft.bullets), lang) };
         tier = 'L';
       } catch {
         await this.governor.release('L', sessionId);
@@ -195,7 +200,7 @@ export class CapsuleService {
    * language. This is the path that must work when the governor says no, so it
    * can never depend on a model call.
    */
-  private draftFromSession(questionTexts: string[], cites: string[], topic: string, lang: string): Capsule {
+  private draftFromSession(questionTexts: string[], topic: string, lang: string): Capsule {
     const kb = this.knowledge.query(topic, lang);
     // Fall back to any language for the same topic before leaving the topic: an
     // on-topic capsule in the wrong language beats a correct-language capsule
@@ -204,10 +209,11 @@ export class CapsuleService {
     const probes = pool.filter((c) => c.kind === 'probe').slice(0, 3);
     const explainers = pool.filter((c) => c.kind !== 'probe');
 
+    // The id used to be appended to every bullet (`— شوف bs-fr-01`), and the
+    // debrief shows no citation chips to decode it, so the learner read an
+    // internal key. The question text is what they revise.
     const bullets = this.clampBullets(
-      questionTexts
-        .slice(0, 3)
-        .map((t) => copy(lang).revisit(t.slice(0, 60), cites[0] ?? 'kb')),
+      questionTexts.slice(0, 3).map((t) => copy(lang).revisit(t.slice(0, 60))),
       lang,
     );
     while (bullets.length < 3) {
@@ -218,8 +224,13 @@ export class CapsuleService {
     return {
       bullets,
       visual_desc: this.visualFor(topic, lang, explainers[0]?.title),
-      mini_quiz: probes.map((p) => p.chunk_id),
-      next_step: copy(lang).nextStep(cites[0] ?? topic),
+      // A probe is "VÉRIFIE-TOI" copy on the debrief; a chunk id is an internal
+      // key and was rendered at the learner verbatim. Ship the question.
+      mini_quiz: probes.map((p) => p.text ?? p.title),
+      // "Re-explain X" needs the concept's name, not a chunk id (`bs-darija-03`)
+      // and not a chunk title ("Condition: liste مرتبة"), both of which read as
+      // an identifier or a half-sentence inside the sentence.
+      next_step: copy(lang).nextStep(humanTopic(topic)),
       xp_earned: 15,
       tier: 'C',
     };
@@ -241,13 +252,78 @@ export class CapsuleService {
     const max = lang === 'darija' ? 12 : 15;
     return lines.slice(0, 3).map((l) => {
       const words = l.split(/\s+/).filter(Boolean);
-      return words.length > max ? `${words.slice(0, max).join(' ')}…` : l;
+      if (words.length <= max) return l;
+      // Cutting at a fixed word count can land right after a dash or a comma,
+      // which then reads as "… — …". Drop the dangling separator first.
+      const kept = words.slice(0, max).join(' ').replace(/[\s—–,،:;]+$/u, '');
+      return `${kept}…`;
     });
   }
 
-  private splitLines(text: string, n: number): string[] {
-    const lines = text.split('\n').map((l) => l.replace(/^[-*\d.)\s]+/, '').trim()).filter(Boolean);
-    while (lines.length < n) lines.push('Review the cited chunk and re-explain it to a peer.');
+  /**
+   * The polish prompt hands the model a JSON array and asks for one back, so the
+   * usual return is `["a","b","c"]` — not lines. Splitting that on newlines put
+   * `[` and `"a",` into the capsule as separate bullets, so a learner read
+   * punctuation where the revision note should be.
+   *
+   * The response is also capped by maxTokens, so a long polish arrives with the
+   * array cut off mid-string and `JSON.parse` throws. Reading the complete
+   * quoted elements out of the text keeps the bullets the model did finish —
+   * a truncated array is the normal case here, not a corrupt one.
+   */
+  private splitLines(text: string, n: number, lang: string, fallback: string[] = []): string[] {
+    // Markers stack: the model wrote `*1. الشرط:` — a bullet asterisk in front of
+    // a numbered item. One pass left the `*` in the learner's bullet, so strip
+    // until nothing more comes off.
+    const cleaned = (s: string) => {
+      let out = s.replace(/\*\*|__|`/g, '');
+      for (let prev = ''; prev !== out; ) {
+        prev = out;
+        out = out.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, '');
+      }
+      return out.replace(/^\s*(?:polish|bullets?|revision)\s*:?\s*/i, '').trim();
+    };
+
+    const parts = this.quotedElements(text) ?? text.split('\n');
+    const lines = parts.map(cleaned).filter((l) => this.usable(l));
+    // Backfill from the un-polished draft before reaching for generic copy: the
+    // draft bullet is what this session was actually about, the generic one is not.
+    // The pad was also hardcoded English, so a French capsule whose polish came
+    // back short ended with an English sentence as its third bullet.
+    while (lines.length < n) lines.push(fallback[lines.length] ?? copy(lang).reviewGeneric);
     return lines.slice(0, n);
+  }
+
+  /**
+   * A revision bullet is a sentence. When the model answers in prose instead of
+   * the JSON array it was asked for, quoted fragments of its own wording land in
+   * the array — one live capsule shipped `ed:` as a bullet, in place of a good
+   * draft bullet it displaced.
+   */
+  private usable(line: string): boolean {
+    // Three letter-or-digit characters is the whole test: it rejects `ed:`,
+    // `—`, and a bare marker, and keeps a short but real bullet like `O(n)`.
+    return line.replace(/[^\p{L}\p{N}]/gu, '').length >= 3;
+  }
+
+  /**
+   * Strings out of a (possibly truncated) JSON array. Returns null when the text
+   * is not array-shaped at all, so the caller can fall back to line splitting.
+   * A cut-off final element has no closing quote and is therefore dropped.
+   */
+  private quotedElements(text: string): string[] | null {
+    const open = text.indexOf('[');
+    if (open === -1) return null;
+    const body = text.slice(open + 1);
+    if (!body.includes('"')) return null;
+    const out: string[] = [];
+    for (const m of body.matchAll(/"((?:[^"\\]|\\.)*)"/g)) {
+      try {
+        out.push(JSON.parse(`"${m[1]}"`) as string);
+      } catch {
+        out.push(m[1]);
+      }
+    }
+    return out.length > 0 ? out : null;
   }
 }
