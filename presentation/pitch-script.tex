@@ -1,0 +1,418 @@
+% HALQA — EdNova / IEEE WIE ACT 5.0 — Final phase pitch
+% Two-speaker speaking script, spoken paragraphs, one self-contained part per presenter.
+% Compile: tectonic -X compile pitch-script.tex
+% Source of truth for wording and timing: PITCH-SCRIPT.md
+% Measured: 578 words, 3:51 of speech + 69 s of planned silence = 5:00.
+
+\documentclass[11pt,a4paper]{article}
+\usepackage[a4paper,includeheadfoot,top=19mm,bottom=17mm,left=17mm,right=17mm]{geometry}
+\setlength{\headheight}{21.3pt}
+\setlength{\headsep}{9pt}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{needspace}
+\usepackage[hidelinks]{hyperref}
+
+% ---------- palette (from halqa-web/src/styles/tokens.css) ----------
+\definecolor{colA}{HTML}{6D28D9}   % speaker A — brand-800 violet
+\definecolor{colB}{HTML}{BE123C}   % speaker B — rose
+\definecolor{ink}{HTML}{2A0A3D}    % --ink
+\definecolor{mute}{HTML}{8A6F9B}   % --muted
+\definecolor{line}{HTML}{E9D5F5}
+\definecolor{paper}{HTML}{FDF4FF}  % --brand-50
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{2pt}
+\color{ink}
+
+% ---------- speak box: each line is one breath ----------
+\newsavebox{\saybox}
+\def\curcol{colA}
+\newenvironment{say}[1][colA]%
+  {\def\curcol{#1}%
+   \begin{lrbox}{\saybox}%
+   \begin{minipage}{\dimexpr\linewidth-17pt\relax}%
+   \setlength{\parindent}{0pt}\setlength{\parskip}{7pt}%
+   \linespread{1.28}\large\selectfont}%
+  {\end{minipage}\end{lrbox}%
+   \par\medskip\noindent\hbox{\fcolorbox{\curcol!35}{\curcol!6}{\usebox{\saybox}}}\par\medskip}
+
+% ---------- stage direction ----------
+\newcommand{\stage}[1]{%
+  \par\noindent{\small\itshape\color{mute}\,$\rightarrow$~#1}\par\smallskip}
+
+% ---------- slide header ----------
+\newcommand{\slhead}[6]{%
+  \par\medskip\noindent
+  {\color{#6}\bfseries\large #1\,\textbullet\,#2}%
+  \hfill{\small\ttfamily\color{mute}#3\ \ \textbullet\ \ #4\ \ \textbullet\ \ #5 words}\par
+  \nopagebreak\noindent{\color{#6}\rule{\linewidth}{0.8pt}}\par\nopagebreak\smallskip}
+
+% ---------- part banner ----------
+\newcommand{\partbanner}[4]{%
+  \par\noindent\colorbox{#1}{\parbox{\dimexpr\linewidth-2\fboxsep\relax}{%
+    \color{white}\bfseries\Large #2\\[2pt]
+    \normalsize\mdseries #3}}\par\medskip
+  \noindent{\itshape\color{mute}#4}\par\medskip}
+
+\newcommand{\cue}[1]{\par\medskip\noindent
+  {\color{colA}\bfseries Handover.}~#1\par\medskip}
+
+% ---------- page style ----------
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\headrule}{\hbox to\headwidth{\color{line}\leaders\hrule height \headrulewidth\hfill}}
+\fancyhead[L]{\footnotesize\color{mute}HALQA \textbullet\ final phase pitch}
+\fancyhead[R]{\footnotesize\color{mute}EdNova \textbullet\ IEEE WIE ACT 5.0}
+\fancyfoot[C]{\footnotesize\color{mute}\thepage}
+
+\titleformat{\section}{\large\bfseries\color{ink}}{}{0pt}{}
+\titlespacing{\section}{0pt}{14pt}{6pt}
+
+\begin{document}
+\thispagestyle{empty}
+
+% ================= COVER =================
+{\color{colA}\rule{\linewidth}{2.4pt}}\par\medskip
+{\Huge\bfseries HALQA}\hfill{\large\color{mute}\bfseries 5:00 \textbullet\ two speakers}\par
+\smallskip
+{\large The circle before the answer}\par
+\smallskip
+{\color{mute}Speaking script \textbullet\ EdNova GenAI Peer-Learning Companion Challenge
+\textbullet\ IEEE WIE ACT 5.0 \textbullet\ Final phase, Tunis}\par
+\medskip
+{\color{colA}\rule{\linewidth}{0.8pt}}
+
+\section{How to use this}
+
+Parts~\textbf{A} and~\textbf{B} are each complete on their own. One presenter reads only his
+part, start to finish, nothing to look up. Part~\textbf{C} is the close, said together.
+
+\medskip
+\noindent
+\begin{tabularx}{\linewidth}{@{}lXl@{}}
+\toprule
+\textbf{Print} & \textbf{Contents} & \textbf{Pages} \\
+\midrule
+\textcolor{colA}{\textbf{Speaker A}} & slides 1--8, 0:00 $\rightarrow$ 2:24, 267 words & \pageref{partA}--\pageref{endA} \\
+\textcolor{colB}{\textbf{Speaker B}} & slides 9--16, 2:24 $\rightarrow$ 4:41, 271 words & \pageref{partB}--\pageref{endB} \\
+both & close, scenarios, Q\&A, checklist & \pageref{partC}--end \\
+\bottomrule
+\end{tabularx}
+
+\medskip
+\textbf{The only rule that matters.} One slide is one paragraph. Read it as sentences, and stop
+at every full stop. If you forget the words, say the next idea shorter --- the paragraph is a guide,
+not a script.
+
+\medskip
+{\small\color{mute}578 words, 3:51 of speech, 69 seconds of planned silence, 5:00 exactly.
+The pauses are counted. Short paragraphs only work if you actually stop between the sentences.}
+
+\section{The story --- memorise this, not the words}
+
+A learner at the back does not get it. She will not say so.\\
+HALQA gives her forty-five seconds. She taps \textbf{me too}.\\
+The wrong answer gets caught. The AI speaks last.\\
+Same question. Better ending.
+
+\medskip
+\textbf{Three callbacks.} These are the lines the jury writes down.
+
+\medskip
+\noindent
+\begin{tabularx}{\linewidth}{@{}cXcX@{}}
+\toprule
+& \textbf{Planted} & & \textbf{Paid off} \\
+\midrule
+1 & slide 3: ``One question never got asked.'' & slide 7 & that question, typed in Darija \\
+2 & slide 6: ``the software makes it wait'' & slide 15 & ``the rule lives in the code'' \\
+3 & slide 3: ``no proof anyone learned'' & close & ``measure whether the room learned'' \\
+\bottomrule
+\end{tabularx}
+
+\medskip
+{\small\color{mute}The learner is a composite, not a customer. If asked, say so.}
+
+\section{Run sheet}
+
+\medskip
+{\footnotesize
+\noindent
+\begin{tabular*}{\linewidth}{@{\extracolsep{\fill}}r@{\hspace{10pt}}l@{\hspace{10pt}}l@{\hspace{10pt}}c@{\hspace{10pt}}r@{\hspace{10pt}}r@{\hspace{10pt}}r@{}}
+\toprule
+\textbf{\#} & \textbf{Time} & \textbf{Slide} & \textbf{Who} & \textbf{W} & \textbf{Speak} & \textbf{Pause} \\
+\midrule
+\midrule
+1  & 0:00 & Title                & \textcolor{colA}{\textbf{A}} & 26 & 10 & 1 \\
+2  & 0:11 & 01 divider           & \textcolor{colA}{\textbf{A}} & 12 & 5 & 1 \\
+3  & 0:17 & 01 four ways         & \textcolor{colA}{\textbf{A}} & 37 & 15 & 8 \\
+4  & 0:40 & 01 tools             & \textcolor{colA}{\textbf{A}} & 36 & 14 & 7 \\
+5  & 1:01 & 02 divider           & \textcolor{colA}{\textbf{A}} & 18 & 7 & 1 \\
+6  & 1:09 & 02 the rule          & \textcolor{colA}{\textbf{A}} & 45 & 18 & 5 \\
+7  & 1:32 & 02 one turn          & \textcolor{colA}{\textbf{A}} & 58 & 23 & 13 \\
+8  & 2:08 & 02 helpers           & \textcolor{colA}{\textbf{A}} $\rightarrow$ \textcolor{colB}{\textbf{B}} & 35 & 14 & 2 \\
+\midrule
+9  & 2:24 & 03 divider           & \textcolor{colB}{\textbf{B}} & 15 & 6 & 1 \\
+10 & 2:31 & 03 five layers       & \textcolor{colB}{\textbf{B}} & 43 & 17 & 4 \\
+11 & 2:52 & 03 two calls         & \textcolor{colB}{\textbf{B}} & 37 & 15 & 2 \\
+12 & 3:09 & 03 four states       & \textcolor{colB}{\textbf{B}} & 32 & 13 & 3 \\
+13 & 3:25 & 04 divider           & \textcolor{colB}{\textbf{B}} & 15 & 6 & 1 \\
+14 & 3:32 & 04 customer          & \textcolor{colB}{\textbf{B}} & 60 & 24 & 9 \\
+15 & 4:05 & 04 money             & \textcolor{colB}{\textbf{B}} & 45 & 18 & 6 \\
+16 & 4:29 & 05 impact            & \textcolor{colB}{\textbf{B}} & 24 & 10 & 2 \\
+\midrule
+17 & 4:41 & Close                & \textcolor{colA}{\textbf{A}} + \textcolor{colB}{\textbf{B}} & 40 & 16 & 3 \\
+\midrule
+   & \textbf{5:00} & & & \textbf{578} & \textbf{231} & \textbf{69} \\
+\bottomrule
+\end{tabular*}}
+
+\medskip
+\textbf{Staging, both of you.}
+\begin{itemize}[leftmargin=1.1em,itemsep=1pt,topsep=2pt]
+\item A stands screen-left, B screen-right. Neither crosses the centre.
+\item The clicker changes hands \textbf{once}: A passes it to B on the last clause of slide 8.
+\item Hands out of pockets. One gesture per slide: point, then drop the hand.
+\item If a line feels slow, it is on time.
+\end{itemize}
+
+% ================= PART A =================
+\clearpage
+\label{partA}
+\needspace{12\baselineskip}
+\partbanner{colA}{Part A \textbullet\ Speaker A}{Slides 1--8 \textbullet\ 0:00 $\rightarrow$ 2:24
+\textbullet\ 267 words \textbullet\ 2 min 24 s}{%
+You open. You own the problem and the one rule. You hand over on slide 8 and come back for the
+close. Read only your part.}
+
+\slhead{1}{Title}{0:00}{11\,s}{26}{colA}
+\begin{say}[colA]
+One person talks, five people nod --- we built the opposite. I am [your name], this is [partner]. Five minutes: a problem, one rule, who pays.
+\end{say}
+\stage{Stand still. No clicker yet.}
+
+\slhead{2}{01 \textbullet\ The problem}{0:11}{6\,s}{12}{colA}
+\begin{say}[colA]
+Studying with friends beats any lecture, and it breaks in four ways.
+\end{say}
+
+\slhead{3}{01 \textbullet\ Four ways it fails}{0:17}{23\,s}{37}{colA}
+\begin{say}[colA]
+One voice takes over; talking looks like learning. The simple question stays unasked. A wrong answer spreads. One explanation, six needs. The session ends busy, with no proof anyone learned --- and one question never got asked.
+\end{say}
+\stage{Read only the four headings. Point at the empty third on the last line.}
+
+\slhead{4}{01 \textbullet\ The tools we have}{0:40}{21\,s}{36}{colA}
+\begin{say}[colA]
+A chatbot answers in three seconds and thinking stops; helpful is not learning. Group apps cannot see three people lost, and the dashboard arrives too late. What is missing is not information. It is quiet time.
+\end{say}
+\stage{Step toward the screen. Pause before ``quiet time''.}
+
+\slhead{5}{02 \textbullet\ The solution}{1:01}{8\,s}{18}{colA}
+\begin{say}[colA]
+So we put that time in the software. One rule: the circle answers first, the AI answers second.
+\end{say}
+
+\slhead{6}{02 \textbullet\ The mechanism}{1:09}{23\,s}{45}{colA}
+\begin{say}[colA]
+Peers get forty-five seconds, and Nova works unseen. Then the window closes, the peer answer is credited, and the AI answer lands cited. The AI waits because the software makes it wait --- not because we asked nicely. Delete it, and the session still runs.
+\end{say}
+\stage{Strongest line in the deck. Pause after it.}
+
+\slhead{7}{02 \textbullet\ One real turn}{1:32}{36\,s}{58}{colA}
+\begin{say}[colA]
+A learner types in Darija, no name. Two answers land; one says order does not matter. A quiet learner taps me too --- she never spoke. The checker catches the claim and opens a poll, so nobody is named. The cited answer arrives, the right peer gets credit. The AI checked the group; it did not replace it.
+\end{say}
+\stage{Slower than everything else. One beat per card. Then move on.}
+
+\slhead{8}{02 \textbullet\ Four helpers}{2:08}{16\,s}{35}{colA}
+\begin{say}[colA]
+Four helpers, always labelled: a mediator runs the window, a tutor unlocks one hint at a time, a facilitator says who is stuck in sixty words, a teammate runs the quiz. That is the product.
+\end{say}
+\cue{Turn to B, step back, pass the clicker on the last clause. Say nothing else.}
+\stage{Your last words until the close. From here you listen.}
+
+\label{endA}
+
+% ================= PART B =================
+\clearpage
+\label{partB}
+\needspace{12\baselineskip}
+\partbanner{colB}{Part B \textbullet\ Speaker B}{Slides 9--16 \textbullet\ 2:24 $\rightarrow$ 4:41
+\textbullet\ 271 words \textbullet\ 2 min 17 s}{%
+You take over on one word: ``technology''. You carry business and impact, and you land the close
+with A. Sound like the engineer, not the salesman.}
+
+\slhead{9}{03 \textbullet\ The technology}{2:24}{7\,s}{15}{colB}
+\begin{say}[colB]
+Technology, quickly. One hard line: ordinary code on one side, AI calls on the other.
+\end{say}
+\stage{Say ``technology'' as you step forward. No throat-clearing.}
+
+\slhead{10}{03 \textbullet\ Five layers}{2:31}{21\,s}{43}{colB}
+\begin{say}[colB]
+Five layers. The app keeps thirty answers offline, one REST API behind it, and the rules are plain TypeScript with no framework, so any score recomputes by hand. Every AI call books its quota first; a test fails the build if one skips.
+\end{say}
+\stage{Do not read the chips. Keep ``recomputed by hand'' --- it is the trust argument.}
+
+\slhead{11}{03 \textbullet\ Two kinds of call}{2:52}{17\,s}{37}{colB}
+\begin{say}[colB]
+Two kinds of call. One small call per turn handles language, safety and difficulty together, so no extra calls. The big model is only for hard cases: thirteen percent. And no answer ships without a named source.
+\end{say}
+\stage{The point is cost, not cleverness.}
+
+\slhead{12}{03 \textbullet\ When it breaks}{3:09}{16\,s}{32}{colB}
+\begin{say}[colB]
+Four states: green, orange, red, black. It slows down and never goes blank, and every step down says so in the learner's own language. Privacy is a build test, not a policy.
+\end{say}
+\stage{One sentence per state. If the demo dies, this is your answer.}
+
+\slhead{13}{04 \textbullet\ The business}{3:25}{7\,s}{15}{colB}
+\begin{say}[colB]
+Business. The learner never pays; the school pays --- for proof its students are learning.
+\end{say}
+\stage{Say it flatly. This is the line that makes them lean forward.}
+
+\slhead{14}{04 \textbullet\ The customer}{3:32}{33\,s}{60}{colB}
+\begin{say}[colB]
+One customer we can name: private training centres in Tunis, already running study groups and charging by the seat. The director pays for proof, because his business runs on students staying --- a failure does not renew, and a silent group shows up in week three. None of them is a customer yet. That is what the pilot is for.
+\end{say}
+\stage{Say the honesty line plainly. No apology in the voice.}
+
+\slhead{15}{04 \textbullet\ Money}{4:05}{24\,s}{45}{colB}
+\begin{say}[colB]
+We licence per class, per semester, first step free. No GPU, at most twenty-five calls a session. And the rule lives in the code, not a prompt, so nobody talks their way around it. These numbers come from our budget; the pilot makes them real.
+\end{say}
+\stage{Callback 2 lands here. Say the last line before they ask.}
+
+\slhead{16}{05 \textbullet\ Impact}{4:29}{12\,s}{24}{colB}
+\begin{say}[colB]
+Impact, in three words. Access: a cheap phone, thirty answers offline. Language: she asks in Darija, she gets Darija back. Fairness: me too counts.
+\end{say}
+\stage{Three is a rhythm. Do not read the other cards.}
+\stage{Slide 17 is the close, in Part C. You do not open it --- A does.}
+
+\label{endB}
+
+% ================= PART C =================
+\clearpage
+\label{partC}
+\needspace{12\baselineskip}
+\partbanner{ink}{Part C \textbullet\ The close}{Slide 17 \textbullet\ 4:41 $\rightarrow$ 5:00
+\textbullet\ 39 words \textbullet\ 18 s}{Both of you. Three turns. Say it, then stop completely.}
+
+\slhead{17}{Close \textbullet\ In one sentence}{4:41}{19\,s}{40}{ink}
+\begin{say}[ink]
+\textcolor{colA}{\textbf{A:}} The best explanation in the room is usually not the AI's.
+
+\textcolor{colB}{\textbf{B:}} So we make the AI wait. And then we measure whether the room learned.
+
+\textcolor{colA}{\textbf{A:}} Ninety-nine tests. Forty-eight live checks. Four languages. A working demo.\\
+Come and try it.
+\end{say}
+\stage{Say nothing after ``come and try it''. No spoken thank you, no any questions, no shuffling.
+The slide carries a quiet ``Thank you for your attention'' line; let the jury break the silence.}
+
+% ================= PART D =================
+\clearpage
+\section{Part D \textbullet\ If something goes wrong}
+
+\textbf{Video plays first.}\quad
+\emph{``You saw the loop. Now the two things a video cannot show: why the AI must wait,
+and who pays.''}
+
+\medskip
+\textbf{No projector.}\quad Pitch from these five anchors, in order, and let B drive the laptop
+for questions. Do not wait for it to be fixed.
+
+\medskip
+\begin{say}[ink]
+One talks, five nod.\\
+Forty-five seconds, and the AI waits.\\
+Wrong answers get caught.\\
+Small model per turn. Thirteen percent big.\\
+The school pays.
+\end{say}
+
+\textbf{App will not load.}\quad This is not a failure, it is slide 12.
+\emph{``Perfect --- this is black mode. Thirty saved answers. Polls and quizzes keep working.''}
+
+\medskip
+\textbf{Cut to 4:00.}\quad \emph{``I will do technology and business in one breath.''}
+Keep slides 6, 11, 14, 17. Drop 8, 10, 12, 15, 16.
+
+\medskip
+\textbf{``Isn't this a chatbot?''}\quad One sentence, then take the time back:
+\emph{``No --- the AI is blocked from answering first in the code, not in a prompt. Delete it and
+the session still runs.''}
+
+\medskip
+\textbf{Partner loses the thread.}\quad Say \textbf{``which brings us to''} and start the next
+slide. Never correct him on stage.
+
+\medskip
+\textbf{You do not know.}\quad \emph{``We do not know yet --- that is what the pilot measures.''}
+Then take the next question. Guessing is the only unrecoverable error.
+
+% ================= PART E =================
+\section{Part E \textbullet\ Who answers what}
+
+Nine prepared answers are in \texttt{PITCH-PLAN.md} \S6. Read them once.
+
+\medskip
+\noindent
+\begin{tabularx}{\linewidth}{@{}lXc@{}}
+\toprule
+& \textbf{Question} & \textbf{Owner} \\
+\midrule
+1 & Peer window, fairness, credit maths & \textcolor{colA}{\textbf{A}} \\
+2 & Session phases, pedagogy & \textcolor{colA}{\textbf{A}} \\
+3 & Darija and Arabizi & \textcolor{colA}{\textbf{A}} \\
+4 & What is built, tests, latency & \textcolor{colB}{\textbf{B}} \\
+5 & Cost, model split, caching & \textcolor{colB}{\textbf{B}} \\
+6 & Customer, pricing, pilot & \textcolor{colB}{\textbf{B}} \\
+7 & Why not just the big model & \textcolor{colB}{\textbf{B}} \\
+8 & Privacy, schema gate & \textcolor{colB}{\textbf{B}} \\
+\bottomrule
+\end{tabularx}
+
+% ================= PART F =================
+\section{Part F \textbullet\ Before you present}
+
+\medskip
+\noindent
+\begin{tabularx}{\linewidth}{@{}lXl@{}}
+\toprule
+\textbf{Fill in} & \textbf{Where} & \textbf{Replace with} \\
+\midrule
+\texttt{[your name]} & slide 1, spoken aloud & your real first name \\
+\texttt{[partner]} & slide 1, spoken aloud & your partner's first name \\
+\texttt{[your-repo]} & slide 17 & the public GitHub URL \\
+\texttt{[N]} & slide 17 & team size \\
+\bottomrule
+\end{tabularx}
+
+\medskip
+\begin{itemize}[leftmargin=1.1em,itemsep=1pt,topsep=2pt]
+\item Decide now which human is A. Never swap.
+\item Exactly \textbf{two} presenters. A third person may run the laptop, never hold a mic.
+\item Three run-throughs out loud, standing, timed. Then one cold 4:00 run.
+\item Rehearse slides 8 $\rightarrow$ 9 ten times more than any other seam.
+\item Check the notes key (\texttt{N}) on the presenting laptop, not your own.
+\end{itemize}
+
+\medskip
+{\color{colA}\rule{\linewidth}{1.2pt}}\par\smallskip
+{\large\bfseries The circle teaches first. The AI speaks second.}
+
+\end{document}

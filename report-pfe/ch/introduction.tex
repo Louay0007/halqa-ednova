@@ -1,0 +1,172 @@
+\chapter{Introduction}
+\label{ch:intro}
+
+\section{Context}
+
+Generative artificial intelligence reached classrooms faster than any previous
+educational technology, and it arrived with an uncomfortable property: it is very good
+at producing the answer a learner was supposed to produce. The immediate consequence is
+that the most obvious use of a language model in education --- ``ask it and read the
+reply'' --- removes exactly the cognitive work that learning consists of.
+
+The EdNova track of the IEEE WIE ACT 5.0 competition states the problem in the opposite
+direction. It asks for a companion able to act as \emph{mediator, teammate, tutor and
+facilitator} so that learning becomes structured, inclusive, interactive, personalized
+and effective, and it explicitly covers both individual and group settings. Read as a
+specification rather than a slogan, that sentence rules out the naive design: a system
+that answers for the group is a tutor at best, and a very poor mediator.
+
+Our project starts from a narrower observation. Group study fails in ways that are
+observable, repeatable and \emph{structural}:
+
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+  \item one participant dominates the conversation, and the group's output becomes that
+        person's output;
+  \item hesitant learners do not ask the ``simple'' question that would expose a shared
+        misconception, because asking it in front of peers has a social cost;
+  \item an unclear or wrong explanation is rarely challenged, because challenging it
+        requires confidence the group does not distribute evenly;
+  \item a single explanation style is imposed on everyone, so the learner who needs a
+        picture, the learner who needs an analogy and the learner who needs a worked
+        example all receive the same paragraph.
+\end{itemize}
+
+These are coordination and equity failures, not knowledge failures. They occur in
+university tutorials, in bootcamps, in IEEE student-branch revision circles and in
+informal self-learning groups alike --- which is why the same failure modes reappear
+across contexts that share nothing else.
+
+\section{Motivation and design position}
+
+A GenAI system can address coordination failures directly, because it can observe every
+message, hold state across a session, and act privately towards one learner while
+speaking publicly to the group. It can also make them worse, by becoming the dominant
+voice itself.
+
+We therefore fixed a design position before writing code, and used it to arbitrate every
+later decision:
+
+\begin{keyfinding}[Design position]
+The AI must not replace the circle --- it must make the circle work. Any feature that
+increases the volume of AI output at the expense of peer output is, by this rule,
+a regression regardless of how well it scores on answer quality.
+\end{keyfinding}
+
+Five commitments follow mechanically from that position, and they structure the rest of
+this report:
+
+\begin{enumerate}[leftmargin=1.6em,itemsep=3pt]
+  \item \kw{Peers first, AI second.} Every question is offered to the circle inside a
+        timed window. The AI answer is prepared during that window but withheld until it
+        closes, so the group's own attempt always happens first
+        (\S\ref{sec:cfas}).
+  \item \kw{Protect the group from wrong peer answers.} Peer first does not mean peer
+        correct. An Auditor step verifies peer claims before consensus is declared
+        (\S\ref{sec:auditor}).
+  \item \kw{Personalize once, then adapt.} A four-item diagnostic produces a
+        learning-DNA passport that tunes level, explanation style, language register and
+        hint eagerness, and a bandit updates the style weights from check-question
+        outcomes (\S\ref{sec:dna}).
+  \item \kw{Scaffold rather than solve.} A four-level hint ladder and Socratic
+        questioning precede any direct answer (\S\ref{sec:hints}).
+  \item \kw{Treat platform limits as a design budget.} Shared, GPU-less inference with a
+        scarce larger-model quota and seconds-scale latency is the operating
+        environment, not an incident. The routing policy, quota governor, queue and
+        degradation machine exist because of it (\S\ref{ch:ai}).
+\end{enumerate}
+
+\section{Objectives}
+
+The project pursued six objectives. Each is stated here in a form that can be checked
+against the delivered system, and each is revisited with evidence in
+Chapter~\ref{ch:results}.
+
+\begin{table}[htbp]
+\centering
+\caption{Project objectives and the evidence that closes each one.}
+\label{tab:objectives}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{0.6cm}p{5.3cm}X@{}}
+\toprule
+\textbf{\#} & \textbf{Objective} & \textbf{Acceptance evidence (chapter)} \\
+\midrule
+O1 & Structure a peer-learning session so that every learner gets a fair turn
+     & Timed peer window with server-side expiry worker; peer-first rate exposed on
+       \code{/metrics} (\S\ref{sec:cfas}, \S\ref{sec:obs}) \\
+O2 & Detect and contain incorrect peer explanations
+     & Auditor verification with poll-first fallback; seeded-misconception eval set
+       (\S\ref{sec:auditor}, \S\ref{sec:eval}) \\
+O3 & Personalize explanation style, level, register and language per learner
+     & DNA passport, six-dimension style weights, bandit update from check outcomes
+       (\S\ref{sec:dna}) \\
+O4 & Keep larger-model usage a deliberate minority of calls, and prove it
+     & Documented routing policy; \code{lShare} computed from the call ledger;
+       measured 0.133 (\S\ref{sec:routing}, \S\ref{sec:metrics-live}) \\
+O5 & Remain usable when the larger model, the quota, or the provider itself is gone
+     & Four-state degradation machine with a 30-snippet offline pack
+       (\S\ref{sec:degradation}) \\
+O6 & Preserve learner privacy by construction, not by policy statement
+     & Schema gate test that fails the build; PII screen before every model call
+       (\S\ref{ch:privacy}) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Scope and non-goals}
+
+The delivered system is this final submission: a working full-stack product with a
+verified backend contract, a rehearsed demo path and automated gates, not a deployed
+service with real institutional users. We state the boundaries explicitly, because a
+report that hides them is less useful to a jury than one that names them.
+
+\paragraph{In scope.} Circle sessions with timed peer windows, the learning-DNA
+diagnostic and passport, the hint ladder, Auditor verification, consensus polls,
+revision capsules, quiz battles, the Whisper chain-repair game, S-B-U circle health,
+the deterministic circle matcher and workshop board, the mentor seat, solo mode, a
+facilitator dashboard, gamification with credits and XP, a four-language interface with
+right-to-left support, an offline pack, and a metrics/observability surface.
+
+\paragraph{Out of scope.} Voice interaction, real-time collaborative editing
+of the board, a trained (as opposed to configured) retrieval model, federated identity
+with an institutional SSO provider, and large-scale longitudinal evaluation with real
+cohorts. Real-user testing with student groups in two contexts is planned for the
+post-submission rehearsal and is described as planned work, not as a completed result
+(\S\ref{sec:threats}).
+
+\section{Contributions}
+
+Beyond a working product, the report makes four engineering contributions that
+generalize beyond this challenge:
+
+\begin{enumerate}[leftmargin=1.6em,itemsep=2pt]
+  \item \kw{A measured routing policy.} Rather than asserting that a two-tier split is
+        efficient, \code{lShare} is derived from the persisted call ledger and exposed
+        as a first-class product metric with a target, so the policy can fail review
+        (\S\ref{sec:routing}).
+  \item \kw{A degradation machine with semantics.} Each of the four states changes what
+        the interface \emph{promises}, not just what it displays; the system never
+        shows a frozen screen and never fakes streaming
+        (\S\ref{sec:degradation}).
+  \item \kw{Privacy as a build gate.} The absence of name, photo, gender and region
+        columns is asserted by a test that fails the build if such a field appears, so
+        the guarantee cannot silently erode (\S\ref{sec:privacy-gate}).
+  \item \kw{A three-tier test strategy with a live smoke.} Pure-domain unit tests,
+        integration tests against an ephemeral MongoDB, and a 45-check smoke against the
+        real inference platform that walks the dependency order of the product
+        (\S\ref{ch:testing}).
+\end{enumerate}
+
+\section{Report structure}
+
+Chapter~\ref{ch:req} derives the requirements from the challenge statement.
+Chapter~\ref{ch:arch} presents the system architecture and the two-tier model policy.
+Chapter~\ref{ch:ai} details the GenAI layer: routing, retrieval, the hint ladder, the
+Auditor, the Whisper game and the degradation machine.
+Chapter~\ref{ch:backend} covers the backend: modules, data model, API surface and
+security. Chapter~\ref{ch:frontend} covers the PWA, design system and internationalization.
+Chapter~\ref{ch:privacy} covers privacy and ethics as enforced properties.
+Chapter~\ref{ch:testing} describes the test strategy and its results;
+Chapter~\ref{ch:results} reports measured outcomes and discusses threats to validity.
+Chapter~\ref{ch:business} presents the business model, and Chapter~\ref{ch:conclusion}
+concludes. The appendix lists the endpoint surface, the event taxonomy and the
+reproduction procedure.

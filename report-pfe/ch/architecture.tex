@@ -1,0 +1,336 @@
+\chapter{System Architecture}
+\label{ch:arch}
+
+\section{Overview}
+
+HALQA is a three-tier system: a React single-page PWA, a NestJS REST API, and MongoDB.
+Its distinguishing architectural property is not the layering but the \emph{isolation of
+the model provider}: exactly one file in the backend knows a model name or an API key,
+and a unit test enforces that no other file imports it. Everything else --- routing,
+quota, caching, degradation, grounding --- is ordinary, testable TypeScript that happens
+to orchestrate model calls.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  font=\sffamily\footnotesize, x=1cm, y=1cm,
+  lay/.style={draw=ink0,fill=white,line width=0.5pt,rounded corners=2pt,
+              text width=11.4cm,minimum height=1.4cm,align=left,
+              inner sep=6pt},
+  fade/.style={draw=ink2,fill=fillA,line width=0.4pt,rounded corners=2pt,
+               text width=11.4cm,minimum height=1.1cm,align=left,
+               inner sep=5pt},
+  tag/.style={font=\sffamily\bfseries\scriptsize,color=ink3},
+  ar/.style={-{Latex[length=1.5mm,width=1.3mm]},draw=ink0,line width=0.6pt},
+]
+\node[lay] (t1) at (0,0) {\textbf{React 19 PWA} \hfill{\color{ink3}15 routes, 4 registers}
+  \\[2pt]{\footnotesize precached shell \enspace\textbullet\enspace service worker
+  \enspace\textbullet\enspace session store \enspace\textbullet\enspace offline pack}};
+\draw[ar] (t1.south) -- ++(0,-0.42) node[right=3pt,font=\sffamily\tiny,color=ink2]{};
+\node[fade] (t2) at (0,-2.05) {\textbf{NestJS 11 API} \hfill{\color{ink3}20 controllers, 68 routes}
+  \\[2pt]{\footnotesize guard chain (token $\to$ role $\to$ rate) \enspace\textbullet\enspace
+  Zod-validated boot \enspace\textbullet\enspace uniform error contract}};
+\draw[ar] (t2.south) -- ++(0,-0.42) node[right=3pt]{};
+\node[lay] (t3) at (0,-4.10) {\textbf{AI platform} \hfill{\color{ink3}one provider adapter}
+  \\[2pt]{\footnotesize AI router $\to$ semantic cache $\to$ quota governor $\to$ FIFO queue
+  $\to$ adapter (C / L) \enspace\textbullet\enspace TF-IDF retrieval, 39 chunks
+  \enspace\textbullet\enspace degradation green--black}};
+\draw[ar] (t3.south) -- ++(0,-0.42) node[right=3pt]{};
+\node[fade] (t4) at (0,-6.15) {\textbf{MongoDB 8} \hfill{\color{ink3}18 collections, 22 indexes}
+  \\[2pt]{\footnotesize 90-day TTL on telemetry \enspace\textbullet\enspace
+  atomic quota reservation \enspace\textbullet\enspace two idempotent migrations}};
+% side annotations
+\node[font=\sffamily\tiny,color=ink3,anchor=east,align=right] at (-6.45,0) {TIER 1\\CLIENT};
+\node[font=\sffamily\tiny,color=ink3,anchor=east,align=right] at (-6.45,-2.05) {TIER 2\\API};
+\node[font=\sffamily\tiny,color=ink3,anchor=east,align=right] at (-6.45,-4.10) {AI\\PLATFORM};
+\node[font=\sffamily\tiny,color=ink3,anchor=east,align=right] at (-6.45,-6.15) {TIER 3\\DATA};
+\end{tikzpicture}
+\caption{The four-layer stack, read top to bottom. Each layer states what it owns and the
+one property it is responsible for keeping true. Model calls never skip a layer: they enter
+at the AI platform and are metered, cached and grounded before the adapter is reached.}
+\label{fig:topology}
+\end{figure}
+
+\section{Layered decomposition}
+
+The backend is organised so that most of its logic is testable without a database, a
+network or a Nest container. Two layers carry that responsibility.
+
+\paragraph{\code{domain/} --- pure logic.} Fifteen modules with no framework imports:
+PII screening, credit mathematics with its logarithmic cap, S-B-U health formulas, cache
+key construction, the Arabizi normalizer, the bandit update, hint templates, token
+budgeting, confusion signals, ID formats and context modes. Because these functions are
+pure, they are tested directly and exhaustively --- 145 unit assertions across 24 spec
+files --- and a refactor of the surrounding services cannot silently change them.
+
+\paragraph{\code{modules/} --- use cases.} Twenty-five feature modules, each owning a
+controller, a service and its schema access. A module may depend on \code{domain/}, on
+the event bus, and on other feature services, but never on the provider adapter. The
+adapter-isolation test enforces that dependency rule mechanically:
+
+\begin{lstlisting}[language=Java,caption={The architectural gate that keeps the provider from leaking into product code (\code{test/unit/adapter-isolation.spec.ts}).}]
+it('only src/ai files import the provider adapter', () => {
+  const offenders: string[] = [];
+  for (const f of tsFiles(SRC)) {
+    if (f.includes(`${path.sep}ai${path.sep}`)) continue;
+    const src = fs.readFileSync(f, 'utf8');
+    if (/(?:import|require)\s*\(?[^'"]*['"][^'"]*ai\/adapter\/provider\.adapter/.test(src)) {
+      offenders.push(path.relative(SRC, f));
+    }
+  }
+  expect(offenders).toEqual([]);
+});
+\end{lstlisting}
+
+This is the difference between a claim and a constraint. The report can say ``the
+provider is isolated in one adapter'' because a failing test says so on every build.
+
+\section{The two model categories}
+\label{sec:routing}
+
+The challenge expects participation in both model categories. In an environment without
+GPU acceleration and with shared access, there are two symmetric failure modes: sending
+everything to the larger model, which exhausts the scarce quota and is slower for no
+benefit; or capping everything at the compact model, which produces thin synthesis where
+synthesis is genuinely required. HALQA makes the split explicit, encodes it in
+configuration, and measures it.
+
+\begin{table}[htbp]
+\centering
+\caption{Routing policy. The compact tier is the default; the larger tier must earn the call.}
+\label{tab:routing}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{3.0cm}X X@{}}
+\toprule
+& \textbf{Compact (C) --- default} & \textbf{Larger (L) --- escalation only} \\
+\midrule
+Tasks &
+  Group Pulse routing (intent, register, safety, difficulty); Quick Take drafts; hint
+  ladder L1--L3; poll and quiz items; language rewriting; DNA interpretation; Whisper
+  compare; mentor briefs &
+  $\ge 3$ retrieved chunks in conflict (multi-source synthesis); polished capsule or
+  revision prose; low C confidence; explicit Whisper or Auditor escalation; deep-dive
+  question \\
+Cost profile &
+  One schema-constrained call per turn window, shared by credits, confusion, intent and
+  register &
+  Seconds of latency; counted against a separate, smaller quota \\
+Guardrail &
+  Falls back to template (T0) where a template exists &
+  Falls back to C, then to T0, then to the offline pack \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The policy is not prose in a design document. It lives in \code{config/router.yaml} as
+thresholds, and its outcome is measured from the persisted call ledger:
+
+\begin{lstlisting}[caption={\code{config/router.yaml} --- the thresholds that the router reads at boot.}]
+confidence_threshold: 0.55     # below this, a C verdict is not trusted
+synthesis_chunk_conflict: 3    # >= 3 conflicting chunks forces synthesis
+l_share_target: 0.25           # ceiling on larger-tier share of all calls
+skeleton_ms: 200               # zero-model-call first paint budget
+c_complete_ms: 4000            # compact completion budget
+l_complete_ms: 12000           # larger completion budget
+\end{lstlisting}
+
+The escalation gate itself is deliberately conservative, and is expressed as an ordered
+list of conditions rather than a score, so that a reviewer can predict its behaviour:
+
+\begin{lstlisting}[language=Java,caption={Escalation conditions in the router, in evaluation order.}]
+//  1. >= 3 chunks with conflicting claims need synthesis
+//  2. the compact classifier is not confident about the intent
+//  3. the learner explicitly asked for a deep dive
+//  4. an Auditor or Whisper verdict requested escalation
+//  Anything else: compact tier, or a T0 template with no call at all.
+\end{lstlisting}
+
+\section{Request lifecycle: the Circle-First Ask}
+\label{sec:cfas}
+
+The Circle-First Ask is the system's spine, and every other feature reuses one of its
+stages. The sequence is deliberately asymmetric: the AI does its expensive work
+\emph{while the humans are talking}, so the peer window costs the learner nothing in
+latency.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  font=\sffamily\scriptsize,
+  act/.style={draw=ink2,fill=white,rounded corners=1.5pt,minimum height=9.5mm,
+              minimum width=29mm,align=center,line width=0.4pt},
+  wact/.style={draw=ink0,fill=fillB,rounded corners=1.5pt,minimum height=9.5mm,
+              minimum width=29mm,align=center,line width=0.5pt},
+  ai/.style={draw=ink0,fill=fillC,text=white,rounded corners=1.5pt,minimum height=9.5mm,
+             minimum width=30mm,align=center,line width=0.5pt},
+  ar/.style={-{Latex[length=1.3mm,width=1.1mm]},draw=ink0,line width=0.5pt},
+  dr/.style={-{Latex[length=1.3mm,width=1.1mm]},draw=ink2,line width=0.4pt,dashed},
+  lane/.style={font=\sffamily\footnotesize\bfseries,color=ink1},
+  tm/.style={font=\sffamily\tiny,color=ink2},
+]
+% lanes
+\node[lane,anchor=west] at (-0.4,0) {Learner};
+\node[lane,anchor=west] at (-0.4,-1.75) {Peers};
+\node[lane,anchor=west] at (-0.4,-3.5) {Nova};
+\node[lane,anchor=west] at (-0.4,-5.25) {Server};
+
+% learner
+\node[wact] (l1) at (1.6,0) {post question};
+\node[act]  (l2) at (5.4,0) {watch window};
+\node[act]  (l3) at (9.0,0) {read verified};
+\node[act]  (l4) at (12.2,0) {vote / vote-fix};
+
+% peers
+\node[wact] (p1) at (5.4,-1.75) {answer in window};
+\node[act]  (p2) at (9.0,-1.75) {see verdict};
+
+% nova
+\node[ai] (n1) at (5.4,-3.5) {retrieve $\to$ cache $\to$ C draft\\(hidden)};
+\node[ai] (n2) at (9.0,-3.5) {Auditor verify\\(1$\times$C, poll-first)};
+\node[ai] (n3) at (12.2,-3.5) {release with cites};
+
+% server
+\node[act] (s1) at (1.6,-5.25) {open window\\ \code{OPEN}};
+\node[act] (s2) at (7.2,-5.25) {expiry worker\\ settles};
+\node[act] (s3) at (12.2,-5.25) {\code{RESOLVED}\\ + credits, + S-B-U};
+
+% timeline
+\draw[ink4,line width=0.4pt] (0.2,-6.4) -- (13.3,-6.4);
+\foreach \x/\t in {1.6/0\,s, 5.4/1\,s, 7.2/45\,s, 9.0/46\,s, 12.2/48\,s}{
+  \draw[ink4] (\x,-6.4) -- (\x,-6.6);
+  \node[tm] at (\x,-6.9) {\t};
+}
+\draw[decorate,decoration={brace,amplitude=4pt,mirror},ink3]
+  (7.1,-2.55) -- (3.7,-2.55) node[midway,above=5pt,font=\sffamily\tiny,color=ink2]
+  {peer window 45--60\,s, AI work overlapped};
+
+\draw[ar] (l1) -- (l2);
+\draw[ar] (l2) -- (l3);
+\draw[ar] (l3) -- (l4);
+\draw[ar] (l1) -- (s1);
+\draw[ar] (l2) -- (p1);
+\draw[dr] (p1) -- (s2);
+\draw[ar] (s2) -- (n2);
+\draw[dr] (n1) -- (n2);
+\draw[ar] (n2) -- (n3);
+\draw[ar] (n3) -- (l3);
+\draw[dr] (n2) -- (p2);
+\draw[dr] (n3) -- (s3);
+\draw[dr] (l4) -- (s3);
+\end{tikzpicture}
+\caption{Circle-First Ask. The peer window is the only interval in which humans speak; the
+model work is overlapped with it, so the AI answer is ready at the moment the window
+closes. The withholding rule is enforced by question state, not by prompt instruction.}
+\label{fig:cfas}
+\end{figure}
+
+\paragraph{Question state machine.} The withholding rule is a property of persisted state,
+which is what makes it trustworthy. A question is \code{OPEN} while peers may answer;
+\code{NOVA\_THINKING} after settlement begins, when the Quick Take is already written but
+not yet exposed; and \code{RESOLVED} when the verified answer, its citations and any poll
+are readable. The private and public views are separate routes, so a client cannot obtain
+the hidden answer by reading a field it was not given: the public state route strips it,
+and the private route is asker-only.
+
+\paragraph{Pipeline stages.} Progress is reported as an ordered list of stages
+(\code{retrieving}, \code{checking\_similar}, \code{writing}, \code{verifying}), each with
+a start and completion timestamp. Responses arrive whole rather than streamed, so the
+interface communicates staged progress instead of a partially-rendered answer
+(\S\ref{sec:latency-ux}).
+
+\section{Why the window is server-authoritative}
+
+A tempting shortcut is to run the countdown in the browser. We rejected it for two
+reasons visible in production. First, a client clock is untrusted and a backgrounded tab
+throttles timers, so a window could outlive its deadline and peers would keep voting on
+a settled question. Second, a single process restart in the middle of a window would
+leave the question open forever, which is a visible product defect: the learner sees a
+window that never closes.
+
+The implementation therefore keeps the deadline on the server (\code{windowEndsAt} as an
+indexed field), settles from a timer, and \emph{also} sweeps periodically so that a window
+that expired while the process was down is settled on the next tick rather than never.
+Clients derive their countdown from \code{windowEndsAt}, not from a server-provided
+``now'', which also keeps conditional-GET validators stable:
+
+\begin{lstlisting}[language=Java,caption={Dual settlement path: timer for the normal case, periodic sweep for the crash case.}]
+/** Periodic sweep, so a window that expired while this process was down --
+ *  or between a timer being set and a deploy -- is still settled. */
+const overdue = await this.questions.find({ state: 'OPEN', windowEndsAt: { $lte: new Date() } });
+const upcoming = await this.questions.find({ state: 'OPEN', windowEndsAt: { $gt: new Date() } });
+for (const q of upcoming) this.schedule(q._id, +q.windowEndsAt - Date.now());
+\end{lstlisting}
+
+The same reasoning applies at deploy time: shutdown hooks drain in-flight requests and
+clear the timers, so a deploy does not settle windows from a process that is already
+dead. Settlement is idempotent, so a double settle cannot double-credit.
+
+\section{Cross-cutting concerns}
+
+\begin{table}[htbp]
+\centering
+\caption{Where each cross-cutting concern is implemented, and how it is enforced.}
+\label{tab:crosscut}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{2.7cm}X p{4.3cm}@{}}
+\toprule
+\textbf{Concern} & \textbf{Implementation} & \textbf{Enforcement} \\
+\midrule
+Authentication & HMAC bearer token with learner ID, role and a token epoch
+  & Default-deny guard; epoch bump invalidates all devices on passphrase change \\
+Authorization & Role decorator plus circle-membership check
+  & \code{authz-matrix} integration test: learner $\times$ mentor $\times$ admin
+    $\times$ anonymous $\times$ cross-circle \\
+Rate limiting & Named budgets (AI 10/min, writes 30/min, join-code 60/min per IP)
+  & In-memory guard, with the edge limiter documented as the production layer \\
+Validation & Zod-validated config at boot; \code{ValidationPipe} with
+  \code{whitelist} and \code{forbidNonWhitelisted} on every route
+  & Rejects unknown fields rather than ignoring them \\
+Error contract & Uniform \code{\{error, code, retryable, user\_msg[4]\}}
+  & Localized message asserted for all four languages in unit tests \\
+Observability & Request-ID middleware, JSON logger, prom-client registry, event bus
+  & \code{/metrics} key set asserted by the live smoke \\
+Persistence & Mongoose schemas, 22 indexes, a two-migration registry, unit-of-work
+  for transactions
+  & Migrations are idempotent and indexed \\
+Shutdown & \code{enableShutdownHooks}, timers drained, Mongo closed
+  & Deploy smoke check \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Technology choices}
+
+Each choice below was made against a constraint rather than by preference, and each is
+justified by what it enabled.
+
+\paragraph{NestJS 11 with TypeScript in strict mode.} The feature set is large enough that
+module boundaries matter: 25 modules that can depend on \code{domain/} but not on the
+adapter is a rule a framework can express and a flat Express app cannot. Strict mode with
+no implicit \code{any} was decisive for a codebase that passes \code{unknown} model output
+around: every parse of a model response is forced through a narrowing function, which is
+where several real bugs were found.
+
+\paragraph{MongoDB 8 with Mongoose.} Session state is document-shaped --- a question
+carries its stages, its citations and its Quick Take together --- and a session reads as
+one document rather than a join of six tables. Mongo also provides the two operational
+properties this project depends on: TTL indexes for telemetry retention and atomic
+\code{findOneAndUpdate} for quota reservation, which is what makes the governor correct
+across concurrent requests.
+
+\paragraph{React 19 with Vite and a PWA plugin.} A shared-device, campus-network context
+wants an installable shell and a precached offline pack. Vite's build plus
+\code{vite-plugin-pwa} produced both without a bespoke service worker.
+
+\paragraph{TF-IDF retrieval instead of an embedding index.} This is the most debatable
+choice, and it was made deliberately. A 39-chunk knowledge base over two topics does not
+need embeddings to be retrieved well, and a local index has three properties a remote
+embedding service does not: it builds in under a second at boot, it costs nothing per
+query, and it keeps the grounded path alive in the \code{RED} and \code{BLACK} degradation
+states. The trade-off is recall on paraphrases, which the three-variant query rewrite
+partly compensates (\S\ref{sec:rag}).
+
+\paragraph{A single provider adapter.} All model access goes through one file exposing
+\code{compact}, \code{larger} and \code{available(tier)}. Two benefits follow: the product
+can survive a provider change or a move to self-hosted open-weight models without touching
+feature code, and the isolation is testable rather than aspirational.

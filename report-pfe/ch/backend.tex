@@ -1,0 +1,448 @@
+\chapter{Backend Design}
+\label{ch:backend}
+
+\section{Module map}
+
+The API is organised into 25 feature modules. The grouping below is the one used in
+code review, because it separates the modules that decide \emph{what the AI may do} from
+the ones that decide \emph{what the learner sees}.
+
+\begin{table}[htbp]
+\centering
+\caption{The 25 backend modules grouped by responsibility.}
+\label{tab:modules}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{3.0cm}X@{}}
+\toprule
+\textbf{Group} & \textbf{Modules} \\
+\midrule
+Session core & \code{session}, \code{circle}, \code{question}, \code{peer-window},
+  \code{workshop} --- circles, membership, the question state machine and the
+  server-authoritative window \\
+AI platform & \code{learning} (DNA and bandit), \code{hints}, \code{auditor},
+  \code{consensus}, \code{whisper}, \code{capsule}, \code{quiz}, \code{coach} --- the
+  generative surface \\
+Learner surfaces & \code{solo}, \code{gamification}, \code{equity}, \code{matcher} ---
+  individual practice, credits, fairness and circle composition \\
+Facilitation & \code{mentor}, \code{dashboard}, \code{sbu}, \code{projections},
+  \code{analytics} --- the board, health rings and metrics \\
+Platform & \code{auth}, \code{knowledge}, \code{offline}, \code{settings} --- identity,
+  retrieval corpus, offline pack and configuration \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Each module follows the same internal shape: a controller that validates and authorizes, a
+service that owns the use case, and direct schema access through the model registry. There
+is no repository layer, deliberately: with 18 collections and no cross-service query
+composition beyond two joins that already live in a projection, a repository layer would
+add indirection without adding a seam.
+
+\section{Domain layer}
+
+The \code{domain/} directory holds fifteen dependency-free modules. They are the parts of
+the system that can be proven by example, and they carry most of the invariants the report
+claims. Two of them deserve their formulas in full, because they encode product decisions.
+
+\subsection{Credits with a logarithmic cap}
+\label{sec:credits}
+
+Participation credits reward quality, not volume, because a chatty learner must not
+outrank a quiet one who asked the question that unlocked the group. Weights are
+configured in \code{config/equity.yaml} and mirrored by a default table in code:
+
+\begin{table}[htbp]
+\centering
+\caption{Credit weights and the volume cap.}
+\label{tab:credits}
+\footnotesize
+\begin{tabular}{@{}lr@{\hspace{18pt}}lr@{}}
+\toprule
+\textbf{Action} & \textbf{Weight} & \textbf{Action} & \textbf{Weight} \\
+\midrule
+\code{sharp\_question}   & 3 & \code{poll\_vote}    & 1 \\
+\code{good\_explanation} & 3 & \code{me\_too}       & 1 \\
+\code{bridging}          & 3 & \code{scribe\_note}  & 1 \\
+\code{kind\_skeptic}     & 3 & \code{plain\_message} & 0.5, log-capped \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Plain messages are capped logarithmically with $k=2$:
+\begin{equation}
+\mathrm{effective}_{\mathrm{plain}}(n) \;=\; 2\,\ln(1+n).
+\label{eq:logcap}
+\end{equation}
+
+The worked example from the blueprint is the one the test asserts. Learner A posts twelve
+plain messages: $2\ln 13 \approx 5.1$. Learner B asks one sharp question, makes one
+bridging connection and casts one vote: $3+3+1 = 7$. B outranks A despite twelve times
+fewer messages. Without the cap, A would score $6$ on weight alone and the reward would
+train the wrong behaviour.
+
+\subsection{S-B-U circle health}
+\label{sec:sbu}
+
+Each circle has three rings, computed from telemetry on every event. The names are
+\emph{Structured}, \emph{Balanced} and \emph{Understood}; the formulas are fixed in
+\code{config/sbu.yaml}:
+
+\begin{align}
+S &= 0.4\,a + 0.3\,t + 0.3\,r, \label{eq:s}\\
+B &= 1 - \mathrm{dispersion}(\text{credits}), \label{eq:b}\\
+U &= 0.5\,c + 0.3\,(1 - \bar{h}/3) + 0.2\,(1 - \kappa), \label{eq:u}
+\end{align}
+
+where $a$ is agenda completion, $t$ time discipline, $r$ recap completion, $c$ the
+check-success rate, $\bar h$ the mean hint depth on a $0..4$ scale, and $\kappa$ the
+corrections per answer, capped to $0..1$ upstream. Dispersion is the coefficient of
+variation of credits across members, so a circle where one learner earns everything scores
+$B \approx 0$ and a perfectly shared circle scores $B \approx 1$.
+
+Ring display thresholds are $\ge 0.75$ \emph{bright}, $0.45$--$0.75$ \emph{steady}, below
+$0.45$ \emph{pulse}. Neutral priors are used where a signal is not yet measurable
+($t = 0.5$, $c = 0.5$), so a new circle is not punished for having no history. The
+\code{needs\_human} flag fires when $B < 0.45$, $U < 0.45$, or a misconception has been
+open for more than three minutes; it routes mentor attention rather than replacing it.
+
+\subsection{Other domain modules}
+
+\begin{table}[htbp]
+\centering
+\caption{Domain modules and the invariant each one owns.}
+\label{tab:domain}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{3.2cm}X@{}}
+\toprule
+\textbf{Module} & \textbf{Invariant} \\
+\midrule
+\code{pii.ts} & Email, phone, address hints and long digit runs are redacted before any
+  text leaves the process; the function returns findings, not a boolean, so a caller can
+  tell the learner what was removed \\
+\code{cache-key.ts} & Equivalent re-asks collapse to one key: normalise, sort chunk ids,
+  include the ladder state \\
+\code{arabizi.ts} & Register detection and Latin-digit transliteration normalisation,
+  shared by retrieval and the cache \\
+\code{bandit.ts} & Style weights sum to one, never fall below the floor, and update by
+  one documented step \\
+\code{credits.math.ts} & Credits are quality-weighted and log-capped; dispersion is a
+  coefficient of variation \\
+\code{sbu.math.ts} & The three rings, the display tiers and the \code{needs\_human}
+  predicate \\
+\code{confusion.ts} & Confusion signals, including the short-after-long pattern, with a
+  documented primary signal \\
+\code{ids.ts} & Learner identifiers match \code{L-\textbackslash d\{2,4\}}; no other
+  format is accepted at any boundary \\
+\code{hint-templates.ts} & L1--L3 exist for every supported topic and language, so the
+  ladder can never be empty \\
+\code{tokens.ts} & Token budgeting scales the caller's output request for reasoning
+  models rather than assuming a fixed budget \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Data model}
+
+Eighteen collections, seven schemas holding several definitions each, and 22 indexes
+chosen for the three access patterns that matter: the state poller, the expiry worker and
+the per-circle read.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  font=\sffamily\scriptsize,
+  card/.style={draw=ink0,fill=fillA,rounded corners=1.5pt,align=left,inner sep=4pt,
+               text width=4.05cm,line width=0.5pt,minimum height=2.05cm},
+  cardw/.style={card,fill=white},
+  cardd/.style={card,fill=fillB},
+  rel/.style={draw=ink2,line width=0.4pt,-{Latex[length=1mm,width=0.9mm]}},
+]
+% row 1 -- identity and group
+\node[card] (learner) {\textbf{learners} \hfill L-01\\
+  \rule{3.5cm}{0.3pt}\\
+  \code{\_id} (artificial), \code{nickname}\\
+  \code{avatarKey}, \code{context}\\
+  \code{passport?}, \code{tokenEpoch}\\
+  \code{handle?}, \code{secretHash?}\\
+  {\color{ink2}no name, photo, gender, region}};
+\node[card,right=6mm of learner] (circle) {\textbf{circles} \hfill C-1\\
+  \rule{3.5cm}{0.3pt}\\
+  \code{topic}, \code{context}, \code{lang}\\
+  \code{windowS} $30..90$ (default 45)\\
+  \code{joinCode} (unique index)\\
+  \code{members[]}: \code{learnerId}, \code{role}\\
+  \code{state}};
+\node[card,right=6mm of circle] (session) {\textbf{sessions}\\
+  \rule{3.5cm}{0.3pt}\\
+  \code{circleId}, \code{lang}\\
+  \code{agenda}, \code{health} (S,B,U)\\
+  \code{healthInputs} (raw, auditable)\\
+  \code{startedAt}, \code{endedAt}\\
+  \code{soloHat?}, \code{soloTurn?}};
+
+% row 2 -- the interaction
+\node[card,below=8mm of learner] (question) {\textbf{questions}\\
+  \rule{3.5cm}{0.3pt}\\
+  \code{sessionId}, \code{circleId}\\
+  \code{askerId} (hidden if anonymous)\\
+  \code{text} (PII-screened at write)\\
+  \code{state} OPEN $\to$ THINKING $\to$ RESOLVED\\
+  \code{windowEndsAt}, \code{stages[]}\\
+  \code{hintState}, \code{quickTake?}, \code{cites[]}};
+\node[card,below=8mm of circle] (peer) {\textbf{peer\_answers}\\
+  \rule{3.5cm}{0.3pt}\\
+  \code{questionId}, \code{learnerId}\\
+  \code{text}, \code{createdAt}\\
+  \code{index(questionId, createdAt)}:\\
+  verbatim peer answers in arrival\\
+  order, verified by the Auditor};
+\node[card,below=8mm of session] (poll) {\textbf{polls} / \textbf{poll\_votes}\\
+  \rule{3.5cm}{0.3pt}\\
+  \code{sessionId}, \code{claim}\\
+  \code{state}, \code{options[]}\\
+  votes: \code{pollId}, \code{learnerId}\\
+  one vote per learner, enforced};
+
+% row 3 -- AI artefacts
+\node[cardw,below=8mm of question] (hint) {\textbf{hints}\\
+  \rule{3.5cm}{0.3pt}\\
+  \code{questionId}, \code{level} 1..4\\
+  \code{text}, \code{sources[]}\\
+  L1--L3 are T0 templates; L4 is the\\
+  prepared Quick Take, leak-gated};
+\node[cardw,below=8mm of peer] (ai) {\textbf{artifacts} / \textbf{cache}\\
+  \rule{3.5cm}{0.3pt}\\
+  artifacts: \code{sessionId}, \code{kind}\\
+  (quick\_take, drift\_map, capsule)\\
+  cache: \code{key} sha1, \code{value}, \code{ttl}\\
+  \code{cites[]} on every grounded entry};
+\node[cardw,below=8mm of poll] (quota) {\textbf{quota\_ledger}\\
+  \rule{3.5cm}{0.3pt}\\
+  \code{\_id} = session id\\
+  \code{cUsed}, \code{lUsed}\\
+  \code{reservedC}, \code{reservedL}\\
+  \code{cCap} 20, \code{lCap} 5\\
+  atomic reserve, no check-then-set};
+
+% row 4 -- operational
+\node[cardd,below=8mm of hint] (llm) {\textbf{llm\_calls}\\
+  \rule{3.5cm}{0.3pt}\\
+  \code{sessionId}, \code{tier} C|L\\
+  \code{intent}, \code{latencyMs}\\
+  \code{cached}, \code{ts}\\
+  {\color{ink2}the ledger lShare is computed from}};
+\node[cardd,below=8mm of ai] (event) {\textbf{events}\\
+  \rule{3.5cm}{0.3pt}\\
+  \code{ts}, \code{sessionId}, \code{circleId}\\
+  \code{actor} (L-xx | NOVA | mentor)\\
+  \code{type}, \code{payload}\\
+  TTL index, 90 days: retention by\\
+  construction, not by cron};
+\node[cardd,below=8mm of quota] (prog) {\textbf{learner\_progress}\\
+  \rule{3.5cm}{0.3pt}\\
+  fast read path polled by the UI\\
+  \textbf{xp\_ledger} append-only,\\
+  written in the same transaction\\
+  \textbf{circle\_daily\_spend}\\
+  \code{calls} cap 400 per circle per day};
+
+% relations
+\draw[rel] (learner) -- (circle);
+\draw[rel] ([yshift=2mm]circle.south) -- ([yshift=2mm]session.south west);
+\draw[rel] (learner) -- (question);
+\draw[rel] (session) -- (question);
+\draw[rel] (question) -- (peer);
+\draw[rel] (session) -- (poll);
+\draw[rel] (question) -- (hint);
+\draw[rel] (session) -- (ai);
+\draw[rel] (session) -- (quota);
+\draw[rel] (quota) -- (llm);
+\draw[rel] (prog) -- (learner);
+\end{tikzpicture}
+\caption{The data model, grouped by layer: identity and group (row 1), the interaction
+(row 2), AI artefacts (row 3) and operational ledgers (row 4). Card fields are the
+load-bearing ones, not an exhaustive listing. Every arrow is a reference by identifier;
+nothing is embedded across collections, so a circle read never pulls a question's history.}
+\label{fig:datamodel}
+\end{figure}
+
+\subsection{Indexes and why each exists}
+
+\begin{table}[htbp]
+\centering
+\caption{Indexes grouped by the access pattern they serve.}
+\label{tab:indexes}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{4.4cm}X@{}}
+\toprule
+\textbf{Index} & \textbf{Access pattern} \\
+\midrule
+\code{questions(sessionId, state, createdAt)} & The state poller; the single hottest read
+  in the system \\
+\code{questions(windowEndsAt)} & The expiry worker's sweep for windows that outlived a
+  restart \\
+\code{questions(askerId, createdAt)} & A learner's own history without scanning \\
+\code{circles(joinCode)} unique & Join by code, and a uniqueness guarantee rather than a
+  convention \\
+\code{circles(topic, state)} , \code{circles(members.learnerId)} & Board filter and
+  ``my circles'' \\
+\code{sessions(circleId, startedAt)} , \code{sessions(health.U)} & Session history and
+  mentor triage by lowest understanding \\
+\code{peer\_answers(qid, createdAt)} & Verbatim peer answers in arrival order \\
+\code{events(ts)} with TTL 90\,d & Retention is enforced by the database, not by a cron
+  job that may not run \\
+\code{llm\_calls(sessionId)}, \code{circle\_daily\_spend} & Quota
+  reservation and the daily ceiling \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The TTL index on telemetry deserves a note. Retention is a legal and ethical obligation,
+and a cron job satisfies it only if the job runs. A TTL index satisfies it by construction:
+the document expires whether or not any process is scheduled. The same reasoning drives
+the two-step deletion flow (\S\ref{sec:datasubject}).
+
+\section{API surface}
+
+Twenty controllers expose 68 routes under a single global prefix, \code{/api/v1}. The
+surface is intentionally REST-shaped rather than consolidated into a single ``ask'' RPC,
+because the peer window is a genuine multi-party interaction: peers must be able to read a
+question, answer it, and see a state transition, and those are three separate reads and
+writes that a chat-completion endpoint cannot express.
+
+\begin{table}[htbp]
+\centering
+\caption{Representative routes by resource. The full surface is listed in
+Appendix~\ref{app:endpoints}.}
+\label{tab:api}
+\small
+\begin{tabularx}{\textwidth}{@{}p{5.4cm}X@{}}
+\toprule
+\textbf{Route} & \textbf{Purpose} \\
+\midrule
+\code{POST /auth/session} & Mint a learner identity from nickname, avatar and context;
+  no PII involved \\
+\code{POST /auth/passphrase} & Upgrade a guest record to an account; progress is kept \\
+\code{GET /dna/items}, \code{POST /dna} & Read the four diagnostic items; write the
+  passport \\
+\code{POST /circles}, \code{POST /circles/:id/join} & Create with a join code; join by
+  code or QR \\
+\code{POST /questions} & Open a question and a window in one write \\
+\code{GET /questions/:qid/state} & Public state, ETag-validated, hidden fields stripped \\
+\code{GET /questions/:qid/private} & Asker-only quick take and staged progress \\
+\code{POST /questions/:qid/peer-answer} & Peer answer inside the window \\
+\code{POST /questions/:qid/hint} & Ladder step; L4 leak-gated \\
+\code{POST /polls}, \code{POST /polls/:pid/vote} & Consensus poll on a contested claim \\
+\code{POST /sessions/:id/capsule} & Draft and optionally polish the revision capsule \\
+\code{POST /quiz/battle} & Three-item battle from the session's question bank \\
+\code{POST /whisper} & Drift map over a paraphrase chain of at least two links \\
+\code{GET /circles/:id/health} & S-B-U rings and \code{needs\_human} \\
+\code{POST /circles/match} & Deterministic circle composition from passports \\
+\code{GET /metrics} & Tier counts, L-share, p50/p95, cache hits, quota, degradation \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{The uniform error contract}
+
+Every failure --- validation, authorization, quota, provider, not-found --- returns the
+same shape, and it returns it localized:
+
+\begin{lstlisting}[language=Java,caption={The error contract. Four localized messages are mandatory, so a UI never has to translate an API error.}]
+{
+  error:     string,                        // stable machine identifier
+  code:      string,                        // e.g. HINT_L4_LOCKED
+  retryable: boolean,                       // tells the client whether to offer a retry
+  user_msg:  { ar, darija, fr, en }         // four registers, ready to render
+}
+\end{lstlisting}
+
+Localizing the error server-side was a deliberate reversal of the usual layering. The
+alternative --- sending a code and maintaining the mapping in the client --- duplicates the
+mapping across two codebases and guarantees drift. A unit test asserts that every domain
+error has all four messages, so a new error cannot be added without them.
+
+\subsection{Conditional reads for the window}
+
+The peer window implies polling: several clients read the same question state repeatedly
+for 45 seconds. Polling a JSON document every second from twelve devices is a load
+problem, so the state route computes an ETag over the semantic content and answers 304
+when the client's validator matches. The client also derives its countdown from
+\code{windowEndsAt} rather than from a server ``now'', so the ETag stays stable across
+ticks and the load test can assert a p95 under 50\,ms for the steady-state path
+(\S\ref{sec:obs}).
+
+\section{Security}
+
+Security here is not a section of the codebase but a set of gates on the way in. The
+default is denial: a route is public only if it carries an explicit decorator, so a
+forgotten decorator fails closed rather than open.
+
+\begin{table}[htbp]
+\centering
+\caption{Security controls and their verification.}
+\label{tab:security}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{3.4cm}X p{3.4cm}@{}}
+\toprule
+\textbf{Control} & \textbf{Implementation} & \textbf{Verified by} \\
+\midrule
+Authentication & HMAC bearer token over learner ID, role and token epoch; 30-day access
+  TTL with refresh & \code{token-guard.spec}, \code{tokens.spec} \\
+Session revocation & A passphrase change bumps the epoch, invalidating every other device
+  at once & \code{accounts.spec} \\
+Rotation without sign-out & A previous secret is accepted during a rotation window and
+  dropped one release later & \code{credentials.spec} \\
+Authorization & Role decorator plus an explicit circle-membership check, including
+  cross-circle denial & \code{authz-matrix.spec} across learner, mentor, admin,
+  anonymous and cross-circle \\
+Rate limiting & Named budgets per surface: AI 10/min, writes 30/min, join-code lookup
+  60/min per IP & \code{rate-limit.spec} \\
+Transport headers & Strict CSP with \code{script-src 'self'} and no inline script,
+  \code{object-src 'none'}, \code{frame-ancestors 'none'} & \code{csp.spec}, plus an E2E
+  assertion that the live server sends them \\
+Input validation & \code{ValidationPipe} with \code{whitelist} and
+  \code{forbidNonWhitelisted}: unknown fields are rejected, not ignored & Integration
+  tests on the 400 shape \\
+Secrets & A scanner gate runs first in CI; \code{.env} never reaches git & \code{lint:secrets} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{The CSP is data, not an inline string.} Helmet's defaults leave
+\code{script-src} unrestricted, which is the one directive that matters against XSS, and
+the bearer token lives in \code{sessionStorage} --- so an XSS is session theft, not a
+cosmetic defect. The policy is therefore built by a function that can be asserted in a unit
+test, rather than written inline in the bootstrap where a review could weaken it unnoticed.
+One directive is deliberately loosened: \code{style-src} allows \code{'unsafe-inline'}
+because Vite injects critical CSS inline at build time and a strict style policy breaks
+first paint. Inline \emph{style} under \code{script-src 'self'} cannot execute script,
+which is the boundary that matters, and the report states the trade-off rather than hiding
+it.
+
+\paragraph{Credentials are stored as a salted hash.} A handle and passphrase are optional
+--- the default identity is a nickname and a neutral avatar --- but where they exist they
+are hashed with scrypt and never exported: the data-subject export includes the salt and
+digest, deliberately, because exporting a reusable secret would create a new one.
+
+\section{Data governance}
+\label{sec:datasubject}
+
+Two routes implement the learner's rights, and their design follows from the retention
+obligation being enforced by the database.
+
+\begin{enumerate}[leftmargin=1.6em,itemsep=2pt]
+  \item \textbf{Export.} \code{GET /me/export} returns the learner's passport, progress and
+        ledger, with secrets reduced to hashes.
+  \item \textbf{Deletion.} \code{DELETE /me} sets \code{deletedAt} and a
+        \code{purgeAfter} 30 days out, immediately anonymises the credential and clears the
+        passport, and returns the purge date. \code{POST /me/restore} reverses it during the
+        grace window. After the window, a purge tombstones the identifier: the row survives
+        so that a reused nickname cannot inherit an old ledger, but it holds nothing about
+        the person.
+\end{enumerate}
+
+The grace window exists because account deletion is an irreversible action requested
+under emotional conditions. A learner who deletes an account at 2\,a.m.\ during a stressful
+revision week should be able to recover it; a learner who wants the data gone gets it gone
+after thirty days, and the retention test asserts both halves.

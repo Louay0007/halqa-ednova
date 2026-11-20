@@ -1,0 +1,444 @@
+\chapter{The Generative AI Layer}
+\label{ch:ai}
+
+This chapter documents the part of the system that is genuinely about generative AI:
+how a turn is classified, how knowledge is retrieved and cited, how the hint ladder and
+the Auditor are built to bound model usage, and how the whole layer degrades when the
+model is not there. The organising principle throughout is that \emph{the model is the
+most expensive and least reliable component}, so every use of it is a deliberate budgeted
+decision with a template-based fallback.
+
+\section{Group Pulse: one call, many decisions}
+
+Per learner turn, the system needs four pieces of information: the intent of the message,
+the language and register it was written in, whether it contains unsafe content or PII,
+and how difficult the underlying question is. The naive implementation makes four calls.
+HALQA makes one schema-constrained compact call and shares its result across four
+consumers.
+
+\begin{table}[htbp]
+\centering
+\caption{The Group Pulse schema and its consumers. One compact call per turn window serves
+credits, confusion tracking, register detection and the difficulty gate.}
+\label{tab:pulse}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{3.1cm}p{3.0cm}X@{}}
+\toprule
+\textbf{Field} & \textbf{Domain} & \textbf{Consumed by} \\
+\midrule
+\code{intent} & \code{ask}, \code{explain}, \code{help\_offer}, \code{dispute},
+  \code{chitchat}, \code{meta} & Router (task selection) and credit weights
+  (\S\ref{sec:credits}) \\
+\code{helpful\_0\_2} & $0..2$ & Credit award for explanations; S-B-U \emph{Build} ring \\
+\code{bridging\_bool} & boolean & Connects two learners' ideas; \emph{Bridge Builder} badge \\
+\code{skeptic\_bool} & boolean & Kind-skeptic credit; disagreement is data, not shame \\
+\code{confusion\_0\_1} & $0..1$ & Confusion signal; drives hint eagerness and
+  \code{needs\_human} \\
+\code{lang} & \code{ar}, \code{darija}, \code{fr}, \code{en} & Response register and
+  retrieval language filter \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Two implementation details matter for correctness under latency. First, the response is
+parsed through a narrowing function that validates every field and substitutes a safe
+default (\code{chitchat}, neutral helpfulness) rather than throwing: a malformed model
+reply must degrade one turn, not fail the request. Second, the call is guarded so that
+\emph{at most one} Group Pulse runs per turn window; a burst of messages collapses into a
+single classification. Both are unit-tested in \code{router-pure.spec.ts}.
+
+\section{Retrieval-augmented generation}
+\label{sec:rag}
+
+\subsection{The knowledge base}
+
+Knowledge lives in versioned JSON seed files rather than in a vector store, because the
+corpus is small, curated and needs to be auditable. This submission ships two packs ---
+\emph{binary search} and \emph{fractions} --- totalling 39 chunks, each with a stable
+identifier, a language, a kind, and an explicit list of \emph{claims} it supports.
+
+\begin{table}[htbp]
+\centering
+\caption{Knowledge base composition. Every chunk carries claim checklists, which is what
+lets the Auditor verify a peer answer without a second retrieval pass.}
+\label{tab:kb}
+\footnotesize
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{Pack} & \textbf{Chunks} & \textbf{ar} & \textbf{darija} & \textbf{fr / en} \\
+\midrule
+\code{binary\_search.json} & 27 & 6 & 6 & 15 \\
+\code{fractions.json}      & 12 & 1 & 1 & 10 \\
+\midrule
+\textbf{Total}             & \textbf{39} & 7 & 7 & 25 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The manifest \code{kb/SOURCES.md} lists every chunk identifier with its provenance and
+licence, and a test asserts that the seed files and the manifest agree in both
+directions --- a chunk listed but not shipped, or shipped but not listed, fails the build.
+All content is team-written and synthetic, which also means the data sent to the provider
+contains no third-party material and no learner data.
+
+\subsection{Index and query}
+
+Chunks are indexed at boot with TF-IDF over a normalised token field. The index builds in
+under a second, which is what allows it to be rebuilt on every process start with no
+persistence layer and no warm-up window.
+
+Each grounded query is rewritten into three template variants (base, base with the level
+appended, base with an example cue appended), every variant is scored, results are
+deduplicated by chunk identifier keeping the best score, ties are broken deterministically
+by identifier, and the top five are attached to the prompt together with their claim
+checklists.
+
+\begin{lstlisting}[language=Java,caption={Query across the three rewrite variants, with deterministic dedupe.}]
+search(intent, level, sessionLang, topK = 5) {
+  const norm = normaliseArabizi(intent);
+  const best = new Map();
+  for (const variant of rewriteQuery(norm, level)) {
+    for (const hit of this.index.search(variant, sessionLang, topK)) {
+      // keep the best score per chunk, so expansion can only help recall
+      const prev = best.get(hit.chunkId);
+      if (!prev || hit.score > prev.score) best.set(hit.chunkId, hit);
+    }
+  }
+  return [...best.values()]
+    .sort((a, b) => b.score - a.score || (a.chunkId < b.chunkId ? -1 : 1))
+    .slice(0, topK);
+}
+\end{lstlisting}
+
+Determinism here is not aesthetic. The demo, the evals and the smoke test all compare
+outputs across runs, so retrieval that varied between runs would make every downstream
+assertion flaky. Sorting ties by identifier also means the escalation gate --- which counts
+\emph{conflicting} chunks --- sees a stable set.
+
+\subsection{Mandatory citations}
+
+Every grounded answer must cite chunk identifiers, and the interface renders them as
+citation chips beneath the answer. This is a stronger requirement than it looks: a
+citation is only useful if the claim it supports is checkable, so the same claim
+checklists that are attached to the prompt are stored with the answer and later used by
+the Auditor to verify peer claims. One artefact, three consumers --- grounding,
+verification and the offline pack.
+
+\begin{note}[Why citations reduce load rather than increase it]
+An answer with five citations is longer, but it is also more likely to be accepted without
+a follow-up question, which is the expensive path. In practice the citation obligation is a
+token cost paid once to avoid a second turn, and it makes the Auditor's job a set
+comparison rather than a fresh generation.
+\end{note}
+
+\subsection{Arabizi normalisation}
+\label{sec:arabizi}
+
+Tunisian learners routinely write Darija in Latin script with digits standing in for
+letters: \code{3} for \emph{ain}, \code{7} for \emph{ha}, \code{9} for \emph{qaf}, and
+\code{5} or \code{kh} for \emph{kha}. Two learners can ask the same question in Arabic
+script and in Arabizi, and a tokenizer that treats them as unrelated strings will fail to
+retrieve the same chunk for both.
+
+The domain layer therefore ships a pure normaliser and a register detector. Detection runs
+before retrieval so that a chunk in the wrong register is never attached to a prompt: a
+Darija question receives Darija chunks. Because the functions are pure and
+dependency-free, they are tested on a fixed corpus of real orthographic variants, and the
+same code path is reused by the cache key builder so that an equivalent re-ask in a
+different encoding can still hit the cache.
+
+\section{The hint ladder}
+\label{sec:hints}
+
+The ladder is the mechanism by which the system \emph{scaffolds rather than solves}. Four
+levels escalate from a nudge to a full worked solution, and the passport decides how early
+the ladder may begin for a given learner.
+
+\begin{table}[htbp]
+\centering
+\caption{The four hint levels, all served at zero model cost except the last.}
+\label{tab:ladder}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{1.0cm}p{2.5cm}X p{3.3cm}@{}}
+\toprule
+\textbf{Level} & \textbf{Kind} & \textbf{Content} & \textbf{Source} \\
+\midrule
+L1 & Nudge & A question that names the missing precondition without stating it:
+   \emph{``What must be true about the array before you start halving?''} & T0 template \\
+L2 & Analogy & A concrete counter-example that breaks the learner's current mental model:
+   \emph{``Is the list [5,1,4] sorted? Try one halving step and see what breaks.''}
+   & T0 template \\
+L3 & Worked start & The first step of a \emph{different} instance, so the learner
+   transfers the move rather than copying the answer & T0 template \\
+L4 & Full solution & The hidden Quick Take, with citations & Prepared during the peer
+   window \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+L1--L3 are templates keyed by topic and language. They cost nothing, they cannot fail, and
+they are available in every degradation state including \code{BLACK}. L4 is the prepared
+answer, and it is \emph{leak-gated in code}: the service refuses L4 unless the learner has
+already advanced the hint state to at least level three or pressed skip. The guard is a
+condition on persisted state, not an instruction in a prompt, and a unit test asserts the
+refusal:
+
+\begin{lstlisting}[language=Java,caption={The L4 leak gate. A prompt-only instruction would be advisory; this is not.}]
+// T0 leak gate (enforced in code, not prompt): L4 requires hintState >= 3
+if (level === 4 && !(q.hintState >= 3 || q.skipPressed)) throw Err.denied('HINT_L4_LOCKED');
+\end{lstlisting}
+
+The gate exists because a ladder that can be short-circuited is not a ladder. If a learner
+could request L4 immediately, the scaffolding would be decorative and the system would
+revert to an answer machine.
+
+\section{The Auditor}
+\label{sec:auditor}
+
+Peers first creates a new failure mode: the group can now converge confidently on a wrong
+answer. The Auditor exists to prevent that, and its design is shaped by the quota
+constraint --- verification must be cheap enough to run on every settled question.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  font=\sffamily\scriptsize,
+  st/.style={draw=ink0,fill=fillA,rounded corners=1.5pt,minimum height=9mm,
+             minimum width=27mm,align=center,line width=0.5pt},
+  dec/.style={draw=ink0,fill=white,shape=diamond,aspect=1.7,inner sep=1pt,
+              align=center,line width=0.5pt,font=\sffamily\tiny},
+  resx/.style={draw=ink2,fill=fillB,rounded corners=1.5pt,minimum height=8mm,
+              minimum width=25mm,align=center,line width=0.4pt},
+  ar/.style={-{Latex[length=1.3mm,width=1.1mm]},draw=ink0,line width=0.5pt},
+  lbl/.style={font=\sffamily\tiny,color=ink2,inner sep=1.5pt},
+]
+\node[st] (in) {peer answers\\settled};
+\node[dec,right=8mm of in] (cheap) {checklist\\match?};
+\node[resx,above right=5mm and 8mm of cheap] (verdict) {supported\\no call spent};
+\node[st,below right=5mm and 8mm of cheap] (clf) {1$\times$C bounded\\classify};
+\node[dec,right=8mm of clf] (conf) {confidence\\$\ge$ 0.55?};
+\node[resx,right=9mm of conf] (ok) {verdict:\\supported};
+\node[resx,below=6mm of conf] (poll) {doubtful $\to$\\poll-first};
+\node[resx,below=6mm of poll] (esc) {escalate to L iff\\genuinely torn};
+
+\draw[ar] (in) -- (cheap);
+\draw[ar] (cheap) -- node[lbl,above,sloped] {yes} (verdict);
+\draw[ar] (cheap) -- node[lbl,below,sloped] {no} (clf);
+\draw[ar] (clf) -- (conf);
+\draw[ar] (conf) -- node[lbl,above,sloped] {yes} (ok);
+\draw[ar] (conf) -- node[lbl,right] {no} (poll);
+\draw[ar] (poll) -- (esc);
+\end{tikzpicture}
+\caption{Auditor verification order. The cheap path is attempted first: a checklist match
+settles the question with no model call at all. Confidence below the configured threshold
+yields a poll rather than a counter-assertion.}
+\label{fig:auditor}
+\end{figure}
+
+Three properties of this design are worth stating explicitly.
+
+\paragraph{Cheap path first.} Peer answers are compared against the claim checklist of the
+retrieved chunks. Where a claim is directly supported or directly contradicted, the verdict
+costs nothing. Only disagreement that the checklist cannot settle reaches the model.
+
+\paragraph{Poll before assertion.} When the Auditor is doubtful, it does not override the
+peer. It opens a consensus poll on the contested claim, and the group votes. This
+preserves the design position --- the circle decides, the AI structures the decision ---
+and it converts an AI judgement into a collective one, which is also the pedagogically
+better outcome.
+
+\paragraph{Escalation is explicit.} A low compact-tier confidence sets an escalation flag
+rather than silently invoking the larger model. The flag is what the router reads, so the
+larger-tier budget is spent by a recorded decision with a recorded reason.
+
+\section{The learning-DNA passport}
+\label{sec:dna}
+
+Personalization in this system is a small number of well-chosen questions and a long
+half-life for their answers. The diagnostic is four items, designed to complete in under
+three minutes on a phone, and each item changes a specific downstream behaviour.
+
+\begin{table}[htbp]
+\centering
+\caption{The four diagnostic items and the state each one writes.}
+\label{tab:dna}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{0.9cm}p{3.6cm}p{2.5cm}X@{}}
+\toprule
+\textbf{Item} & \textbf{Prompt (trilingual)} & \textbf{Writes} & \textbf{Effect} \\
+\midrule
+L1 & Level in the current topic: novice / beginner / intermediate
+   & \code{level}, \code{levelByTopic} & Chunk level filter; ladder starting point;
+     difficulty gate \\
+S1 & What helps most: a picture, a daily-life analogy, or numbered steps
+   & \code{styleWeights} & Initial weights over six styles; retrieval variant selection \\
+G1 & Preferred register: Arabic, Darija, French, English
+   & \code{lang} & Response register, chunk language filter, UI locale \\
+C1 & Confidence: sure / unsure / lost
+   & \code{hintEagerness} & Ladder eagerness ($0.3 / 0.6 / 0.9$); invite flag \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The style dimensions are six rather than three (\code{visual}, \code{analogy},
+\code{steps}, \code{example}, \code{repetition}, \code{practice}) because the diagnostic
+can only \emph{anchor} a prior, not determine a learner. After each check-question the
+bandit performs one documented update.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  font=\sffamily\scriptsize,
+  ar/.style={-{Latex[length=1.3mm,width=1.1mm]},draw=ink0,line width=0.5pt},
+  bx/.style={draw=ink2,fill=white,rounded corners=1.5pt,inner sep=4pt,align=center,
+             line width=0.4pt},
+  hl/.style={draw=ink0,fill=fillB,rounded corners=1.5pt,inner sep=4pt,align=center,
+             line width=0.5pt},
+]
+\node[bx] (start) {even weights\\each $1/6$};
+\node[hl,right=10mm of start] (anchor) {anchor S1:\\$w_S \mathrel{+}= 0.25$\\renormalise};
+\node[bx,right=10mm of anchor] (check) {check-question\\outcome $s\in\{0,1\}$};
+\node[bx,right=10mm of check] (upd) {$w \mathrel{+}= 0.1\,(s-0.5)$\\renormalise};
+\node[bx,right=10mm of upd] (pick) {argmax $w$\\$\Rightarrow$ style};
+\draw[ar] (start) -- (anchor);
+\draw[ar] (anchor) -- (check);
+\draw[ar] (check) -- (upd);
+\draw[ar] (upd) -- (pick);
+\end{tikzpicture}
+\caption{Style adaptation. The passport supplies a prior; a single documented bandit step
+per check-question moves it. Weights always sum to one and never fall below a floor, so a
+style cannot be permanently extinguished by early bad luck.}
+\label{fig:bandit}
+\end{figure}
+
+The update is $\alpha = 0.1$ against a baseline of $0.5$, with a floor of $0.01$ per style
+followed by renormalisation. The floor matters: without it, a learner who has two unlucky
+visual explanations in a row could drive \code{visual} near zero and never see a diagram
+again, which is a worse error than the one the bandit was correcting.
+
+\section{The Whisper relay (teach to learn)}
+\label{sec:whisper}
+
+Explaining is the highest-value learner activity in the system, and it is also where
+misconceptions become visible. The Whisper relay asks a learner to paraphrase a chain of at
+least two links, then compares the paraphrase against the claim checklist of the source
+chunks and reports a \emph{drift map} with four categories:
+
+\begin{itemize}[leftmargin=1.4em,itemsep=1pt]
+  \item \textbf{kept} --- claims reproduced correctly;
+  \item \textbf{lost} --- claims present in the source and absent from the paraphrase;
+  \item \textbf{distorted} --- claims reproduced with a changed meaning;
+  \item \textbf{added} --- claims asserted that the sources do not support.
+\end{itemize}
+
+A T0 comparison runs first and settles obvious cases; only a genuinely ambiguous chain
+reaches a compact call. The chain must have at least two links, which is validated
+server-side rather than trusted from the client --- a one-link ``chain'' is a learner
+copying a sentence, not explaining it. After the drift map, the learner gets exactly one
+repair round: the pedagogic value is in repairing the distortion, not in being graded on it.
+
+\section{Engineered behaviour under limited capacity}
+\label{sec:degradation}
+
+This is the section the design position most directly determines. If the AI must not
+replace the circle, then losing the AI must not end the session. The system therefore
+models availability as four states, and each state changes what the interface
+\emph{promises}.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  font=\sffamily\scriptsize,
+  st/.style={draw=ink0,minimum height=13mm,minimum width=27mm,align=center,
+             line width=0.5pt,rounded corners=1.5pt},
+  g/.style={st,fill=white},
+  o/.style={st,fill=fillA},
+  r/.style={st,fill=fillB},
+  b/.style={st,fill=fillC,text=white},
+  ar/.style={-{Latex[length=1.4mm,width=1.2mm]},draw=ink0,line width=0.6pt},
+  back/.style={-{Latex[length=1.2mm,width=1.0mm]},draw=ink2,line width=0.4pt,dashed,bend left=24},
+  lbl/.style={font=\sffamily\tiny,color=ink2,align=center,inner sep=1.5pt},
+]
+\node[g] (green) {\textbf{GREEN}\\ normal\\ C and L};
+\node[o,right=14mm of green] (orange) {\textbf{ORANGE}\\ L queued / slow\\ C continues};
+\node[r,right=14mm of orange] (red) {\textbf{RED}\\ L quota out\\ C only};
+\node[b,right=14mm of red] (black) {\textbf{BLACK}\\ provider down\\ offline pack};
+
+\draw[ar] (green) -- node[lbl,above] {L slow} node[lbl,below] {retry $\to$ queue} (orange);
+\draw[ar] (orange) -- node[lbl,above] {quota out} node[lbl,below] {C-only labels} (red);
+\draw[ar] (red) -- node[lbl,above] {outage} node[lbl,below] {offline pack} (black);
+\draw[back] (orange.north) to node[lbl,above] {recovered} (green.north);
+\draw[back] (red.south) to node[lbl,below] {quota reset} (orange.south);
+\end{tikzpicture}
+\caption{The degradation machine. Every transition emits a UI banner, a telemetry event and
+a metric gauge, and every state is rehearsable through a development-only chaos toggle.}
+\label{fig:degradation}
+\end{figure}
+
+\begin{table}[htbp]
+\centering
+\caption{What each degradation state changes, stated as a product promise.}
+\label{tab:degstates}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{1.55cm}X p{4.2cm}@{}}
+\toprule
+\textbf{State} & \textbf{Promise kept} & \textbf{Mechanism} \\
+\midrule
+GREEN  & Full quality, both tiers, citations, capsule polishing
+       & Normal routing \\
+ORANGE & Peers still first and the session still works; the deeper answer arrives with a
+         position and an ETA & L requests enter the FIFO queue with position and ETA
+         surfaced; one guided retry, then C fallback \\
+RED    & Every question still gets a grounded compact-tier answer with simplified labels;
+         no feature disappears silently & L reservations refused atomically; the router
+         downgrades; labels and prose are simplified \\
+BLACK  & The circle continues with peer work, polls, role-play and flashcards from a
+         30-snippet offline pack; nothing is lost & Offline pack served with an
+         \code{offline:true} label; writes queued for later sync \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{The quota governor}
+
+The governor is the component that makes the state machine real rather than advisory. It
+maintains two ledgers --- per session and per circle per day --- and reserves atomically,
+because the obvious implementation is wrong in a way that only appears under load.
+
+\begin{lstlisting}[language=Java,caption={Reserve then compare. Checking before incrementing lets N replicas each read ``under cap'' and all spend.}]
+// Increment first, then compare: check-then-increment lets N replicas each read
+// "under the cap" and all spend, which is exactly the failure this exists to prevent.
+const reservedField = tier === 'C' ? '$reservedC' : '$reservedL';
+const capField     = tier === 'C' ? '$cCap'      : '$lCap';
+\end{lstlisting}
+
+A single circle can open many sessions in a day, so a per-session cap alone does not bound
+a class: ten squads of four against a 20-call session cap is already 200 calls. The
+per-circle daily ceiling (\code{CIRCLE\_DAILY\_CALLS}, default 400) is the binding limit,
+and it sits above normal classroom use and below a runaway loop.
+
+\subsection{Semantic cache}
+
+Cache keys are a SHA-1 digest over the normalised intent, the level, the language, the
+sorted chunk identifiers and the ladder state. The normaliser strips case, diacritics and a
+multilingual stop-word list,
+so equivalent re-asks collapse to one key and are served without a model call. This is the
+cheapest possible win on the ``fewer, well-built requests'' objective, and it is metered:
+\code{cacheHitRate} is a first-class metric, not an internal counter.
+
+\subsection{Latency UX}
+\label{sec:latency-ux}
+
+Because responses arrive whole rather than streamed, the interface cannot show a partial
+answer, and faking a token stream would misrepresent what the system knows. Instead:
+
+\begin{enumerate}[leftmargin=1.6em,itemsep=2pt]
+  \item a zero-model-call skeleton renders in under 200\,ms, so the section is never empty;
+  \item the compact tier fills the sections it owns;
+  \item the larger tier, when it was escalated, slides in afterwards and is labelled
+        \emph{deeper answer ready}.
+\end{enumerate}
+
+Progress inside a single turn is communicated as the ordered pipeline stages
+(\S\ref{sec:cfas}), so the learner sees \emph{retrieving} then \emph{verifying} rather than
+a spinner with no semantics.

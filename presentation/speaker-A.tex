@@ -1,0 +1,65 @@
+% HALQA — Speaker A. Compile: tectonic speaker-A.tex
+\documentclass[12pt,a4paper]{article}
+\usepackage[a4paper,top=18mm,bottom=16mm,left=22mm,right=22mm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{xcolor}
+
+\definecolor{colA}{HTML}{6D28D9}
+\definecolor{colB}{HTML}{BE123C}
+\definecolor{ink}{HTML}{1E1030}
+\definecolor{mute}{HTML}{8A6F9B}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0pt}
+\color{ink}
+\pagestyle{empty}
+
+\newcommand{\sld}[1]{%
+  \vspace{4.2mm}%
+  \noindent{\normalsize\bfseries\color{mute}#1}\par
+  \vspace{1.2mm}}
+
+\newcommand{\say}[1]{%
+  \begingroup
+  \linespread{1.24}\normalsize\selectfont
+  \noindent #1\par
+  \endgroup}
+
+\begin{document}
+
+{\Huge\bfseries\color{colA}Speaker A}\par
+\vspace{1mm}
+{\color{colA}\rule{\linewidth}{1.6pt}}
+
+\sld{1 \textbullet\ Title}
+\say{One person talks, five people nod --- we built the opposite. I am [your name], this is [partner]. Five minutes: a problem, one rule, who pays.}
+
+\sld{2 \textbullet\ The problem}
+\say{Studying with friends beats any lecture, and it breaks in four ways.}
+
+\sld{3 \textbullet\ Four ways it fails}
+\say{One voice takes over; talking looks like learning. The simple question stays unasked. A wrong answer spreads. One explanation, six needs. The session ends busy, with no proof anyone learned --- and one question never got asked.}
+
+\sld{4 \textbullet\ The tools we have}
+\say{A chatbot answers in three seconds and thinking stops; helpful is not learning. Group apps cannot see three people lost, and the dashboard arrives too late. What is missing is not information. It is quiet time.}
+
+\sld{5 \textbullet\ The solution}
+\say{So we put that time in the software. One rule: the circle answers first, the AI answers second.}
+
+\sld{6 \textbullet\ The mechanism}
+\say{Peers get forty-five seconds, and Nova works unseen. Then the window closes, the peer answer is credited, and the AI answer lands cited. The AI waits because the software makes it wait --- not because we asked nicely. Delete it, and the session still runs.}
+
+\sld{7 \textbullet\ One real turn}
+\say{A learner types in Darija, no name. Two answers land; one says order does not matter. A quiet learner taps \textbf{me too} --- she never spoke. The checker catches the claim and opens a poll, so nobody is named. The cited answer arrives, the right peer gets credit. The AI checked the group; it did not replace it.}
+
+\sld{8 \textbullet\ Four helpers}
+\say{Four helpers, always labelled: a mediator runs the window, a tutor unlocks one hint at a time, a facilitator says who is stuck in sixty words, a teammate runs the quiz. That is the product.}
+
+\sld{17 \textbullet\ Close}
+\say{The best explanation in the room is usually not the AI's.}
+\say{\textcolor{colB}{\textbf{B:}} So we make the AI wait, then measure whether the room learned.}
+\say{Ninety-nine tests, forty-eight live checks, four languages, a working demo. Come and try it.}
+
+\end{document}

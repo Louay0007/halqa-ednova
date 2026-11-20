@@ -27,6 +27,10 @@ main.log
 
 # Playwright recording debris (hash-named artifacts)
 demo/page@*.webm
+demo/node_modules/
+
+# The report is built from report-pfe/; this is the compiled copy.
+report/HALQA-PFE-report.pdf
 
 # local tooling cache
 .impeccable/

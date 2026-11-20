@@ -1,0 +1,74 @@
+\chapter{Conclusion}
+\label{ch:conclusion}
+
+\section{What was built}
+
+HALQA is a working full-stack GenAI peer-learning companion, delivered as a NestJS 11 API
+over MongoDB with a React 19 progressive web app. Its distinguishing property is not the
+model integration but the discipline around it: a documented two-tier routing policy that is
+measured rather than asserted, a four-state degradation machine in which every state changes
+what the interface promises, a retrieval layer whose citations are mandatory and reusable
+for verification, and a privacy guarantee expressed as a build gate.
+
+The product surface is real. Twenty-five backend modules and sixty-eight routes support
+timed peer windows, a learning-DNA passport, a leak-gated hint ladder, Auditor verification
+with poll-first fallback, consensus polls, revision capsules, quiz battles, the Whisper
+chain-repair game, S-B-U circle health, a deterministic matcher, a mentor seat, solo mode,
+a facilitator board and an observability surface. The client ships fifteen routes in four
+registers with right-to-left support and an offline pack.
+
+\section{What was measured}
+
+Against the real inference platform, a 45-check smoke walks every endpoint in dependency
+order and completes with zero failures, reporting a tier split of C = 13, L = 2, that is
+\code{lShare = 0.133} against a $<0.25$ ceiling. Two hundred and twelve automated
+assertions across three tiers plus five replayable evaluation sets back the guarantees the
+report claims. The peer-state poll has a p95 objective treated as a pass/fail gate, not as a
+dashboard.
+
+\section{What was learned}
+
+Four lessons generalize beyond this project, and they are the ones worth carrying forward.
+
+\paragraph{State machines beat instructions.} Every behaviour that mattered --- withholding
+the AI answer until the window closes, locking the fourth hint level, refusing a quota
+reservation --- is enforced on persisted state rather than written into a prompt. A prompt
+instruction is a suggestion that a determined input can violate; a condition on state is a
+constraint.
+
+\paragraph{Measured policy survives review; asserted policy does not.} The two-tier split
+was designed to be falsifiable: the share is computed from the call ledger and published as
+a product metric with a target. The same code would look identical if the policy were bad,
+which is exactly why the number had to exist.
+
+\paragraph{Failure design is part of the product.} The degradation machine took more design
+attention than the happy path, and it shows in the result: the circle keeps working when the
+model does not, and the interface says what it is no longer promising. Systems that only
+design for availability discover their failure story in front of users.
+
+\paragraph{Privacy is cheap when it is structural.} Removing the columns in which personal
+data could live cost nothing at design time and makes the guarantee testable forever. The
+equivalent privacy policy, written in prose, would have cost a page and proved nothing.
+
+\section{Perspectives}
+
+\paragraph{Evaluation with real cohorts.} The gap between a passing smoke and a better
+learning outcome is the central open question. Real-user testing in two contexts --- a
+university tutorial and a self-learning group --- is planned for the post-submission rehearsal,
+with the peer-first rate, the S-B-U rings and the confusion signals recorded alongside the
+four-language interaction evidence.
+
+\paragraph{Tier quality comparison.} The routing policy now needs the experiment it implies:
+the same question set answered at both tiers and scored for pedagogical quality, so the
+escalation gate can be tuned against outcome rather than against cost.
+
+\paragraph{Generalization of the pack format.} The knowledge base is deliberately a data
+format, not a model, so the interesting test of the design is how cheap it is for an
+adopter to add a course. If a new pack takes an afternoon, the approach scales; if it takes
+a sprint, it does not.
+
+\begin{keyfinding}[Closing]
+The AI does not replace the circle --- it makes the circle work. On the evidence in this
+report, the mechanism for that is implemented, measured and defensible; the claim that it
+improves learning is the next experiment, and the report is explicit about the difference.
+\end{keyfinding}

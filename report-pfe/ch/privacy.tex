@@ -1,0 +1,108 @@
+\chapter{Privacy and Ethics}
+\label{ch:privacy}
+
+The challenge asks for a companion usable by learners, which in practice means learners who
+may be minors, in groups, on shared devices. This chapter describes privacy as a set of
+enforced properties rather than a policy statement, because a policy statement cannot be
+tested and therefore cannot be relied on.
+
+\section{The schema gate}
+\label{sec:privacy-gate}
+
+The central claim is narrow and checkable: the persona collection has no column in which a
+name, a photograph, a gender or a region could be stored. Not that such data is unused ---
+that there is nowhere to put it. The claim is maintained by a test that reads the schema
+sources and fails the build if a forbidden field name appears.
+
+\begin{lstlisting}[language=Java,caption={The build gate. It reads the schema sources, strip the explanatory comment that names the forbidden fields, and asserts nothing else mentions them.}]
+const FORBIDDEN = /\bgender\b|\bsex\b|\bregion\b|\bcountry\b|\bphoto\b|\bbirth\b|\bage\b|\baddress\b|\bphone\b|\bemail\b/i;
+
+it('no schema source contains a forbidden field name', () => { /* ... */ });
+it('no bare `name` prop exists anywhere (only `nickname`)', () => { /* ... */ });
+\end{lstlisting}
+
+The second assertion is the interesting one. \code{name} is such a natural field name that
+it reappears by reflex, so the gate allows the substring only inside \code{nickname} and
+\code{username}. A learner is therefore always an artificial identifier ---
+\code{L-01}, \code{L-02} --- with a nickname and a neutral avatar key chosen from a fixed
+set. There is no field in which a real name would fit, so the guarantee does not depend on
+anyone remembering it.
+
+\section{PII screening before model calls}
+
+Text that reaches the model is screened first, at every write boundary, by a pure function
+that returns both the cleaned text and the kinds of finding it removed.
+
+\begin{table}[htbp]
+\centering
+\caption{The PII screen. Each pattern runs before any string leaves the process.}
+\label{tab:pii}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{2.5cm}p{4.0cm}X@{}}
+\toprule
+\textbf{Kind} & \textbf{Pattern} & \textbf{Redaction} \\
+\midrule
+\code{email} & Address-shaped token & \code{[email]} \\
+\code{phone} & Phone-shaped digit run with separators, including international prefixes
+             & \code{[phone]} \\
+\code{address\_hint} & Street-number patterns in French, Arabic and Tunisian usage
+             & \code{[address]} \\
+\code{id\_digits} & Any run of eight or more digits & \code{[id]} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Returning findings rather than a boolean is a product decision: the learner can be told
+\emph{what} was removed, which converts a silent mutation into an explicit one. It also
+lets the interface advise against pasting a phone number rather than silently swallowing
+it.
+
+\section{Data minimisation in the model payload}
+
+What is sent to the provider is public course material and the learner's own message,
+screened. Nothing else. There is no profile, no history replay and no analytics payload in
+a model call, which is the concrete meaning of data minimisation here. The knowledge base is
+team-written and synthetic, so a grounded request contains no third-party text either ---
+which sidesteps a licensing question as well as a privacy one.
+
+\section{Logs and retention}
+
+Logs pass through a scrubber, and telemetry has a ninety-day TTL enforced by a database
+index rather than a scheduled job. The distinction matters: a retention policy implemented
+by a cron job is satisfied only if the job runs, whereas a TTL index is satisfied by
+construction. Deletion follows the same principle, with a thirty-day grace window and a
+tombstone afterwards (\S\ref{sec:datasubject}).
+
+\section{Ethics of the interaction}
+
+Three ethical positions are encoded in behaviour rather than stated in a document.
+
+\paragraph{No public ranking.} There is deliberately no leaderboard. A circle shows its
+S-B-U rings --- participation balance, help quality and verified agreement --- and never a
+ranking of people. The blueprint states this as a constraint on the frontend, and the
+constraint is structural: no leaderboard component exists.
+
+\paragraph{Wrong answers are met with a question.} The register guides for all four
+languages carry an explicit no-shaming rule, and the design system has no learner-facing
+error red. A wrong answer is the most informative moment in a session, and treating it as a
+fault trains learners to hide it.
+
+\paragraph{Participation equity is visible to facilitators, not to peers.} A facilitator
+sees the \emph{Share} ring and can route attention to a quiet learner. The learner
+themselves never sees a public score, and the coach nudge is private. The design exposes
+inequity to the person who can act on it and to nobody else.
+
+\section{Security posture as a privacy control}
+
+The two are connected: a bearer token in \code{sessionStorage} means an XSS is session
+theft, which is a privacy incident rather than a cosmetic bug. This is why the CSP is built
+by a testable function with \code{script-src 'self'} and no inline script, and why the
+default-deny guard matters beyond access control --- it limits the blast radius of a stolen
+token to the routes that token's role may reach.
+
+\begin{keyfinding}[What can be asserted to the jury]
+There is no column for a name, photo, gender or region, and a build gate fails if one
+appears. PII is screened before any model call, and the screen reports what it removed.
+Retention is enforced by the database. Deletion has a reversible grace window and a
+tombstone afterwards. There is no leaderboard, and there is no learner-facing error red.
+\end{keyfinding}

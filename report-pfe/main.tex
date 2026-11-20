@@ -1,0 +1,274 @@
+% =====================================================================
+%  HALQA — Official Final Report, IEEE WIE ACT 5.0 / EdNova Challenge
+%  IEEE WIE ACT 5.0 · EdNova GenAI Peer-Learning Companion Challenge
+%  Compile: tectonic main.tex   (or pdflatex + bibtex-free, no external deps)
+%  Grayscale, print-ready, A4, 11pt.
+% =====================================================================
+\documentclass[10pt,a4paper,oneside]{report}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[english]{babel}
+
+\usepackage[a4paper,top=2.0cm,bottom=2.0cm,left=2.15cm,right=1.95cm,headsep=0.55cm,footskip=0.95cm]{geometry}
+
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{enumitem}
+\setlist[itemize]{leftmargin=1.15em,itemsep=1pt,topsep=2pt,parsep=0pt}
+\setlist[enumerate]{leftmargin=1.35em,itemsep=1pt,topsep=2pt,parsep=0pt}
+\setlist[description]{leftmargin=0pt,itemsep=1pt,topsep=2pt,parsep=0pt}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage[dvipsnames,table]{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds,calc,shapes.geometric,shadows.blur,decorations.pathreplacing}
+\usepackage{listings}
+\usepackage[most]{tcolorbox}
+\usepackage{textcomp}
+\usepackage{microtype}
+\usepackage[hidelinks]{hyperref}
+\usepackage{bookmark}
+\usepackage{setspace}
+\usepackage{emptypage}
+\usepackage{afterpage}
+
+% ---------------------------------------------------------------- colours
+% Grayscale discipline: structure is carried by type weight, rules and
+% fills, not by hue. `ink` levels are the entire palette.
+\definecolor{ink0}{gray}{0.00}   % black — body
+\definecolor{ink1}{gray}{0.25}   % headings
+\definecolor{ink2}{gray}{0.45}   % secondary text
+\definecolor{ink3}{gray}{0.62}   % captions, meta
+\definecolor{ink4}{gray}{0.80}   % hairlines
+\definecolor{fillA}{gray}{0.93}  % panel fill
+\definecolor{fillB}{gray}{0.87}  % emphasis fill
+\definecolor{fillC}{gray}{0.75}  % strong fill
+
+% ---------------------------------------------------------------- spacing
+\setstretch{0.985}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.30em}
+\frenchspacing
+\emergencystretch=2em
+
+% ---------------------------------------------------------------- headings
+\titleformat{\chapter}[display]
+  {\normalfont\sffamily\bfseries\color{ink0}}
+  {\filright\normalsize\sffamily\color{ink3}\MakeUppercase{\chaptertitlename}\ \thechapter}
+  {6pt}
+  {\Large}
+  [\vspace{4pt}{\color{ink4}\rule{\textwidth}{0.6pt}}]
+\titlespacing*{\chapter}{0pt}{-10pt}{17pt}
+
+\titleformat{\section}
+  {\normalfont\sffamily\bfseries\large\color{ink0}}
+  {\thesection}{0.7em}{}
+\titlespacing*{\section}{0pt}{11pt}{3.5pt}
+
+\titleformat{\subsection}
+  {\normalfont\sffamily\bfseries\normalsize\color{ink1}}
+  {\thesubsection}{0.6em}{}
+\titlespacing*{\subsection}{0pt}{8pt}{2.5pt}
+
+\titleformat{\subsubsection}[runin]
+  {\normalfont\sffamily\bfseries\small\color{ink1}}
+  {\thesubsubsection}{0.5em}{}[.\enspace]
+\titlespacing*{\subsubsection}{0pt}{6pt}{0.4em}
+
+% ---------------------------------------------------------------- header/footer
+\pagestyle{fancy}
+\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\fancyfoot[L]{\footnotesize\sffamily\color{ink3}HALQA --- GenAI Peer-Learning Companion}
+\fancyfoot[R]{\footnotesize\sffamily\color{ink3}\thepage}
+\fancypagestyle{plain}{\fancyhf{}\renewcommand{\headrulewidth}{0pt}%
+  \fancyfoot[L]{\footnotesize\sffamily\color{ink3}HALQA --- GenAI Peer-Learning Companion}%
+  \fancyfoot[R]{\footnotesize\sffamily\color{ink3}\thepage}}
+
+% ---------------------------------------------------------------- captions
+\captionsetup{font={small,sf},labelfont={bf,sf},labelsep=period,skip=5pt}
+\DeclareCaptionFont{capgrey}{\color{ink2}}
+\captionsetup{textfont=capgrey}
+\captionsetup[table]{position=top,skip=3pt,font={footnotesize,sf},labelfont={bf,sf}}
+
+% ---------------------------------------------------------------- code
+\lstdefinestyle{halqa}{
+  basicstyle=\ttfamily\scriptsize\color{ink0},
+  backgroundcolor=\color{fillA},
+  frame=single, framerule=0.4pt, rulecolor=\color{ink4},
+  breaklines=true, breakatwhitespace=false,
+  postbreak=\mbox{\textcolor{ink3}{$\hookrightarrow$}\space},
+  columns=fullflexible, keepspaces=true, showstringspaces=false,
+  aboveskip=7pt, belowskip=7pt, xleftmargin=4pt, xrightmargin=2pt,
+  numbers=none, tabsize=2, upquote=true,
+}
+\lstset{style=halqa}
+\renewcommand{\lstlistingname}{Listing}
+
+% ---------------------------------------------------------------- helpers
+\newcommand{\code}[1]{\texttt{\small #1}}
+\newcommand{\kw}[1]{\textbf{#1}}
+\newcommand{\eng}[1]{\textit{#1}}
+% a metric chip, grayscale
+\newcommand{\metric}[2]{%
+  \begin{tikzpicture}[baseline=(n.base)]
+    \node[draw=ink4,fill=fillA,rounded corners=1.2pt,inner xsep=5pt,inner ysep=3pt,align=center]
+      (n) {\footnotesize\sffamily\bfseries #1\\[-1pt]\scriptsize\sffamily\color{ink3}#2};
+  \end{tikzpicture}}
+% Marginal rule with a label; hairline-delimited, no box — keeps pages quiet.
+\newenvironment{note}[1][Note]{%
+  \par\vspace{5pt}\noindent
+  \begin{minipage}{\textwidth}
+  \color{ink2}\sffamily\small
+  \noindent\rule{\textwidth}{0.5pt}\par\vspace{3pt}%
+  \textbf{\color{ink0}#1.}~\ignorespaces
+}{%
+  \par\vspace{3pt}\noindent\rule{\textwidth}{0.5pt}\par
+  \end{minipage}\vspace{4pt}\par}
+
+% Filled, framed box for a load-bearing result. tcolorbox breaks across paragraphs.
+\newtcolorbox{keyfinding}[1][Key result]{
+  colback=fillA, colframe=ink0, boxrule=0.5pt, arc=1pt, left=6pt, right=6pt,
+  top=5pt, bottom=5pt, before skip=7pt, after skip=7pt,
+  fontupper=\sffamily\small, coltext=ink1,
+  attach title to upper={\textbf{\color{ink0}#1.}\enspace},
+  title=, coltitle=ink0, fonttitle=\sffamily\small\bfseries,
+}
+
+\hypersetup{
+  pdftitle={HALQA: A GenAI Peer-Learning Companion that Puts the Circle First},
+  pdfauthor={HALQA Team},
+  pdfsubject={Official Final Report --- IEEE WIE ACT 5.0, EdNova GenAI Peer-Learning Companion Challenge},
+  pdfkeywords={GenAI, peer learning, RAG, model routing, PWA, NestJS, MongoDB},
+  bookmarksnumbered=true,
+}
+
+\begin{document}
+\sffamily
+
+% =====================================================================
+% TITLE PAGE
+% =====================================================================
+\begin{titlepage}
+\thispagestyle{empty}
+\centering
+
+\vspace*{0.4cm}
+{\footnotesize\sffamily\color{ink3}\MakeUppercase{IEEE Women in Engineering --- Africa, Europe \& Middle East}}
+\par\vspace{2pt}
+{\footnotesize\sffamily\color{ink3}ACT 5.0 Student Competition}
+
+\vspace{0.9cm}
+\includegraphics[width=4.3cm]{logo-print.png}
+
+\vspace{0.55cm}
+{\color{ink4}\rule{0.55\textwidth}{0.4pt}}
+
+\vspace{0.4cm}
+{\fontsize{27}{31}\selectfont\sffamily\bfseries HALQA}
+
+\vspace{0.30cm}
+{\large\sffamily\color{ink1} A GenAI Peer-Learning Companion\\[2pt] that Puts the Circle First}
+
+\vspace{0.45cm}
+{\color{ink4}\rule{0.55\textwidth}{0.4pt}}
+
+\vspace{1.0cm}
+{\normalsize\sffamily\color{ink2}
+\textit{Official Final Report}}
+
+\vspace{1.15cm}
+{\small\sffamily\color{ink2}
+\begin{tabular}{@{}c@{}}
+\color{ink3}\MakeUppercase{submitted to the EdNova track of the}\\[7pt]
+{\large\bfseries\color{ink0} GenAI Peer-Learning\enspace Companion Challenge}\\[6pt]
+{\footnotesize\color{ink3} Final Submission}
+\end{tabular}}
+
+\vfill
+
+\begin{minipage}{0.84\textwidth}
+\centering\footnotesize\sffamily\color{ink3}
+Full-stack system: NestJS 11 \textbullet{} MongoDB 8 \textbullet{} React 19 PWA \textbullet{} TypeScript strict\\
+25 domain modules \enspace\textbullet\enspace 18 collections \enspace\textbullet\enspace 68 routes \enspace\textbullet\enspace 212 automated checks
+\end{minipage}
+
+\vspace{0.9cm}
+{\footnotesize\sffamily\color{ink3} November 2026}
+\vspace{0.4cm}
+\end{titlepage}
+
+% =====================================================================
+% ABSTRACT
+% =====================================================================
+\thispagestyle{plain}
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+\markboth{Abstract}{Abstract}
+
+\noindent\color{ink1}
+Peer learning works best when every learner teaches. In practice, study groups collapse
+into a single dominant voice, into passive listeners, and into uncritical acceptance of
+wrong answers --- the failure is structural, not motivational. \textbf{HALQA} (Arabic for
+\emph{circle}) is a full-stack GenAI companion that orchestrates \emph{human-first} group
+sessions and intervenes only when the circle needs help. Every question is offered to
+peers inside a timed 45--60\,s window; in parallel, and invisibly, the AI companion
+\textbf{Nova} prepares a verified answer that is released only when the window closes,
+after an \emph{Auditor} step that catches incorrect peer answers before they spread.
+
+The engineering contribution is not the chatbot but the discipline around it. A single
+four-item diagnostic --- the \emph{learning-DNA passport} --- steers a documented
+two-tier model-routing policy: a compact model handles classification, hints and short
+scaffolding, while a larger model is reserved, on explicit escalation, for multi-source
+synthesis and polished prose. On a live smoke of every endpoint against the real
+inference platform, the system measured an \textbf{L-share of 13.3\,\%} of model calls
+against a $<25\,\%$ ceiling. Retrieval-augmented generation with mandatory chunk
+citations grounds every answer; a four-state degradation machine (queue, retry,
+compact-only fallback, offline pack) keeps the circle alive when capacity disappears;
+privacy is enforced in the Mongoose schema rather than in policy prose.
+
+This report documents the final state of the system: 25 domain modules over 18 MongoDB
+collections, 68 HTTP routes across 20 controllers, a 15-route React PWA in four
+languages, 212 automated test cases at three tiers, and a live smoke of 45 checks that
+completes with zero failures.
+
+\vspace{0.7cm}
+\noindent{\footnotesize\sffamily\color{ink3}\textbf{Keywords.} Generative AI, peer learning,
+retrieval-augmented generation, model routing, graceful degradation, progressive web app,
+NestJS, MongoDB, learning analytics, multilingual NLP.}
+
+\clearpage
+
+% =====================================================================
+% TABLE OF CONTENTS
+% =====================================================================
+\tableofcontents
+\clearpage
+
+% =====================================================================
+% BODY
+% =====================================================================
+\input{ch/introduction}
+\input{ch/requirements}
+\input{ch/architecture}
+\input{ch/ai}
+\input{ch/backend}
+\input{ch/frontend}
+\input{ch/privacy}
+\input{ch/testing}
+\input{ch/results}
+\input{ch/business}
+\input{ch/conclusion}
+
+\appendix
+\input{ch/appendix}
+
+\end{document}

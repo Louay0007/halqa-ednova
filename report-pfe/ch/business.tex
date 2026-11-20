@@ -1,0 +1,145 @@
+\chapter{Business Model}
+\label{ch:business}
+
+The challenge requires a business-model note, and the honest version of one for the final
+report is not a revenue projection. It is an answer to three questions: who has this
+problem badly enough to change behaviour, what exactly they receive, and how the thing pays
+for itself and survives its provider.
+
+\section{Target users}
+
+\begin{table}[htbp]
+\centering
+\caption{Three segments, and the reason each one is reachable without a sales team.}
+\label{tab:segments}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{2.9cm}X p{4.2cm}@{}}
+\toprule
+\textbf{Segment} & \textbf{Why they feel the problem} & \textbf{Entry point} \\
+\midrule
+University tutoring and revision circles & Small groups already meet; the failure is
+  coordination, and nobody is paid to fix it & IEEE student branches and campus clubs \\
+Training centres and bootcamps & Mixed-level cohorts where one learner dominates and the
+  trainer cannot watch every group & The facilitator board is the trainer's tool \\
+Self-learning communities & Motivated learners with no facilitator at all; they need
+  structure more than content & Public circles, join by code or QR \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The three segments share a property that makes adoption plausible: the product enters an
+existing ritual rather than asking for a new one. A revision circle already meets; HALQA
+changes how the meeting runs, not whether it happens.
+
+\section{Value proposition}
+
+The proposition is stated in terms its buyer can check.
+
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+  \item \textbf{Fair turns without extra facilitation.} The window and the \emph{Share}
+        ring make participation visible, so a group can correct itself without an adult in
+        the room.
+  \item \textbf{Fewer wrong answers spreading.} The Auditor and poll-first behaviour
+        intervene before a misconception becomes consensus, which is the expensive failure
+        in peer learning.
+  \item \textbf{Memory of the session.} The revision capsule and the quiz bank turn a
+        conversation into something revisable, at no extra effort.
+  \item \textbf{Bounded cost.} Token spend is a documented policy with a measured ceiling,
+        so the cost of a session is predictable rather than proportional to enthusiasm.
+  \item \textbf{Visibility for the person responsible.} The board shows which circle needs a
+        human, which is the only feature a training centre will pay for.
+\end{itemize}
+
+\section{Adoption path}
+
+\paragraph{Step 1 --- bottom-up pilot.} IEEE student branches and campus clubs already in
+the WIE ACT network run HALQA for one revision cycle. The two things learned from a pilot
+are not usage statistics but \emph{pack demand}: which course the cohort actually revises.
+That feeds the seed knowledge base, which is the real asset.
+
+\paragraph{Step 2 --- department licensing.} Tutoring programmes buy per-cohort access, and
+the board view is the stakeholder-facing artefact. A department does not buy a chatbot; it
+buys evidence that its tutoring hours are working.
+
+\paragraph{Step 3 --- training-centre integration.} Capsule and quiz exports are designed to
+drop into an existing LMS workflow rather than to replace it. The export is the integration
+surface, which avoids an enterprise sales cycle beyond this submission.
+
+\section{Sustainability beyond the challenge}
+
+Two engineering decisions from earlier chapters are also business decisions, and this is
+where they pay.
+
+\begin{table}[htbp]
+\centering
+\caption{Engineering decisions and their commercial consequence.}
+\label{tab:sustain}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{4.0cm}X@{}}
+\toprule
+\textbf{Decision} & \textbf{Commercial consequence} \\
+\midrule
+One provider adapter & The product survives a provider switch or a migration to
+  self-hosted open-weight models without a feature freeze \\
+Two-tier routing with a measured ceiling & Cost per session is bounded and predictable;
+  the larger tier is a deliberate purchase, not a default \\
+TF-IDF retrieval, no embedding service & No per-query inference cost on the grounded path,
+  and retrieval keeps working when the provider does not \\
+Zero-GPU workload & Running cost is close to hosting cost; the margin does not depend on
+  negotiated GPU capacity \\
+Seed-format knowledge bases & Each new course is a JSON pack plus a manifest row, so
+  content can be contributed by adopters instead of authored centrally \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Cost model}
+
+The cost structure is unusually simple because the expensive variable is a call count rather
+than a token count.
+
+\begin{table}[htbp]
+\centering
+\caption{Cost drivers and the control that bounds each.}
+\label{tab:cost}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{3.3cm}p{3.4cm}X@{}}
+\toprule
+\textbf{Driver} & \textbf{Bound} & \textbf{Control} \\
+\midrule
+Compact calls & 20 per session & Governor ledger, atomic reserve \\
+Larger calls & 5 per session & Separate cap; refusal downgrades to C \\
+Class-level spend & 400 calls per circle per day & Daily ceiling, the binding limit \\
+Repeat questions & Served from cache & Semantic cache with a metered hit rate \\
+Hosting & One API process, one Mongo & No GPU, no vector store, no queue service \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Roadmap}
+
+\begin{table}[htbp]
+\centering
+\caption{Roadmap by horizon. Items are ordered by what unblocks the next thing.}
+\label{tab:roadmap}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{2.4cm}X@{}}
+\toprule
+\textbf{Horizon} & \textbf{Work} \\
+\midrule
+Rehearsal and pilot & Real-user testing in two contexts (university and self-learning),
+  with the four-language interaction evidence recorded alongside the automated evals \\
+Horizon 1 & Teacher dashboard exports, additional course packs, tuned bandit parameters from
+  observed learners, consent capture \\
+Horizon 2 & Voice interaction; collaborative quiz battles at scale; a second provider
+  adapter as a resilience measure rather than a feature \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{note}[What this chapter does not claim]
+There is no revenue projection, no pricing table and no market-size figure. For this
+submission those numbers would be invented, and an invented number in a business section
+costs more credibility than an absent one.
+The horizons below are delivery sequence, not financial forecast.
+\end{note}

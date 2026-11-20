@@ -1,0 +1,207 @@
+\chapter{Endpoint Surface}
+\label{app:endpoints}
+
+All routes are served under \code{/api/v1}. Auth column: \textbf{P} public, \textbf{L}
+learner, \textbf{M} mentor, \textbf{A} admin.
+
+\begin{longtable}{@{}p{6.3cm}p{0.8cm}p{6.4cm}@{}}
+\caption{HTTP surface by controller (68 routes).}\\
+\toprule
+\textbf{Route} & \textbf{Auth} & \textbf{Purpose} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Route} & \textbf{Auth} & \textbf{Purpose} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\multicolumn{3}{@{}l}{\textbf{auth} --- identity, account, data subject}\\
+\code{POST /auth/session} & P & Guest identity from nickname, avatar, context \\
+\code{POST /auth/register} & L & Upgrade a guest record, keeping progress \\
+\code{POST /auth/login} & L & Sign in with handle and passphrase \\
+\code{POST /auth/passphrase} & L & Rotate passphrase; bumps the token epoch \\
+\code{POST /auth/refresh} & L & Refresh an access token \\
+\code{POST /auth/signout} & L & Bump the epoch, signing out all devices \\
+\code{GET /me} & L & Learner, passport, progress \\
+\code{PATCH /me} & L & Nickname, avatar, context, language \\
+\code{GET /me/export} & L & Data-subject export (secrets as hashes) \\
+\code{DELETE /me} & L & Request deletion; schedules a purge \\
+\code{POST /me/restore} & L & Cancel a pending deletion \\
+\midrule
+\multicolumn{3}{@{}l}{\textbf{learning} --- diagnostic and passport}\\
+\code{GET /dna/items} & L & The four items (L1, S1, G1, C1) \\
+\code{POST /dna} & L & Write the passport and anchor style weights \\
+\midrule
+\multicolumn{3}{@{}l}{\textbf{circle}, \textbf{session}}\\
+\code{POST /circles} & L & Create; returns join code and host token \\
+\code{POST /circles/:id/join} & L & Join by id \\
+\code{GET /circles/by-code/:code} & L & Resolve a join code \\
+\code{GET /circles/:id} & L & Members, window, state \\
+\code{GET /circles/:id/health} & M & S-B-U rings and \code{needsHuman} \\
+\code{GET /circles/:id/explain-cards} & L & Topic cards from the pack \\
+\code{GET /contexts/:mode/config} & P & Context modes and agendas \\
+\code{POST /circles/:circleId/sessions} & L & Start a session (ledger-backed) \\
+\code{GET /sessions/:id} & L & Session with credits \\
+\code{GET /sessions/:id/status} & L & Compact status for the poller \\
+\code{POST /sessions/:id/end} & L & End idempotently; recompute S-B-U \\
+\code{GET /sessions/:id/credits} & L & Credit breakdown \\
+\midrule
+\multicolumn{3}{@{}l}{\textbf{question}, \textbf{peer window}}\\
+\code{GET /questions} & L & Session queue for mid-session joiners \\
+\code{POST /questions} & L & Open a question and its window \\
+\code{GET /questions/:qid/state} & L & Public state, ETag, hidden fields stripped \\
+\code{GET /questions/:qid/private} & L & Asker-only quick take and stages \\
+\code{POST /questions/:qid/peer-answer} & L & Peer answer inside the window \\
+\code{POST /questions/:qid/answer} & L & Resolve directly (skip path) \\
+\code{POST /questions/:qid/me-too} & L & Private agreement signal \\
+\code{POST /questions/:qid/skip} & L & Skip the peer window \\
+\code{POST /questions/:qid/hint} & L & Ladder step; L4 leak-gated \\
+\midrule
+\multicolumn{3}{@{}l}{\textbf{consensus}, \textbf{capsule}, \textbf{quiz}}\\
+\code{POST /polls} & L & Open a poll on a contested claim \\
+\code{POST /polls/:pid/vote} & L & Cast one vote \\
+\code{POST /polls/:pid/close} & L & Close and tally \\
+\code{GET /polls/:pid} & L & Poll state and counts \\
+\code{POST /sessions/:id/capsule} & L & Draft; L polish only if escalated \\
+\code{GET /sessions/:id/capsule} & L & Stored capsule \\
+\code{POST /quiz/battle} & L & Three-item battle from the bank \\
+\code{POST /quiz/battle/:bid/answer} & L & Answer and earn XP \\
+\midrule
+\multicolumn{3}{@{}l}{\textbf{whisper}, \textbf{coach}, \textbf{knowledge}}\\
+\code{POST /whisper} & L & Drift map over a chain of at least two links \\
+\code{POST /whisper/:cid/repair} & L & One repair round \\
+\code{GET /passports/:id/explain-card} & L & Card rendered from the passport \\
+\code{POST /coach/nudge/:targetId} & L & Private nudge, token-capped \\
+\code{POST /coach/rephrase} & L & Register rephrase, token-capped \\
+\code{GET /kb/chunks} & L & Chunks with claims \\
+\code{GET /kb/stats} & L & Document and topic counts \\
+\midrule
+\multicolumn{3}{@{}l}{\textbf{facilitation and operations}}\\
+\code{POST /circles/match} & A & Deterministic circle composition \\
+\code{GET /board} & M & Per-circle rings and flags \\
+\code{POST /circles/:id/mentor/join} & M & Observer join, no credits, no turns \\
+\code{POST /mentor/notes} & M & Mentor note \\
+\code{GET /mentor/brief} & M & Brief of at most sixty words \\
+\code{GET /dashboard} & M & Aggregate-only progress \\
+\code{GET /learners/me/progress} & L & Total XP and badges \\
+\code{GET /learners/me/streak} & L & Streak state \\
+\code{POST /solo/sessions} & L & Solo session, C-only \\
+\code{POST /solo/sessions/:sid/turn} & L & One teaching turn \\
+\code{POST /solo/sessions/:sid/hat} & L & Switch hat \\
+\code{POST /solo/sessions/:sid/invite} & L & Convert to a circle \\
+\code{GET /metrics} & A & Tier counts, L-share, latencies, cache, quota, degradation \\
+\code{GET /healthz}, \code{/readyz} & P & Liveness and readiness \\
+\end{longtable}
+
+\chapter{Telemetry Event Taxonomy}
+\label{app:events}
+
+Every event carries \code{\{ts, sessionId, circleId, actor, type, payload\}}, where
+\code{actor} is a learner identifier, \code{NOVA} or \code{mentor}. Events feed the S-B-U
+rings, the dashboard, the report metrics and the unit economics; they expire after ninety
+days by TTL index.
+
+\begin{longtable}{@{}p{5.2cm}p{7.5cm}@{}}
+\caption{Event types emitted by the system.}\\
+\toprule
+\textbf{Event} & \textbf{Payload and meaning} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Event} & \textbf{Payload and meaning} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+\code{session\_start}, \code{session\_end} & Session lifecycle; end recomputes S-B-U \\
+\code{dna\_done} & Passport written; anchors style weights \\
+\code{question\_open} & Window opened with its duration \\
+\code{peer\_answer} & A peer answered inside the window \\
+\code{nova\_verify} & Auditor verdict: supported, doubtful, or poll opened \\
+\code{hint\_L1} \dots\ \code{hint\_L4} & Ladder step, with depth for the U ring \\
+\code{skip} & Peer window skipped; resolution becomes \code{skip\_direct} \\
+\code{poll\_open}, \code{poll\_vote}, \code{poll\_close} & Consensus lifecycle \\
+\code{confusion\_flag} & Confusion signal with its primary indicator \\
+\code{correction} & A learner corrected a claim \\
+\code{quiz\_answer} & Battle answer and XP \\
+\code{capsule\_done} & Capsule stored \\
+\code{whisper\_run}, \code{drift\_found} & Relay executed; drift categories found \\
+\code{mentor\_note}, \code{mentor\_brief} & Facilitation actions \\
+\code{cache\_hit} & Served without a model call \\
+\code{quota\_event} & Reservation granted, refused, or fallen back \\
+\code{fallback\_state} & Degradation transition \\
+\code{lang\_switch} & Register change during a session \\
+\end{longtable}
+
+\chapter{Reproduction Procedure}
+\label{app:repro}
+
+\section{Backend}
+
+\begin{lstlisting}[caption={API from a clean checkout. Five steps.}]
+cd halqa-api
+cp .env.example .env        # set MONGODB_URI and TOKEN_SECRET; never commit .env
+npm ci
+npm run dev:mongo           # terminal 1 -- ephemeral MongoDB on :27017
+npm run start:dev           # terminal 2 -- API on :3000
+curl localhost:3000/api/v1/healthz
+\end{lstlisting}
+
+\section{Frontend}
+
+\begin{lstlisting}[caption={Web client from a clean checkout. The build fails by design without VITE\_API\_BASE.}]
+cd halqa-web
+npm ci
+npm run dev                 # PWA on :5173, proxy to the API
+\end{lstlisting}
+
+\section{Gates}
+
+\begin{lstlisting}[caption={The four local gates, and the end-to-end verification.}]
+cd halqa-api
+npm run test:unit           # 145 assertions, pure domain
+npm run test:int            # 67 assertions, ephemeral Mongo
+npm run test:schema         # schema gate: no name, photo, gender, region
+npm run lint:secrets        # credentials, keys, .env
+npm run smoke:live          # 45 checks against the real inference platform
+npm run eval:all            # five replayable evaluation sets
+\end{lstlisting}
+
+\section{Environment}
+
+\begin{table}[htbp]
+\centering
+\caption{Configuration surface. Every value is validated at boot by a Zod schema, so an
+invalid environment fails loudly rather than at the first request.}
+\label{tab:env}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{4.0cm}p{1.6cm}X@{}}
+\toprule
+\textbf{Key} & \textbf{Default} & \textbf{Meaning} \\
+\midrule
+\code{MONGODB\_URI} & --- required & Database connection string \\
+\code{TOKEN\_SECRET} & --- required & HMAC secret, minimum entropy enforced \\
+\code{TOKEN\_SECRET\_PREVIOUS} & empty & Accepted during a rotation window \\
+\code{PROVIDER\_BASE\_URL}, \code{PROVIDER\_API\_KEY} & empty & Inference endpoint \\
+\code{COMPACT\_MODEL}, \code{LARGER\_MODEL} & empty & Tier model identifiers \\
+\code{QUOTA\_C}, \code{QUOTA\_L} & 20, 5 & Per-session caps \\
+\code{CIRCLE\_DAILY\_CALLS} & 400 & Per-circle daily ceiling \\
+\code{WINDOW\_S} & 45 & Peer window, clamped to 30--90 \\
+\code{CHAOS\_ENABLED} & false & Exposes the chaos toggle \\
+\code{CORS\_ORIGINS} & empty & Comma-separated allowlist; empty warns at boot \\
+\code{PORT} & 3000 & Listen port \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Known limitations}
+
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+  \item Two knowledge packs; the format generalises but the coverage does not.
+  \item One provider adapter is implemented; the seam exists for others.
+  \item Bandit and S-B-U parameters are configured from pedagogy, not fitted to data.
+  \item Consent capture is not implemented; it is a post-submission item.
+  \item Voice interaction and collaborative board editing are out of scope for this submission.
+  \item Real-user testing is planned, not completed, and is not claimed as a result.
+\end{itemize}

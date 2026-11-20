@@ -1,0 +1,229 @@
+\chapter{Frontend Design}
+\label{ch:frontend}
+
+\section{Application shell}
+
+The client is a React 19 single-page application built with Vite, delivered as an
+installable progressive web app. Fifteen routes are declared, of which thirteen are
+lazy-loaded behind an authentication boundary, so the initial payload contains the landing
+page and the shell and nothing else.
+
+\begin{table}[htbp]
+\centering
+\caption{The route map, the surface each route serves, and its guard.}
+\label{tab:routes}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{3.5cm}p{3.3cm}X@{}}
+\toprule
+\textbf{Route} & \textbf{Surface} & \textbf{Notes} \\
+\midrule
+\code{/} & Landing & Public; explains the Circle-First idea before sign-in \\
+\code{/enter} & Identity & Nickname, neutral avatar, context; optional account upgrade \\
+\code{/dna} & Diagnostic & Four items; writes the passport \\
+\code{/solo} & Solo practice & Teach Nova; same ladder, one learner \\
+\code{/circles/new}, \code{/circles/join} & Group entry & Create with a window slider; join by code or QR \\
+\code{/c/:id} & Lobby & Members, join code, window length, start \\
+\code{/c/:id/s/:sid} & Session room & The main surface: window, peers, hints, polls \\
+\code{/c/:id/s/:sid/debrief} & Debrief & Final S-B-U, credits, capsule, quiz \\
+\code{/board} & Facilitator board & Per-circle rings and \code{needs\_human} \\
+\code{/mentor} & Mentor seat & Observer join, note, brief \\
+\code{/dashboard} & Analytics & Aggregate-only progress \\
+\code{/lab} & Chaos console & Development builds only, excluded from the public bundle \\
+\code{/me} & Account & Passport view, export, deletion \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Three routing decisions are load-bearing.
+
+\paragraph{Guarded by default.} The API is default-deny, so an anonymous deep link would
+render a wall of 401s. Every route past the entry screen is wrapped in a guard that
+redirects to \code{/enter} and \emph{remembers the intended destination}, so the flow
+resumes after sign-in rather than dumping the learner on the landing page.
+
+\paragraph{The chaos console is a build flag, not a role.} A role check would still ship
+the console in the bundle, where it could be reached by anyone willing to read the
+JavaScript. The route is gated on \code{import.meta.env.DEV}, so the production bundle
+cannot contain it.
+
+\paragraph{Per-route error boundaries.} A lazy chunk that fails to load, or a render error
+in one screen, shows a recovery card instead of a blank page. The boundary is keyed by
+pathname, so navigating away clears the failure rather than pinning it to the screen.
+
+\section{The session room}
+
+The session room is where the product either works or does not, and it is the screen with
+the most state. It renders five things at once, in a fixed vertical order that follows the
+learner's attention rather than the data model: the countdown, the question, the peer
+answers, the ladder and the verdict.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  font=\sffamily\scriptsize,
+  blk/.style={draw=ink0,fill=white,rounded corners=2pt,align=left,inner sep=5pt,
+              text width=7.6cm,line width=0.5pt},
+  blkf/.style={blk,fill=fillA},
+  blkd/.style={blk,fill=fillB},
+  tag/.style={font=\sffamily\tiny,color=ink2},
+]
+\node[blkd] (count) {\textbf{45\,s} \hfill{\color{ink2}peers first}\\[2pt]
+  {\color{ink1}Ask: \emph{``Why does binary search need a sorted list?''}}};
+\node[blk,below=4mm of count] (peers) {\textbf{Peer answers} \hfill{\color{ink2}2 of 4 answered}\\[2pt]
+  \textbullet\ \emph{``you can binary search anything, it's just slower''}
+    \hfill{\color{ink2}\tiny flagged}\\
+  \textbullet\ \emph{``if it's not sorted you can discard the half that holds it''}};
+\node[blkf,below=4mm of peers] (ladder) {\textbf{Hint ladder} \hfill{\color{ink2}L1 used}\\[2pt]
+  L1 nudge \textbullet\ L2 analogy \textbullet\ L3 worked start \textbullet\
+  {\color{ink2}L4 locked}};
+\node[blk,below=4mm of ladder] (nova) {\textbf{Nova} \hfill{\color{ink2}tier C \textbullet\ 5 citations}\\[2pt]
+  {\color{ink1}A sorted array is a precondition, not an optimisation. Halving is only
+  valid if the discarded half provably cannot contain the target.}\\
+  {\color{ink2}\tiny bs-fr-01 · bs-en-01 · bs-ar-01 · bs-darija-01 · bs-misc-01}};
+\node[blkf,below=4mm of nova] (poll) {\textbf{Consensus poll} \hfill{\color{ink2}3 votes}\\[2pt]
+  Claim: \emph{``binary search works on any array, just slower''} \hfill
+  {\color{ink2}needs-fix 3 : 0 correct}};
+\draw[decorate,decoration={brace,amplitude=4pt,mirror},ink3]
+  ($(count.north west)+(-0.5,0)$) -- ($(count.south west)+(-0.5,0)$)
+  node[midway,left=6pt,rotate=90,font=\sffamily\tiny,color=ink2]{before window closes};
+\draw[decorate,decoration={brace,amplitude=4pt,mirror},ink3]
+  ($(peers.north west)+(-0.5,0)$) -- ($(peers.south west)+(-0.5,0)$)
+  node[midway,left=6pt,rotate=90,font=\sffamily\tiny,color=ink2]{circle decides};
+\end{tikzpicture}
+\caption{The session room, in reading order. The countdown is the hero; peers occupy the
+space between asking and knowing; the ladder is offered before the answer; citations sit
+under the answer rather than beside it.}
+\label{fig:session}
+\end{figure}
+
+\subsection{Countdown as a contract}
+
+The countdown is not decoration. It is the visible half of the server-authoritative window:
+the client derives the remaining time from \code{windowEndsAt}, renders it, and disables the
+peer-answer affordance at zero. Because the deadline lives on the server, a slow clock or a
+backgrounded tab cannot extend the window, and the UI cannot accidentally promise time the
+server will not grant.
+
+\subsection{Staged progress instead of fake streaming}
+
+Responses arrive whole. The interface therefore shows the pipeline stages
+(\emph{retrieving}, \emph{checking similar}, \emph{writing}, \emph{verifying}) as an ordered
+stepper with completed steps marked, and never renders a partial answer that the server has
+not sent. This is a deliberate honesty choice: a token-by-token animation over a whole
+response would be theatre, and the first time it desynchronised from the data it would read
+as a bug.
+
+\subsection{The zero-model skeleton}
+
+The first paint of any AI-bearing section is a skeleton that requires no model call. It
+renders in under 200\,ms, which is the number in \code{config/router.yaml}, and it is the
+reason the screen never shows an empty box while the queue drains. The skeleton is shaped
+like the content it will hold, so the transition does not reflow the page.
+
+\section{Design system}
+
+The interface is built from tokens rather than from components with hardcoded values, so
+that a change to spacing or type propagates rather than being hunted.
+
+\begin{table}[htbp]
+\centering
+\caption{Design tokens and the constraint each encodes.}
+\label{tab:tokens}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{3.1cm}X@{}}
+\toprule
+\textbf{Token group} & \textbf{Rule, and why} \\
+\midrule
+Type & A single family with a display weight for headings and a text weight for body.
+  Optical sizing and tracking are set per size, because a heading tracked for 14\,pt reads
+  loose at 32\,pt \\
+Space & A 4\,pt base scale. Every margin and padding is a multiple, so vertical rhythm
+  holds across screens written by different people \\
+Colour & A restrained ink scale plus one accent per context mode. Contrast is asserted
+  against WCAG AA in a test, not eyeballed \\
+Motion & Durations and easings are tokens; every transition respects
+  \code{prefers-reduced-motion} through a single hook \\
+Radius and rule & One radius for controls, one for cards, one hairline weight. The
+  restraint is what makes dense screens readable \\
+Touch & 44\,px minimum target, asserted by a sizing test rather than assumed from padding \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{No-shame styling.} A design rule with ethical content: a low S-B-U tier is
+rendered as a gentle pulse, never as red, and a wrong answer is met with a guiding question
+rather than a reprimand. This is implemented at the token level --- there is no ``error red''
+in the palette for learner-facing surfaces --- so a future contributor cannot introduce
+shame styling without changing the design system.
+
+\paragraph{Anonymous by default where it matters.} Questions can be posted anonymously, and
+``me too'' is a private signal between the learner and the coach rather than a public
+confession. Both exist because the social cost of asking the simple question is the
+specific failure the product is designed to remove.
+
+\section{Internationalization and right-to-left}
+\label{sec:i18n}
+
+The interface ships 357 translated keys across four registers: Arabic, Tunisian Darija,
+French and English. Three properties were required and are enforced.
+
+\begin{enumerate}[leftmargin=1.6em,itemsep=2pt]
+  \item \textbf{Parity.} A checker script walks the key table and fails the build if any key
+        is missing a translation in any language, so no screen can fall back to English
+        mid-flow.
+  \item \textbf{Direction.} Arabic and Darija are right-to-left. Layout uses logical
+        properties rather than left/right, so the mirror is a document-level attribute
+        change rather than a second stylesheet.
+  \item \textbf{Darija is a first-class register, not a translation of Arabic.} The Darija
+        strings are written in Darija, including Arabizi-tolerant phrasing where the
+        product speaks in that register, and the tests treat Darija as a required locale
+        rather than an optional one.
+\end{enumerate}
+
+The i18n test also asserts that no user-visible string is hardcoded in a component ---
+a rule that is easy to state and easy to break under deadline, which is exactly why it is
+a test.
+
+\section{Accessibility}
+
+Accessibility is treated as a set of gates rather than a checklist. The gates that run on
+every build are:
+
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+  \item \textbf{axe-core on rendered screens}, including the 404 and the crash card. The
+        gate runs the real engine against the real DOM rather than asserting hand-counted
+        attributes, so a component that loses its label fails.
+  \item \textbf{Keyboard completeness}: every interactive element is reachable and
+        operable, and focus is visible. A focus trap in a sheet is tested rather than
+        trusted.
+  \item \textbf{Announced route transitions}: the lazy-chunk fallback carries a status role
+        and a label in the learner's own language, so a screen reader announces
+        ``loading'' in Arabic rather than in English.
+  \item \textbf{Reduced motion}: one hook owns the media query, so no component can opt out
+        of it by accident.
+\end{itemize}
+
+\begin{note}[Why the crash card is tested for accessibility]
+The screen a user sees when something breaks is the screen they see at their most
+confused. It is also the screen most likely to be written in a hurry. Testing it for
+contrast, focus and labels catches the class of bug that only appears in the worst
+moment.
+\end{note}
+
+\section{Offline behaviour}
+
+The service worker precaches the application shell and the offline pack, so a dropped
+connection does not present a browser error page. In the \code{BLACK} degradation state the
+client serves the pack locally with an explicit \code{offline:true} label, which is the
+honest version of the promise: the learner knows the answer came from a snapshot rather
+than from the model. Writes that arrive while offline are queued and synced later, and the
+session continues with peer work, polls, role-play and flashcards --- the activities that
+never needed the model in the first place.
+
+\section{Performance}
+
+The performance budget is small and stated: a skeleton in under 200\,ms, first paint from
+the precached shell on a repeat visit, and no model call on the critical path of a route
+transition. Route-level code splitting keeps the initial bundle to the landing page plus the
+shell; the session room, which is the heaviest screen, is fetched only when a learner enters
+a circle.

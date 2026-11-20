@@ -1,0 +1,218 @@
+\chapter{Results and Discussion}
+\label{ch:results}
+
+This chapter reports what was measured, and then argues about what the measurements do and
+do not support. Separating the two is the point: a final report that presents a live
+smoke as evidence of learning efficacy would be making a claim the data cannot carry.
+
+\section{Delivered system}
+
+\begin{table}[htbp]
+\centering
+\caption{Delivered system by the numbers. Every figure in this table is checkable from the
+repository.}
+\label{tab:numbers}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{5.2cm}p{2.3cm}X@{}}
+\toprule
+\textbf{Dimension} & \textbf{Count} & \textbf{Where} \\
+\midrule
+Backend source & 9{,}603 lines & \code{halqa-api/src} \\
+Frontend source & 8{,}371 lines & \code{halqa-web/src} \\
+Domain modules, zero framework imports & 15 & \code{src/domain} \\
+Feature modules & 25 & \code{src/modules} \\
+Controllers / HTTP routes & 20 / 68 & under \code{/api/v1} \\
+MongoDB collections / indexes & 18 / 22 & \code{src/persistence} \\
+Migrations (idempotent) & 2 & XP backfill, deletion fields \\
+Frontend routes & 15 & 13 authenticated, 1 dev-only \\
+Translated interface keys & 357 & four registers, parity-gated \\
+Knowledge-base chunks & 39 & two packs, manifest-verified \\
+Offline-pack snippets & 30 & served in RED and BLACK \\
+Unit assertions / spec files & 145 / 24 & pure domain \\
+Integration assertions / spec files & 67 / 9 & ephemeral Mongo \\
+E2E tests & 9 & production build, Playwright \\
+Live smoke checks & 45 & real inference platform \\
+Evaluation fixtures & 53 cases & five replayable sets \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{The routing policy, measured}
+\label{sec:metrics-live}
+
+The headline quantitative result is the tier split. It is reported as a share of
+\emph{calls}, not as a share of tokens or of time, because the constraint being managed is
+quota rather than latency.
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  font=\sffamily\scriptsize,
+  bar/.style={draw=ink0,line width=0.5pt},
+  ax/.style={draw=ink2,line width=0.4pt},
+]
+% axis
+\draw[ax] (0,0) -- (10.2,0);
+\foreach \x/\v in {0/0, 2.55/0.25, 5.1/0.5, 7.65/0.75, 10/1.0}{
+  \draw[ink2,line width=0.3pt] (\x,0) -- (\x,-0.12);
+  \node[font=\sffamily\tiny,color=ink2,below] at (\x,-0.12) {\v};
+}
+\node[font=\sffamily\tiny,color=ink2,below] at (10.6,-0.42) {larger-tier share of calls};
+% target line
+\draw[ink0,dashed,line width=0.7pt] (2.55,0.35) -- (2.55,1.5);
+\node[font=\sffamily\tiny,color=ink0,above,align=center] at (2.55,1.5) {ceiling\\ $0.25$};
+% measured
+\fill[fillC] (0,0.15) rectangle (1.36,0.78);
+\node[font=\sffamily\tiny,color=ink0,above] at (1.36,0.80) {\textbf{0.133 measured}};
+% breakdown annotation
+\node[draw=ink2,fill=white,rounded corners=1pt,inner sep=3pt,align=left,
+      font=\sffamily\tiny] at (6.6,1.28)
+  {C = 13 calls \hfill $43.3\,\%$ headroom\\ L = 2 calls \hfill under ceiling\\
+   total = 15 calls \hfill 45 checks};
+\node[font=\sffamily\tiny,color=ink2,align=left,anchor=north west] at (5.25,0.62)
+  {Target $<0.25$ \enspace\textbullet\enspace measured $0.133$};
+\end{tikzpicture}
+\caption{Measured tier split from the live smoke. The measured share sits at roughly half
+the permitted ceiling, which is the result the routing policy was designed to produce: the
+larger tier is used, but it must earn each call.}
+\label{fig:lshare}
+\end{figure}
+
+Read this graph carefully, because it is easy to over-read. A low share is only good if
+quality does not collapse, and this measurement does not establish that the compact tier
+was \emph{sufficient} for the tasks it handled --- it establishes that the escalation gate
+did not admit them. The evidence for sufficiency is the eval set and the rubric review,
+not the share itself.
+
+\section{Latency budgets}
+
+The latency figures below are \emph{budgets in configuration} that the system enforces,
+plus the one latency SLO that is a build gate. They should be distinguished from the smoke
+run's own durations, which are dominated by the provider's variable speed and are not
+reported as a performance claim.
+
+\begin{table}[htbp]
+\centering
+\caption{Latency budgets and how each is enforced.}
+\label{tab:latency}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{3.6cm}p{2.1cm}X@{}}
+\toprule
+\textbf{Path} & \textbf{Budget} & \textbf{Enforcement} \\
+\midrule
+Skeleton, zero model calls & $<200$\,ms & \code{skeleton\_ms}; asserted in budget tests \\
+Compact completion & $<4$\,s & \code{c\_complete\_ms}; p50/p95 on \code{/metrics} \\
+Larger completion & $<12$\,s & \code{l\_complete\_ms}; p50/p95 on \code{/metrics} \\
+Peer state poll, p95 & $<50$\,ms & \code{load:poller} treats the SLO as pass/fail \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Functional verification}
+
+Each objective from \S\ref{ch:intro} is closed below by pointing at the artefact rather
+than at an intention.
+
+\begin{table}[htbp]
+\centering
+\caption{Objectives closed.}
+\label{tab:objectives-closed}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{0.7cm}X p{4.6cm}@{}}
+\toprule
+\textbf{\#} & \textbf{Closing evidence} & \textbf{Residual limitation} \\
+\midrule
+O1 & Timed window with dual settlement, peer-first rate metered; smoke group 19--26
+   & Peer-first \emph{rate} is measured, not yet compared to a control group \\
+O2 & Auditor with checklist-first path and poll-first fallback; seeded-misconception check
+   in both the smoke and the eval set & Three seeded errors is a small set \\
+O3 & DNA passport writes level, style, register and eagerness; bandit updates from check
+   outcomes; language parity across four registers & Bandit step sizes are configured, not
+   tuned on real learners \\
+O4 & \code{lShare = 0.133} from the call ledger, under the $0.25$ ceiling & One run of 15
+   calls; a longer run would tighten the interval \\
+O5 & Four-state machine, chaos-tested; 30-snippet offline pack served in BLACK & Offline
+   pack covers two topics \\
+O6 & Schema gate, PII screen before every call, retention by TTL, export and deletion
+   & Consent capture is out of scope for this submission \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Discussion: what the numbers mean}
+
+\paragraph{The tier split is a process result, not an accuracy result.} It shows that the
+escalation gate is conservative in practice and that the compact tier absorbed the routine
+work. It does not show that a larger model would not have produced better answers --- that
+comparison requires an evaluation of answer quality across tiers, which is what the
+language-parity and confusion sets are for.
+
+\paragraph{The smoke is a contract test at full depth.} Forty-five checks across the
+dependency order of the product is unusually thorough for a hackathon submission, and it is
+where most defects were found. But it runs a single synthetic journey, so it exercises
+breadth rather than depth of behaviour.
+
+\paragraph{Forty-five checks is not forty-five users.} This distinction is the most
+important one in the report. Nothing here establishes that peer-first orchestration improves
+learning outcomes. It establishes that the mechanism is implemented, coherent, measured and
+not obviously broken --- which is the correct claim for this submission, and the weaker
+claim is the only one the evidence supports.
+
+\section{Threats to validity}
+\label{sec:threats}
+
+\begin{table}[htbp]
+\centering
+\caption{Threats to validity, and how each is mitigated or honestly bounded.}
+\label{tab:threats}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{3.0cm}X@{}}
+\toprule
+\textbf{Threat} & \textbf{Assessment} \\
+\midrule
+Small call volume & Fifteen model calls in the smoke give a coarse estimate of the share.
+  Mitigation: the share is computed from a persisted ledger, so it can be recomputed
+  over any window, including a rehearsal with real cohorts \\
+Synthetic knowledge base & Two topics and 39 chunks do not represent a curriculum.
+  Mitigation: the pack format is the extension point --- adding a course is a JSON file
+  plus a manifest row, and the manifest gate prevents an inconsistent pack from shipping \\
+Single provider & The routing policy is measured on one platform. Mitigation: all provider
+  knowledge is in one adapter, so the same smoke can be re-run against another provider or
+  a self-hosted model with no feature change \\
+No longitudinal learning data & The bandit and the S-B-U rings are configured from
+  pedagogy rather than fitted to observed learners. This is a genuine limitation, stated
+  as such \\
+Demo rehearsed, not fielded & The four-language demo path is rehearsed end to end, but
+  real-user testing in two contexts is planned for the post-submission rehearsal and is not
+  claimed as a result here \\
+Clock and network assumptions & Server-authoritative windows remove the client-clock
+  dependency; the offline pack removes the connectivity dependency; shared-device sessions
+  remain a usability risk that only real cohorts can measure \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Comparison with a conventional assistant}
+
+\begin{table}[htbp]
+\centering
+\caption{How the design differs from the obvious alternative, stated as trade-offs rather
+than as superiority claims.}
+\label{tab:compare}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{3.2cm}X X@{}}
+\toprule
+& \textbf{Conventional assistant} & \textbf{HALQA} \\
+\midrule
+Who answers first & The model & Peers, inside a timed window \\
+Cost profile & Every turn is a model call & Templates and cache first; a call must be
+  justified \\
+Failure mode & Screen waits or errors & Four declared states with changed promises \\
+Personalization & Prompt-level, per session & Passport plus a bandit that persists \\
+Privacy & Policy text & Schema gate that fails the build \\
+Facilitation & Not addressed & S-B-U rings and \code{needs\_human} routing \\
+Weakness & Fast, broad, forgettable & Slower to first answer; needs a group to be at its
+  best, which is why solo mode reuses the same ladder \\
+\bottomrule
+\end{tabularx}
+\end{table}

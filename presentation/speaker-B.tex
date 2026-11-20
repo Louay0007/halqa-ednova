@@ -1,0 +1,65 @@
+% HALQA — Speaker B. Compile: tectonic speaker-B.tex
+\documentclass[12pt,a4paper]{article}
+\usepackage[a4paper,top=18mm,bottom=16mm,left=22mm,right=22mm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{xcolor}
+
+\definecolor{colA}{HTML}{6D28D9}
+\definecolor{colB}{HTML}{BE123C}
+\definecolor{ink}{HTML}{1E1030}
+\definecolor{mute}{HTML}{8A6F9B}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0pt}
+\color{ink}
+\pagestyle{empty}
+
+\newcommand{\sld}[1]{%
+  \vspace{4.2mm}%
+  \noindent{\normalsize\bfseries\color{mute}#1}\par
+  \vspace{1.2mm}}
+
+\newcommand{\say}[1]{%
+  \begingroup
+  \linespread{1.24}\normalsize\selectfont
+  \noindent #1\par
+  \endgroup}
+
+\begin{document}
+
+{\Huge\bfseries\color{colB}Speaker B}\par
+\vspace{1mm}
+{\color{colB}\rule{\linewidth}{1.6pt}}
+
+\sld{9 \textbullet\ The technology}
+\say{Technology, quickly. One hard line: ordinary code on one side, AI calls on the other.}
+
+\sld{10 \textbullet\ Five layers}
+\say{Five layers. The app keeps thirty answers offline, one REST API behind it, and the rules are plain TypeScript with no framework, so any score recomputes by hand. Every AI call books its quota first; a test fails the build if one skips.}
+
+\sld{11 \textbullet\ Two kinds of call}
+\say{Two kinds of call. One small call per turn handles language, safety and difficulty together, so no extra calls. The big model is only for hard cases: thirteen percent. And no answer ships without a named source.}
+
+\sld{12 \textbullet\ When it breaks}
+\say{Four states: green, orange, red, black. It slows down and never goes blank, and every step down says so in the learner's own language. Privacy is a build test, not a policy.}
+
+\sld{13 \textbullet\ The business}
+\say{Business. The learner never pays; the school pays --- for proof its students are learning.}
+
+\sld{14 \textbullet\ The customer}
+\say{One customer we can name: private training centres in Tunis, already running study groups and charging by the seat. The director pays for proof, because his business runs on students staying --- a failure does not renew, and a silent group shows up in week three. None of them is a customer yet. That is what the pilot is for.}
+
+\sld{15 \textbullet\ Money}
+\say{We licence per class, per semester, first step free. No GPU, at most twenty-five calls a session. And the rule lives in the code, not a prompt, so nobody talks their way around it. These numbers come from our budget; the pilot makes them real.}
+
+\sld{16 \textbullet\ Impact}
+\say{Impact, in three words. Access: a cheap phone, thirty answers offline. Language: she asks in Darija, she gets Darija back. Fairness: \textbf{me too} counts.}
+
+\sld{17 \textbullet\ Close}
+\say{\textcolor{colA}{\textbf{A:}} The best explanation in the room is usually not the AI's.}
+\say{\textcolor{colB}{\textbf{B:}} So we make the AI wait, then measure whether the room learned.}
+\say{\textcolor{colA}{\textbf{A:}} Ninety-nine tests, forty-eight live checks, four languages, a working demo. Come and try it.}
+
+\end{document}

@@ -1,0 +1,261 @@
+\chapter{Testing Strategy and Results}
+\label{ch:testing}
+
+The system makes strong claims --- that privacy is structural, that the provider is
+isolated, that the ladder cannot be short-circuited, that larger-model usage is a
+minority. A claim without a gate is an aspiration, so each of these is a test whose name
+states the guarantee.
+
+\section{The pyramid, and where it is deliberately unusual}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  font=\sffamily\scriptsize,
+  lay/.style={draw=ink0,align=center,line width=0.5pt,minimum height=8.5mm},
+  l1/.style={lay,fill=white,minimum width=4.2cm},
+  l2/.style={lay,fill=fillA,minimum width=6.8cm},
+  l3/.style={lay,fill=fillB,minimum width=9.4cm},
+  l4/.style={lay,fill=fillC,minimum width=12.0cm,text=white},
+  side/.style={font=\sffamily\tiny,color=ink2,align=left,anchor=west,
+               text width=3.55cm},
+]
+\node[l1] (e2e) {\textbf{9 E2E} \enspace routing, 404, gating, offline};
+\node[l2,below=2.2mm of e2e] (live) {\textbf{45 live smoke} \enspace real provider};
+\node[l3,below=2.2mm of live] (int) {\textbf{67 integration} \enspace ephemeral Mongo};
+\node[l4,below=2.2mm of int] (unit) {\textbf{145 unit assertions, 24 specs}};
+\node[side] at (6.95,0|-{e2e.center}) {slowest, fewest: Playwright on the production build};
+\node[side] at (6.95,0|-{live.center}) {the tier that found the real defects};
+\node[side] at (6.95,0|-{int.center}) {boot the real app, assert the contract};
+\node[side] at (6.95,0|-{unit.center}) {fastest, most: zero framework imports};
+\end{tikzpicture}
+\caption{Test tiers. The unusual width is deliberate: this project invested far more in
+unit and integration assertions than in E2E, because the guarantees it claims are
+properties of pure functions and of the API contract rather than of user journeys.}
+\label{fig:pyramid}
+\end{figure}
+
+\section{Tier 1: pure-domain unit tests}
+
+Twenty-four spec files, 145 assertions, zero Nest imports. These run without a database or
+a container, so they run on every keystroke in development and on every push in CI. They
+cover exactly the logic that a refactor could silently break:
+
+\begin{table}[htbp]
+\centering
+\caption{Representative unit specs and the guarantee each one holds.}
+\label{tab:units}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{3.7cm}X@{}}
+\toprule
+\textbf{Spec} & \textbf{Guarantee} \\
+\midrule
+\code{schema-gate} & No forbidden field appears in any schema, and no bare \code{name}
+  prop exists anywhere \\
+\code{adapter-isolation} & Only \code{src/ai} imports the provider adapter; only the
+  adapter and the validated config read model environment keys \\
+\code{cache-key} & Equivalent re-asks collapse: normalisation, sorted chunk ids, ladder
+  state \\
+\code{credits-math} & The log cap holds the worked example (12 plain $\approx 5.1$ versus
+  $7$), and dispersion is a coefficient of variation \\
+\code{sbu-math} & The three rings, the display thresholds and the \code{needs\_human}
+  predicate \\
+\code{router-pure} & A malformed Pulse reply degrades one turn rather than failing; at
+  most one pulse per window \\
+\code{degradation-provider} & A provider 429 or timeout maps to the correct state, and
+  recovery maps back \\
+\code{tokens}, \code{credentials}, \code{token-guard} & HMAC round-trip, epoch revocation,
+  scrypt verification, previous-secret rotation \\
+\code{csp} & The CSP asserts \code{script-src 'self'} and no inline script \\
+\code{pii}, \code{scrubber} & Each pattern is caught, and the finding is reported \\
+\code{user-messages} & Every domain error has all four localized messages \\
+\code{circle-budget} & The per-circle daily ceiling is the binding limit, not the
+  per-session cap \\
+\code{seed-kb} & The seed files and the manifest agree in both directions \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Tier 2: integration tests}
+
+Nine specs, 67 assertions, booting the real Nest application against an ephemeral MongoDB.
+This tier exists to test the things that only a running app can get wrong: the error
+contract, the authorization matrix, session-end idempotency, and retention.
+
+\begin{table}[htbp]
+\centering
+\caption{Integration specs and the behaviour they pin down.}
+\label{tab:integr}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{3.7cm}X@{}}
+\toprule
+\textbf{Spec} & \textbf{Behaviour} \\
+\midrule
+\code{foundation} & App boots, health and readiness, uniform 404 and 400 shapes \\
+\code{authz-matrix} & Learner $\times$ mentor $\times$ admin $\times$ anonymous
+  $\times$ cross-circle: every cell asserted, including denials \\
+\code{accounts} & Upgrade path keeps progress; epoch bump signs out other devices;
+  export excludes the reusable secret \\
+\code{cfas-slice} & The full ask flow with a stubbed model: peers answer / nobody
+  answers / skip, each settled correctly \\
+\code{ai-platform} & Governor, queue, cache and degradation wired together; quota
+  exhaustion downgrades rather than fails \\
+\code{deterministic-core} & Retrieval, matcher and cache are reproducible across runs \\
+\code{phase5-outputs} & Capsule, quiz, whisper, mentor and board outputs respect their
+  limits \\
+\code{rate-limit} & Named budgets reject past their limit and the rejection is shaped
+  correctly \\
+\code{retention} & Deletion schedules the purge, restore reverses it, purge tombstones the
+  identifier \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Two of these deserve emphasis because they encode decisions rather than behaviour.
+
+\paragraph{The authorization matrix is a table, not a story.} Twelve assertions walk every
+combination of actor and resource, including cross-circle access. A row that is denied is
+asserted to be denied, so a future ``convenience'' relaxation of a check fails a named
+test.
+
+\paragraph{Session-end is asserted idempotent.} The debrief screen remounts, and the first
+version of the code credited the session twice when it did. That is now a test, and the fix
+is described as what it was: a defect found by a remount, not by review.
+
+\section{Tier 3: the live smoke}
+\label{sec:smoke}
+
+The most informative tier is a 45-check smoke that boots the API against the \emph{real}
+inference platform and walks every endpoint in dependency order. It is not a unit test with
+a mock: it spends real model calls, so it measures the routing policy rather than
+simulating it.
+
+\begin{table}[htbp]
+\centering
+\caption{The live smoke in collapse order. Each group depends on the one above it, so a
+failure localises rather than cascading.}
+\label{tab:smoke}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{1.2cm}p{4.6cm}X@{}}
+\toprule
+\textbf{\#} & \textbf{Group} & \textbf{Representative checks} \\
+\midrule
+1--4 & Platform & \code{/healthz}; readiness with Mongo connected; KB at least 39 chunks with
+  claims; degradation green at boot \\
+5--11 & Identity & Session issues an HMAC token; \code{/me} has no passport before DNA;
+  the four items are exactly L1 S1 G1 C1; completion writes a passport; a bad level is
+  rejected with the uniform 400; the explain card renders from the passport \\
+12--18 & Circles & Create returns a join code and a host token; a second learner joins;
+  duplicate nickname is 409; the member list is correct; the context config has an agenda;
+  session start is ledger-backed \\
+19--26 & Circle-First Ask & Question opens with a window and a real compact pulse; Quick
+  Take prepared by a real call; the peer view hides the asker and serves a stable ETag;
+  peer answer awards credits and the Auditor verifies with a real call; skip resolves at
+  tier C with citations; L1 is T0 and L4 is refused before L1--L3; a seeded misconception
+  goes poll-first \\
+27--33 & Outputs & ``Me too'' emits an event; session credits are correct; the capsule is
+  three bullets within the word cap; a quiz battle yields XP; Whisper returns all four
+  drift categories; a mentor joins as observer, notes and gets a brief; the matcher is
+  deterministic and the board lists circles \\
+34--40 & Facilitation & Coach card and a rephrased nudge within the token cap; game caps
+  hold and there is no leaderboard; the dashboard is aggregate-only; circle health exposes
+  S/B/U and \code{needsHuman}; telemetry is readable; solo runs two turns and a hat with
+  zero L calls \\
+41--45 & Operations & \code{/metrics} has all report keys; chaos forces orange and flips
+  back; session end is idempotent; Whisper rejects a one-link chain; domain errors are
+  localized for all four registers; unknown route and validation failure return uniform
+  shapes \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{keyfinding}[Live smoke result]
+\textbf{45 passed, 0 failed} against the real inference platform. Tier split during the run:
+\textbf{C = 13, L = 2}, giving \code{lShare = 0.133} --- roughly half the $<0.25$ ceiling.
+Cache hits are metered rather than inferred, and \code{/metrics} is asserted to contain every
+key the report cites.
+\end{keyfinding}
+
+\section{Tier 4: gates}
+
+Three gates run in CI before any test, because they are cheap and their failures are the
+most expensive to discover late.
+
+\begin{description}[leftmargin=0pt,style=nextline,itemsep=2pt]
+  \item[Secrets scan] Runs first. Fails on credentials, keys or \code{.env} content in the
+    repository.
+  \item[Schema gate] Fails if a forbidden persona field appears (\S\ref{sec:privacy-gate}).
+  \item[Clean clone] A job that installs and builds the frontend from tracked files only.
+    It exists because a clean clone once failed to compile when a route directory was
+    untracked, and a green local build had hidden it.
+\end{description}
+
+\section{Tier 5: evaluation fixtures}
+
+Beyond unit and integration tests, five replayable evaluation sets measure quality rather
+than correctness, and \code{npm run eval:all} emits reportable metrics from all of them:
+
+\begin{table}[htbp]
+\centering
+\caption{Evaluation fixtures. These measure precision and parity, which no assertion can.}
+\label{tab:evals}
+\footnotesize
+\begin{tabular}{@{}p{3.9cm}rp{5.7cm}@{}}
+\toprule
+\textbf{Fixture} & \textbf{Size} & \textbf{What it measures} \\
+\midrule
+\code{confusion\_set.jsonl} & 20 & Precision at detecting learner confusion signals \\
+\code{lang\_parity.jsonl} & 24 & Parity across all four registers, scored for human
+  quality \\
+\code{seeded\_errors.jsonl} & 3 & Whether a seeded misconception is actually caught \\
+\code{whisper\_groundtruth} & 2 & Drift-map agreement against a reference \\
+\code{users\_fixtures.json} & 4 & A reproducible roster for the demo and the smoke \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Load and SLO}
+
+The peer window implies polling, which is the one place where a modest client count can
+still produce real load. A dedicated load script drives the \code{/state} route and treats
+the service-level objective as a pass/fail gate rather than as a graph to look at: p95 must
+stay under 50\,ms, and the script exits non-zero if it does not. Making an SLO a build gate
+is the difference between a target and a requirement.
+
+\section{What testing found}
+
+Listing defects found by tests is more useful to a jury than listing the tests themselves,
+because it shows the strategy was load-bearing.
+
+\begin{table}[htbp]
+\centering
+\caption{Representative defects caught by each tier.}
+\label{tab:defects}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{2.5cm}X@{}}
+\toprule
+\textbf{Tier} & \textbf{Defect} \\
+\midrule
+Live smoke & Learners were refused on the very circle-health poller they depend on --- an
+  authorization ordering bug that no unit test could see \\
+Live smoke & 429 from the provider hard-failed the whole suite, so the same code flapped
+  between green and red; now one bounded retry honouring \code{Retry-After} \\
+Integration & Session end credited twice when the debrief screen remounted; fixed and
+  asserted idempotent \\
+Integration & A DNS answer on the DNA screen exposed display strings while the API
+  validated enum values, so the screen could never submit \\
+Unit & A classroom-scale loop could exceed the per-session cap by an order of magnitude;
+  the per-circle daily ceiling now bounds it \\
+Clean clone & The build failed from a clean checkout because a route directory was
+  untracked; a dedicated CI job now makes that unmergeable \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Reproduction}
+
+The appendix states the exact procedure (\S\ref{app:repro}). The short version is five
+steps for the API and four for the web client, both from a clean checkout, with
+\code{npm run test:unit}, \code{test:int}, \code{test:schema} and \code{lint:secrets} as
+the gates, and \code{npm run smoke:live} as the end-to-end verification that requires
+provider credentials.

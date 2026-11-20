@@ -1,0 +1,244 @@
+\chapter{Requirements Analysis}
+\label{ch:req}
+
+This chapter turns the challenge statement into a requirements baseline. The challenge
+names five qualities --- structured, inclusive, interactive, personalized, effective ---
+and four roles the companion may adopt. Those are design intentions, not testable
+requirements, so the work of this chapter is to say what each one means operationally,
+and to fix the constraints under which it must be achieved.
+
+\section{The four roles, read precisely}
+
+Each role in the challenge statement implies a different relationship between the AI and
+the group. Reading them separately was productive, because the naive design satisfies one
+and violates the others.
+
+\begin{table}[htbp]
+\centering
+\caption{The four roles named by the challenge, and what each rules out.}
+\label{tab:roles}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{2.2cm}X X@{}}
+\toprule
+\textbf{Role} & \textbf{What HALQA does} & \textbf{What it forbids} \\
+\midrule
+Mediator & Opens a timed window, invites quiet members, routes the floor so
+           participation stays balanced (S-B-U \emph{Share} ring)
+         & Letting the fastest typist own the session; ranking learners publicly \\
+Teammate & Prepares a Quick Take silently during the peer window, then releases it as one
+            voice among several, with citations
+         & Speaking first; being the only source of an answer \\
+Tutor    & Hint ladder L1--L4, Socratic prompts, register-matched explanation, style
+            adapted by bandit
+         & Handing over a full solution before the learner has worked \\
+Facilitator & Agenda, capsule, S-B-U health, \code{needs\_human} escalation to a
+               mentor
+         & Replacing mentor judgement; auto-answering on a mentor's behalf \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The interesting case is \emph{teammate}. A teammate who always has the answer stops
+being a teammate and becomes an oracle. We resolved this by separating \emph{preparation}
+from \emph{release}: Nova is allowed to know the answer during the peer window, and is
+forbidden to reveal it until the window closes. This single distinction is what makes the
+Circle-First Ask protocol work, and it is enforced server-side rather than in the prompt
+(\S\ref{sec:cfas}).
+
+\section{The five qualities, made operational}
+
+\begin{table}[htbp]
+\centering
+\caption{Qualities named by the challenge, translated into measurable system properties.}
+\label{tab:qualities}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{1.9cm}p{4.5cm}X@{}}
+\toprule
+\textbf{Quality} & \textbf{Operational meaning} & \textbf{Mechanism} \\
+\midrule
+Structured & A session has an agenda, a sequence of question states, and a defined end
+           & Session state machine \code{OPEN}$\to$\code{NOVA\_THINKING}$\to$\code{RESOLVED};
+             agenda templates; revision capsule \\
+Inclusive  & Participation is balanced, and shy learners are not penalized for being slow
+           & Anonymous questions, private ``me too'', log-capped credits so volume cannot
+             dominate, S-B-U \emph{Share} ring, private coach nudges \\
+Interactive & Every learner acts between AI turns
+            & 45--60\,s peer window, consensus polls, Whisper relay, quiz battles,
+              solo ``teach Nova'' mode \\
+Personalized & Explanation style, level, language and hint eagerness differ per learner
+             & DNA passport (4 items), six-dimensional style weights updated by a bandit,
+               four registers including Tunisian Darija \\
+Effective  & The circle reaches a verified answer, and remembers it
+           & Citations on every grounded answer, Auditor verification, capsule at session
+             end, quiz bank derived from the session \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Functional requirements}
+
+Requirements are grouped by the surface they expose. Priority follows MoSCoW; the
+``Evidence'' column points to the section that demonstrates the requirement is met rather
+than merely intended.
+
+\begin{longtable}{@{}p{1.15cm}p{6.5cm}p{1.35cm}p{4.4cm}@{}}
+\caption{Functional requirements.}\label{tab:fr}\\
+\toprule
+\textbf{ID} & \textbf{Requirement} & \textbf{Prio.} & \textbf{Evidence} \\
+\midrule
+\endfirsthead
+\multicolumn{4}{@{}l}{\footnotesize\sffamily\color{ink2}Table \ref{tab:fr} continued}\\
+\toprule
+\textbf{ID} & \textbf{Requirement} & \textbf{Prio.} & \textbf{Evidence} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+FR-01 & A learner can create a circle and receive a join code & Must & \S\ref{sec:circles} \\
+FR-02 & A learner can join by code or by QR, and the lobby lists members & Must & \S\ref{sec:circles} \\
+FR-03 & A question opens a timed peer window of 30--90\,s (default 45) & Must & \S\ref{sec:cfas} \\
+FR-04 & Peers answer inside the window; answers are attributed or anonymous & Must & \S\ref{sec:cfas} \\
+FR-05 & The AI answer is prepared during the window and hidden until it closes & Must & \S\ref{sec:cfas} \\
+FR-06 & Peer answers are verified before consensus is declared & Must & \S\ref{sec:auditor} \\
+FR-07 & A four-item diagnostic produces a passport that changes later turns & Must & \S\ref{sec:dna} \\
+FR-08 & A hint ladder L1--L4 is served, with L4 locked until L1--L3 are used & Must & \S\ref{sec:hints} \\
+FR-09 & Every grounded answer cites knowledge-base chunk identifiers & Must & \S\ref{sec:rag} \\
+FR-10 & A contested claim can be put to a poll, and votes are counted server-side & Should & \S\ref{sec:auditor} \\
+FR-11 & A revision capsule of at most three bullets is produced at session end & Must & \S\ref{sec:capsule} \\
+FR-12 & A session can end idempotently, so a remount does not double-credit & Must & \S\ref{sec:credits} \\
+FR-13 & Solo mode runs the same ladder with the learner teaching the AI & Should & \S\ref{sec:solo} \\
+FR-14 & The Whisper relay compares a paraphrase chain against a claim checklist & Should & \S\ref{sec:whisper} \\
+FR-15 & A mentor can observe without earning credits or taking turns & Should & \S\ref{sec:mentor} \\
+FR-16 & A facilitator board shows per-circle S-B-U rings and \code{needs\_human} & Should & \S\ref{sec:sbu} \\
+FR-17 & Circles can be matched deterministically from passports & Could & \S\ref{sec:matcher} \\
+FR-18 & A dashboard aggregates progress without exposing individual ranking & Should & \S\ref{sec:dashboard} \\
+FR-19 & \code{/metrics} exposes tier counts, L-share, latencies and cache-hit rate & Must & \S\ref{sec:obs} \\
+FR-20 & The interface is available in Arabic, Darija, French and English & Must & \S\ref{sec:i18n} \\
+FR-21 & An offline pack serves content when the provider is unavailable & Should & \S\ref{sec:degradation} \\
+FR-22 & A learner can export their data and request deletion & Must & \S\ref{sec:datasubject} \\
+\end{longtable}
+
+\section{Non-functional requirements}
+
+\begin{table}[htbp]
+\centering
+\caption{Non-functional requirements and the budget they set.}
+\label{tab:nfr}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{1.1cm}p{3.3cm}X p{3.3cm}@{}}
+\toprule
+\textbf{ID} & \textbf{Property} & \textbf{Target} & \textbf{Verification} \\
+\midrule
+NFR-01 & Time to first paint of a section skeleton & $<200$\,ms, zero model calls
+       & Router config, unit test on budget \\
+NFR-02 & Compact-tier completion & $<4$\,s & \code{config/router.yaml}, \code{/metrics} p50/p95 \\
+NFR-03 & Larger-tier completion & $<12$\,s & \code{config/router.yaml}, \code{/metrics} \\
+NFR-04 & Larger-model share of calls & $<0.25$ & \code{lShare} from the call ledger \\
+NFR-05 & Per-session quota & $\le 20$ C, $\le 5$ L & Governor ledger, atomic reserve \\
+NFR-06 & Per-circle daily ceiling & 400 calls & \code{CIRCLE\_DAILY\_CALLS} \\
+NFR-07 & Peer state poll latency & p95 $<50$\,ms & \code{load:poller} SLO gate \\
+NFR-08 & Accessibility & WCAG 2.1 AA, 44\,px targets, keyboard-complete
+       & axe-core gate in CI \\
+NFR-09 & Privacy & No name, photo, gender or region column & Schema gate test \\
+NFR-10 & Security & Default-deny authz; strict CSP; no secrets in repo & Guard, CSP test, secret scan \\
+NFR-11 & Availability under failure & Usable in all four degradation states
+       & Chaos toggle plus smoke \\
+NFR-12 & Reproducibility & Clean clone builds and tests from tracked files only & \code{clean-clone} CI job \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Constraints}
+
+The constraints below are properties of the environment, and several of them shaped the
+architecture more than any functional requirement did.
+
+\paragraph{Constrained inference.} The provided inference platform runs without GPU
+acceleration and access is shared. Concretely: latency is variable and occasionally
+seconds-scale, throughput is not ours to scale, and the larger model is a scarce
+resource that may be throttled or unavailable. A design that assumes a fast, elastic
+provider would fail on the first shared session.
+
+\paragraph{Shared-device, mixed-network context.} Target users are students in
+universities, training centres and IEEE student branches. Sessions may run on shared
+laptops and campus Wi-Fi that drops. The client is therefore a progressive web app with
+an installable shell, an offline pack, and no assumption of a stable connection during a
+session.
+
+\paragraph{Four registers, one of them code-switched.} The challenge requires
+multilingual behaviour including Arabic, French and English; the Tunisian context adds
+Darija written in Arabic script and, crucially, Arabizi --- Latin-script transliteration
+with digits standing in for letters (\code{3} for \emph{ain}, \code{7} for \emph{ha},
+\code{9} for \emph{qaf}). Arabizi is not a dialect variant of a written language; it is a
+different encoding that breaks naive tokenization, so it needs its own normalization
+before retrieval or classification (\S\ref{sec:arabizi}).
+
+\paragraph{Privacy law and ethics.} Learners may be minors. The system therefore collects
+no direct identifiers, and the constraint is structural: the persona table has no column
+in which a name, photo, gender or region could be stored.
+
+\section{Use cases}
+
+The principal actors are the \kw{learner}, the \kw{mentor} (observer, no turns), the
+\kw{facilitator} (circle owner, reads the board) and the \kw{administrator}. Table
+\ref{tab:usecases} lists the load-bearing use cases; the two most important are expanded
+as scenarios afterwards, because they carry most of the design.
+
+\begin{table}[htbp]
+\centering
+\caption{Principal use cases by actor.}
+\label{tab:usecases}
+\footnotesize
+\begin{tabularx}{\textwidth}{@{}p{1.9cm}X p{3.0cm}@{}}
+\toprule
+\textbf{Actor} & \textbf{Use case} & \textbf{Requirement} \\
+\midrule
+Learner & Complete the DNA diagnostic and receive a passport & FR-07 \\
+Learner & Create or join a circle, then enter the lobby & FR-01, FR-02 \\
+Learner & Ask a question and wait through the peer window & FR-03--FR-05 \\
+Learner & Answer a peer's question; earn quality-weighted credits & FR-04 \\
+Learner & Request hints through the ladder & FR-08 \\
+Learner & Vote on a contested claim & FR-10 \\
+Learner & End the session and read the capsule & FR-11, FR-12 \\
+Learner & Practise alone by teaching Nova & FR-13 \\
+Learner & Play the Whisper relay and repair a drift & FR-14 \\
+Mentor & Observe a circle and leave a note and a brief & FR-15 \\
+Facilitator & Read the board, spot a circle needing a human & FR-16 \\
+Facilitator & Match learners into balanced circles & FR-17 \\
+Admin & Read \code{/metrics} and operate the chaos toggle & FR-19 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Scenario A: the Circle-First Ask}
+
+A learner posts \emph{``Why does binary search need a sorted list?''}. The server
+creates the question in state \code{OPEN} with a 45-second window and returns
+immediately. Peers see the question and answer; one writes that binary search works on
+any array but is slower on unsorted ones, which is wrong. Nova, in parallel, retrieves
+chunks, checks the semantic cache, and prepares a Quick Take grounded in five chunk
+citations. When the window closes, the expiry worker settles the question: the Auditor
+compares peer answers against the claim checklist and marks the incorrect one
+\emph{doubtful}, which opens a poll rather than a counter-assertion. The learner then
+receives, in order, the verified peer answer, the poll, and the citation-backed
+explanation --- each stage announced, none of them a frozen screen.
+
+\subsection{Scenario B: degradation under quota exhaustion}
+
+A workshop runs twelve circles at once. The larger-model budget is exhausted
+mid-session. The governor refuses further L reservations atomically; the router
+downgrades the request to the compact tier; the degradation machine moves
+\code{orange}$\to$\code{red} and emits a banner, a telemetry event and a metric gauge.
+Learners keep receiving compact-tier answers with simplified labels, and the capsule at
+session end is drafted at the compact tier without its polishing pass. Nothing in the
+session fails; what changes is the ceiling on prose quality, which the interface states
+honestly.
+
+\section{Traceability}
+
+Each functional requirement in Table~\ref{tab:fr} names the section that demonstrates it,
+and each non-functional target in Table~\ref{tab:nfr} names the artefact that measures
+it. The inverse mapping --- code to requirement --- is maintained by the test suite:
+schema-gate, adapter-isolation, CSP and quota tests are written against requirements
+rather than against implementation details, so a refactor that breaks a guarantee fails a
+test whose name states the guarantee (\S\ref{ch:testing}).
